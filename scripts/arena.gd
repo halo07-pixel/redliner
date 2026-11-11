@@ -26,14 +26,20 @@ func _ready() -> void:
 	# 2 bục liền nhau (cao 1.0 rồi 2.5): nhảy 2 nhịp là lên tới đỉnh
 	_box(Vector3(8.0, 1.0, 8.0), Vector3(8.0, 0.5, 10.0), Color(0.4, 0.4, 0.45))
 	_box(Vector3(6.0, 2.5, 6.0), Vector3(14.5, 1.25, 10.0), Color(0.5, 0.5, 0.55))
+	# Tường để chạy tường (dài 30m, cao 8m) + bục cao để móc lên
+	_box(Vector3(1.0, 8.0, 30.0), Vector3(-22.0, 4.0, -5.0), Color(0.25, 0.4, 0.7))
+	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), Color(0.9, 0.7, 0.2))
+	# Dốc 20° để tập trượt (cao dần về phía -Z, trượt xuống phía +Z)
+	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), Color(0.35, 0.55, 0.35), Vector3(20.0, 0.0, 0.0))
 	_spawn_dummy(Vector3(0.0, 0.0, -12.0))
 
 
-func _box(size: Vector3, pos: Vector3, color: Color) -> void:
+func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.ZERO) -> void:
 	var body := StaticBody3D.new()
 	body.collision_layer = Global.L_WORLD
 	body.collision_mask = 0
 	body.position = pos
+	body.rotation_degrees = rot_deg
 	var shape := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
 	bs.size = size

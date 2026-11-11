@@ -15,6 +15,8 @@ func _ready() -> void:
 	add_child(player)
 	player.global_position = arena.spawn_point
 	player.speed_changed.connect(hud.set_speed)
+	player.state_changed.connect(hud.set_state)
+	player.dash_charges_changed.connect(hud.set_dash)
 
 
 func _input(event: InputEvent) -> void:
