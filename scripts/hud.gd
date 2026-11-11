@@ -1,8 +1,10 @@
 extends CanvasLayer
-## HUD tối thiểu: tâm ngắm + đồng hồ tốc độ. KHÔNG tự đi tìm Player — main.gd nối
-## Signal player.speed_changed -> set_speed() (call down, signal up).
+## HUD tối thiểu: tâm ngắm, tốc độ, trạng thái di chuyển, số lần dash. KHÔNG tự đi tìm Player — main.gd nối
+## Signal của Player -> set_speed()/set_state()/set_dash() (call down, signal up).
 
 var _speed_label: Label
+var _state_label: Label
+var _dash_label: Label
 
 
 func _ready() -> void:
@@ -19,11 +21,29 @@ func _ready() -> void:
 	_speed_label.position = Vector2(20.0, 16.0)
 	_outline(_speed_label, 18)
 	add_child(_speed_label)
+	_state_label = Label.new()
+	_state_label.position = Vector2(20.0, 44.0)
+	_outline(_state_label, 18)
+	add_child(_state_label)
+	_dash_label = Label.new()
+	_dash_label.position = Vector2(20.0, 72.0)
+	_outline(_dash_label, 18)
+	add_child(_dash_label)
 	set_speed(0.0)
+	set_state("NORMAL")
+	set_dash(2, 2)
 
 
 func set_speed(speed: float) -> void:
 	_speed_label.text = "Speed: %.1f m/s" % speed
+
+
+func set_state(state_name: String) -> void:
+	_state_label.text = "State: %s" % state_name
+
+
+func set_dash(charges: int, max_charges: int) -> void:
+	_dash_label.text = "Dash: " + "[#]".repeat(charges) + "[ ]".repeat(max_charges - charges)
 
 
 func _outline(l: Label, font_size: int) -> void:
