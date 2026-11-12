@@ -1,15 +1,37 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/grapple_rope.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/components/hurtbox_component.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/components/parry_component.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/components/melee_hitbox_component.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/player_combat.gd" id="6"]
+[ext_resource type="Script" path="res://scripts/sword_view.gd" id="7"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.35
 height = 1.8
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.4
+height = 1.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade"]
+size = Vector3(0.07, 0.07, 0.95)
+
+[sub_resource type="StandardMaterial3D" id="Mat_blade"]
+albedo_color = Color(0.85, 0.9, 1, 1)
+metallic = 0.6
+
+[sub_resource type="BoxMesh" id="BoxMesh_gun"]
+size = Vector3(0.12, 0.14, 0.4)
+
+[sub_resource type="StandardMaterial3D" id="Mat_gun"]
+albedo_color = Color(0.15, 0.15, 0.18, 1)
+
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
-collision_mask = 1
+collision_mask = 5
 script = ExtResource("1")
 
 [node name="Body" type="CollisionShape3D" parent="."]
@@ -26,3 +48,33 @@ current = true
 
 [node name="Rope" type="Node3D" parent="Head"]
 script = ExtResource("2")
+
+[node name="Melee" type="Node3D" parent="Head"]
+script = ExtResource("5")
+
+[node name="SwordView" type="Node3D" parent="Head"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.38, -0.3, -0.5)
+script = ExtResource("7")
+
+[node name="Blade" type="MeshInstance3D" parent="Head/SwordView"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.45)
+mesh = SubResource("BoxMesh_blade")
+surface_material_override/0 = SubResource("Mat_blade")
+
+[node name="Gun" type="MeshInstance3D" parent="Head"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.32, -0.28, -0.55)
+mesh = SubResource("BoxMesh_gun")
+surface_material_override/0 = SubResource("Mat_gun")
+
+[node name="Hurtbox" type="Area3D" parent="."]
+script = ExtResource("3")
+
+[node name="Shape" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="Parry" type="Node" parent="."]
+script = ExtResource("4")
+
+[node name="Combat" type="Node" parent="."]
+script = ExtResource("6")

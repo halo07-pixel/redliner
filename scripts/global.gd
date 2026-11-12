@@ -6,6 +6,48 @@ const L_WORLD: int = 1
 const L_PLAYER: int = 2
 const L_ENEMY: int = 4
 const L_PROJECTILE: int = 8
+const L_PLAYER_HURT: int = 16
+const L_ENEMY_HURT: int = 32
+
+const TEAM_PLAYER: int = 0
+const TEAM_ENEMY: int = 1
+
+## Số cân bằng chiến đấu (chỉnh tại đây).
+const COMBAT: Dictionary = {
+	"player_health": 100.0,
+	"dummy_health": 60.0,
+	# Kiếm: windup -> active (gây sát thương) -> recovery
+	"sword_damage": 30.0,
+	"sword_windup": 0.12,
+	"sword_active": 0.10,
+	"sword_recovery": 0.28,
+	"sword_reach": 2.4,
+	"sword_stagger_when_parried": 1.0,
+	"clash_range": 3.0,
+	"clash_stagger": 0.5,
+	"clash_knockback": 9.0,
+	# Súng của người chơi (bắn tia tức thì)
+	"gun_damage": 25.0,
+	"gun_cooldown": 0.35,
+	"gun_mag": 6,
+	"gun_reload": 1.1,
+	"gun_range": 80.0,
+	# Đạn của địch (vật thể bay, có thể bị parry phản lại)
+	"bullet_speed": 40.0,
+	"bullet_damage": 15.0,
+	"bullet_life": 4.0,
+	"reflect_damage_mult": 2.5,
+	"reflect_speed_mult": 1.3,
+	# Parry
+	"parry_window": 0.18,
+	"parry_miss_cooldown": 0.8,
+	"parry_hit_cooldown": 0.15,
+	# Khác
+	"respawn_time": 2.0,
+	"dummy_respawn": 3.0,
+	"turret_interval": 2.5,
+	"turret_range": 45.0,
+}
 
 ## Số di chuyển của người chơi. Không có trần tốc độ: chỉ có "wish speed" (tốc độ đi bộ)
 ## và ma sát mặt đất — động lượng vượt quá wish speed được giữ nguyên trên không.
@@ -66,6 +108,10 @@ func _setup_input() -> void:
 	_add_key("slide", KEY_CTRL)
 	_add_key("dash", KEY_SHIFT)
 	_add_mouse("grapple", MOUSE_BUTTON_RIGHT)
+	_add_mouse("attack", MOUSE_BUTTON_LEFT)
+	_add_key("shoot", KEY_E)
+	_add_key("parry", KEY_F)
+	_add_key("reload", KEY_R)
 
 
 func _add_key(action: String, keycode: Key) -> void:
@@ -82,3 +128,22 @@ func _add_mouse(action: String, button: MouseButton) -> void:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = button
 	InputMap.action_add_event(action, ev)
+
+
+## Layer hurtbox của một phe.
+func hurt_layer(team: int) -> int:
+	return L_PLAYER_HURT if team == TEAM_PLAYER else L_ENEMY_HURT
+
+
+## Hitstop: làm chậm game thật ngắn khi trúng đòn (đếm bằng thời gian thực).
+var _hitstop_active: bool = false
+
+
+func hitstop(duration: float, scale: float = 0.05) -> void:
+	if _hitstop_active:
+		return
+	_hitstop_active = true
+	Engine.time_scale = scale
+	await get_tree().create_timer(duration, true, false, true).timeout
+	Engine.time_scale = 1.0
+	_hitstop_active = false
