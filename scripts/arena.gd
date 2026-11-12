@@ -10,6 +10,11 @@ const WALL_H: float = 12.0
 
 var spawn_point: Vector3 = Vector3(0.0, 0.1, 18.0)
 var dummies: Array = []
+## Điểm sinh bot (rải quanh đấu trường, tránh cột/bục/dốc).
+var bot_spawns: Array = [
+	Vector3(-25.0, 0.1, -26.0), Vector3(25.0, 0.1, -26.0), Vector3(0.0, 0.1, -27.0),
+	Vector3(-27.0, 0.1, 20.0), Vector3(27.0, 0.1, 26.0), Vector3(-14.0, 0.1, -5.0),
+]
 
 
 func _ready() -> void:
@@ -32,8 +37,7 @@ func _ready() -> void:
 	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), Color(0.9, 0.7, 0.2))
 	# Dốc 20° để tập trượt (cao dần về phía -Z, trượt xuống phía +Z)
 	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), Color(0.35, 0.55, 0.35), Vector3(20.0, 0.0, 0.0))
-	_spawn_dummy(Vector3(0.0, 0.0, -12.0), false, Color(0.85, 0.2, 0.2))   # bia tập kiếm/súng
-	_spawn_dummy(Vector3(-9.0, 0.0, -16.0), true, Color(0.95, 0.55, 0.1))  # thần công bắn đạn để tập parry
+	_spawn_dummy(Vector3(0.0, 0.0, -12.0), Color(0.85, 0.2, 0.2)) # bia tập kiếm/súng
 
 
 func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.ZERO) -> void:
@@ -58,9 +62,8 @@ func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.
 	add_child(body)
 
 
-func _spawn_dummy(pos: Vector3, auto_fire: bool, color: Color) -> void:
+func _spawn_dummy(pos: Vector3, color: Color) -> void:
 	var d: StaticBody3D = DummyScript.new()
-	d.auto_fire = auto_fire
 	d.color = color
 	d.position = pos
 	d.rotation.y = PI # quay mặt về phía điểm spawn

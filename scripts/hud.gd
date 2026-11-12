@@ -10,6 +10,8 @@ var _health_label: Label
 var _ammo_label: Label
 var _flash_label: Label
 var _death_label: Label
+var _score_label: Label
+var _wave_label: Label
 var _flash_tween: Tween
 
 
@@ -80,6 +82,28 @@ func _ready() -> void:
 	_death_label.visible = false
 	add_child(_death_label)
 
+	_score_label = Label.new()
+	_score_label.anchor_left = 1.0
+	_score_label.anchor_right = 1.0
+	_score_label.offset_left = -360.0
+	_score_label.offset_right = -24.0
+	_score_label.offset_top = 16.0
+	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_outline(_score_label, 22)
+	add_child(_score_label)
+
+	_wave_label = Label.new()
+	_wave_label.anchor_left = 0.5
+	_wave_label.anchor_right = 0.5
+	_wave_label.offset_left = -200.0
+	_wave_label.offset_right = 200.0
+	_wave_label.offset_top = 16.0
+	_wave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(_wave_label, 22)
+	add_child(_wave_label)
+
+	set_score(0, 0, 0)
+	set_wave(0, 0)
 	set_speed(0.0)
 	set_state("NORMAL")
 	set_dash(2, 2)
@@ -107,6 +131,18 @@ func set_health(current: float, maximum: float) -> void:
 
 func set_ammo(current: int, maximum: int) -> void:
 	_ammo_label.text = "Ammo %d / %d" % [current, maximum]
+
+
+func set_score(score: int, combo: int, best: int) -> void:
+	var t: String = "Điểm: %d" % score
+	if combo > 1:
+		t += "   Combo x%d" % combo
+	t += "\nCao nhất: %d" % best
+	_score_label.text = t
+
+
+func set_wave(wave: int, left: int) -> void:
+	_wave_label.text = "WAVE %d  -  còn %d bot" % [wave, left] if wave > 0 else "Chuẩn bị..."
 
 
 func show_death(on: bool) -> void:

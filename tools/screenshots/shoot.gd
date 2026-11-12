@@ -42,6 +42,7 @@ func _run() -> void:
 		out_dir = args[0]
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	main = load("res://scenes/main.tscn").instantiate()
+	main.autostart_waves = false
 	root.add_child(main)
 	await _frames(5)
 	player = main.player

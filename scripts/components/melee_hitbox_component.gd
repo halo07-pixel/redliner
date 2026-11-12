@@ -13,6 +13,7 @@ enum Phase { IDLE, WINDUP, ACTIVE, RECOVERY }
 var team: int = 0
 var body: Node3D
 var phase: Phase = Phase.IDLE
+var windup_override: float = -1.0 # > 0: thời gian báo đòn riêng (bot báo đòn lâu hơn để người chơi kịp phản ứng)
 
 var _t: float = 0.0
 var _stagger_t: float = 0.0
@@ -42,10 +43,11 @@ func can_swing() -> bool:
 func try_swing() -> bool:
 	if not can_swing():
 		return false
+	var windup: float = windup_override if windup_override > 0.0 else Global.COMBAT["sword_windup"]
 	phase = Phase.WINDUP
-	_t = Global.COMBAT["sword_windup"]
+	_t = windup
 	_hit_list.clear()
-	swing_started.emit(Global.COMBAT["sword_windup"], Global.COMBAT["sword_active"], Global.COMBAT["sword_recovery"])
+	swing_started.emit(windup, Global.COMBAT["sword_active"], Global.COMBAT["sword_recovery"])
 	return true
 
 

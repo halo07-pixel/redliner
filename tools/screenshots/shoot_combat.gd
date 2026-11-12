@@ -37,12 +37,18 @@ func _run() -> void:
 		out_dir = args[0]
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	main = load("res://scenes/main.tscn").instantiate()
+	main.autostart_waves = false
 	root.add_child(main)
 	await _frames(5)
 	player = main.player
 	player.use_input = false
 	var bia = main.arena.dummies[0]     # bia đỏ tại (0,0,-12)
-	var cannon = main.arena.dummies[1]  # thần công cam tại (-9,0,-16)
+	var cannon = load("res://scripts/enemy_dummy.gd").new() # bia phụ màu cam, dùng để bắn đạn
+	cannon.color = Color(0.95, 0.55, 0.1)
+	cannon.position = Vector3(-9.0, 0.0, -16.0)
+	cannon.rotation.y = PI
+	main.arena.add_child(cannon)
+	await _frames(3)
 
 	# 6. Vung kiếm trúng bia
 	await _teleport(Vector3(0.0, 0.1, -9.6), 0.0, 0.0)

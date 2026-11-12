@@ -12,6 +12,25 @@ const L_ENEMY_HURT: int = 32
 const TEAM_PLAYER: int = 0
 const TEAM_ENEMY: int = 1
 
+## Loại bot. reaction = độ trễ phản ứng (giây), parry/dodge = xác suất, windup = thời gian báo đòn kiếm.
+const BOTS: Dictionary = {
+	"swordsman": {
+		"color": Color(0.85, 0.2, 0.2), "health": 60.0, "speed": 7.5, "melee": true, "range": 2.0,
+		"shoots": false, "shoot_interval": 0.0, "keep_range": 0.0,
+		"reaction": 0.35, "parry": 0.1, "dodge": 0.2, "windup": 0.30, "attack_cd": 1.3, "score": 100,
+	},
+	"gunner": {
+		"color": Color(0.95, 0.55, 0.1), "health": 45.0, "speed": 5.0, "melee": false, "range": 0.0,
+		"shoots": true, "shoot_interval": 2.2, "keep_range": 13.0,
+		"reaction": 0.5, "parry": 0.15, "dodge": 0.4, "windup": 0.30, "attack_cd": 1.5, "score": 150,
+	},
+	"elite": {
+		"color": Color(0.6, 0.25, 0.85), "health": 90.0, "speed": 8.5, "melee": true, "range": 2.0,
+		"shoots": true, "shoot_interval": 3.5, "keep_range": 0.0,
+		"reaction": 0.12, "parry": 0.5, "dodge": 0.5, "windup": 0.22, "attack_cd": 1.0, "score": 300,
+	},
+}
+
 ## Số cân bằng chiến đấu (chỉnh tại đây).
 const COMBAT: Dictionary = {
 	"player_health": 100.0,
