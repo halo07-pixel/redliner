@@ -5,10 +5,13 @@ extends Node3D
 
 @export var color: Color = Color(0.85, 0.85, 0.9)
 
+var _mat: StandardMaterial3D
+
 
 func _ready() -> void:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
+	_mat = mat
 	_add_part(_capsule(0.12, 0.85), Vector3(-0.13, 0.425, 0.0), mat) # chân trái
 	_add_part(_capsule(0.12, 0.85), Vector3(0.13, 0.425, 0.0), mat)  # chân phải
 	_add_part(_box(Vector3(0.5, 0.65, 0.28)), Vector3(0.0, 1.17, 0.0), mat) # thân
@@ -39,3 +42,9 @@ func _add_part(mesh: Mesh, pos: Vector3, mat: Material) -> void:
 	mi.material_override = mat
 	mi.position = pos
 	add_child(mi)
+
+
+## Nháy trắng khi trúng đòn.
+func flash() -> void:
+	_mat.albedo_color = Color.WHITE
+	create_tween().tween_property(_mat, "albedo_color", color, 0.12)

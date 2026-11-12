@@ -8,6 +8,7 @@ signal state_changed(state_name: String)
 signal dash_charges_changed(charges: int, max_charges: int)
 signal grapple_started(point: Vector3)
 signal grapple_ended
+signal died
 
 enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE }
 
@@ -24,6 +25,7 @@ var want_grapple: bool = false  # giữ
 var use_input: bool = true
 
 var state: State = State.NORMAL
+var dead: bool = false
 var dash_charges: int = 0
 
 var _pitch: float = 0.0
@@ -38,10 +40,17 @@ var _grapple_point: Vector3 = Vector3.ZERO
 var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
+var _shake: float = 0.0
 
 @onready var head: Node3D = $Head
 @onready var body_shape: CollisionShape3D = $Body
 @onready var rope: Node3D = $Head/Rope
+@onready var camera: Camera3D = $Head/Camera
+@onready var melee: Node3D = $Head/Melee
+@onready var sword_view: Node3D = $Head/SwordView
+@onready var hurtbox: Area3D = $Hurtbox
+@onready var parry: Node = $Parry
+@onready var combat: Node = $Combat
 
 
 func _ready() -> void:
@@ -50,6 +59,16 @@ func _ready() -> void:
 	grapple_started.connect(rope.show_to)
 	grapple_ended.connect(rope.hide_rope)
 	(body_shape.shape as CapsuleShape3D).height = STAND_HEIGHT
+	# Chiến đấu: tiêm phụ thuộc rồi nối Signal của component (signal up). Hình ảnh nghe Signal.
+	add_to_group("player")
+	parry.setup(self)
+	melee.setup(Global.TEAM_PLAYER, self)
+	hurtbox.setup(Global.TEAM_PLAYER, Global.COMBAT["player_health"], parry)
+	combat.setup(self, head, melee, parry)
+	hurtbox.died.connect(_on_died)
+	melee.clashed.connect(_on_clashed)
+	melee.swing_started.connect(sword_view.play_swing)
+	parry.parry_started.connect(sword_view.raise)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -66,6 +85,9 @@ func _process(delta: float) -> void:
 	if state == State.WALLRUN:
 		roll = -_wall_side * deg_to_rad(Global.PLAYER["wall_roll_deg"])
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
+	_shake = maxf(_shake - delta * 0.5, 0.0)
+	camera.h_offset = randf_range(-1.0, 1.0) * _shake
+	camera.v_offset = randf_range(-1.0, 1.0) * _shake
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
 	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
 
@@ -77,6 +99,46 @@ func _read_input() -> void:
 	want_grapple = Input.is_action_pressed("grapple")
 	if Input.is_action_just_pressed("dash"):
 		want_dash = true
+	combat.want_attack = Input.is_action_pressed("attack")
+	combat.want_shoot = Input.is_action_pressed("shoot")
+	if Input.is_action_just_pressed("parry"):
+		combat.want_parry = true
+	if Input.is_action_just_pressed("reload"):
+		combat.want_reload = true
+	if dead: # chết thì không điều khiển được
+		move_input = Vector2.ZERO
+		want_jump = false
+		want_slide = false
+		want_grapple = false
+		want_dash = false
+		combat.want_attack = false
+		combat.want_shoot = false
+		combat.want_parry = false
+		combat.want_reload = false
+
+
+## Rung camera (gọi từ main khi có va chạm/đòn trúng).
+func shake(amount: float) -> void:
+	_shake = maxf(_shake, amount)
+
+
+func respawn(pos: Vector3) -> void:
+	dead = false
+	hurtbox.revive()
+	combat.refill()
+	global_position = pos
+	velocity = Vector3.ZERO
+	_set_state(State.NORMAL)
+
+
+func _on_died() -> void:
+	dead = true
+	died.emit()
+
+
+func _on_clashed(direction: Vector3) -> void:
+	velocity += direction * float(Global.COMBAT["clash_knockback"])
+	_shake = maxf(_shake, 0.05)
 
 
 func horizontal_speed() -> float:

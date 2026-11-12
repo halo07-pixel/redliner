@@ -3,12 +3,13 @@ extends Node3D
 ## ánh sáng + bầu trời, và 1 hình nhân làm bia. Các cột/tường cao sẽ là chỗ wallrun/grapple
 ## ở mốc sau.
 
-const MannequinScript = preload("res://scripts/mannequin.gd")
+const DummyScript = preload("res://scripts/enemy_dummy.gd")
 
 const HALF: float = 30.0
 const WALL_H: float = 12.0
 
 var spawn_point: Vector3 = Vector3(0.0, 0.1, 18.0)
+var dummies: Array = []
 
 
 func _ready() -> void:
@@ -31,7 +32,8 @@ func _ready() -> void:
 	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), Color(0.9, 0.7, 0.2))
 	# Dốc 20° để tập trượt (cao dần về phía -Z, trượt xuống phía +Z)
 	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), Color(0.35, 0.55, 0.35), Vector3(20.0, 0.0, 0.0))
-	_spawn_dummy(Vector3(0.0, 0.0, -12.0))
+	_spawn_dummy(Vector3(0.0, 0.0, -12.0), false, Color(0.85, 0.2, 0.2))   # bia tập kiếm/súng
+	_spawn_dummy(Vector3(-9.0, 0.0, -16.0), true, Color(0.95, 0.55, 0.1))  # thần công bắn đạn để tập parry
 
 
 func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.ZERO) -> void:
@@ -56,25 +58,14 @@ func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.
 	add_child(body)
 
 
-## Bia hình nhân: có va chạm (layer enemy + world để người chơi không đi xuyên qua).
-## Mốc sau sẽ thay bằng bot thật có Hurtbox.
-func _spawn_dummy(pos: Vector3) -> void:
-	var body := StaticBody3D.new()
-	body.collision_layer = Global.L_ENEMY | Global.L_WORLD
-	body.collision_mask = 0
-	body.position = pos
-	body.rotation.y = PI # quay mặt về phía điểm spawn
-	var shape := CollisionShape3D.new()
-	var cs := CapsuleShape3D.new()
-	cs.radius = 0.35
-	cs.height = 1.8
-	shape.shape = cs
-	shape.position = Vector3(0.0, 0.9, 0.0)
-	body.add_child(shape)
-	var m: Node3D = MannequinScript.new()
-	m.color = Color(0.85, 0.2, 0.2)
-	body.add_child(m)
-	add_child(body)
+func _spawn_dummy(pos: Vector3, auto_fire: bool, color: Color) -> void:
+	var d: StaticBody3D = DummyScript.new()
+	d.auto_fire = auto_fire
+	d.color = color
+	d.position = pos
+	d.rotation.y = PI # quay mặt về phía điểm spawn
+	add_child(d)
+	dummies.append(d)
 
 
 func _build_environment() -> void:
