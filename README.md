@@ -3,6 +3,8 @@
 Game FPS 3D tốc độ cao (lấy cảm hứng từ REDLINER trên Roblox) làm bằng **Godot 4.7**.
 Chế độ: một người chơi đấu với bot (PvE). Asset tạm: hình nhân 3D dựng bằng khối cơ bản.
 
+> Hướng dẫn làm việc cho Claude (quy trình 5 bước, tiến độ, bản đồ code, cách chạy test) nằm ở [CLAUDE.md](CLAUDE.md).
+
 ## Chạy
 Mở thư mục bằng Godot 4.7 rồi nhấn F5. Điều khiển: `WASD` di chuyển, `Space` nhảy, `Ctrl` trượt, `Shift` dash, chuột phải móc (grapple), chuột trái chém kiếm, `E` bắn súng, `F` parry, `R` nạp đạn, `Esc` tạm dừng, chuột nhìn, `Esc` nhả chuột. Chạy sát tường khi đang trên không để bám tường.
 
