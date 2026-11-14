@@ -31,6 +31,29 @@ const BOTS: Dictionary = {
 	},
 }
 
+## Bảng màu theo vai trò (M6.2). Vật liệu trong `materials.gd` đọc từ đây.
+const PALETTE: Dictionary = {
+	"floor": Color(0.2, 0.21, 0.24),
+	"wall": Color(0.32, 0.34, 0.39),
+	"platform": Color(0.45, 0.46, 0.52),
+	"pillar": Color(0.72, 0.12, 0.12),     # cột đỏ: nguy hiểm / mốc nhìn
+	"runwall": Color(0.2, 0.45, 0.85),     # tường chạy tường: xanh
+	"grapple": Color(0.95, 0.72, 0.15),    # bệ đu móc: vàng, phát sáng
+	"ramp": Color(0.3, 0.6, 0.35),         # dốc trượt: xanh lá
+	"trim": Color(0.25, 0.85, 1.0),        # vạch sáng chân tường
+}
+## Độ kim loại / nhám / cường độ phát sáng theo vai trò.
+const MATERIAL_PARAMS: Dictionary = {
+	"floor": {"metallic": 0.1, "roughness": 0.85, "emission": 0.0, "tile": 4.0},
+	"wall": {"metallic": 0.2, "roughness": 0.75, "emission": 0.0, "tile": 4.0},
+	"platform": {"metallic": 0.6, "roughness": 0.4, "emission": 0.0, "tile": 2.0},
+	"pillar": {"metallic": 0.7, "roughness": 0.35, "emission": 0.0, "tile": 2.0},
+	"runwall": {"metallic": 0.5, "roughness": 0.45, "emission": 0.35, "tile": 2.0},
+	"grapple": {"metallic": 0.4, "roughness": 0.4, "emission": 1.6, "tile": 2.0},
+	"ramp": {"metallic": 0.1, "roughness": 0.8, "emission": 0.0, "tile": 2.0},
+	"trim": {"metallic": 0.0, "roughness": 0.5, "emission": 2.5, "tile": 1.0},
+}
+
 ## Môi trường / ánh sáng (M6.1). Chỉnh tại đây, `arena.gd` chỉ đọc.
 const ENV: Dictionary = {
 	"sun_rotation_deg": Vector3(-48.0, 35.0, 0.0),
