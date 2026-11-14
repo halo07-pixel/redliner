@@ -5,12 +5,15 @@ extends Node3D
 
 const DummyScript = preload("res://scripts/enemy_dummy.gd")
 const Materials = preload("res://scripts/materials.gd")
+const Quality = preload("res://scripts/quality.gd")
 
 const HALF: float = 30.0
 const WALL_H: float = 12.0
 
 var spawn_point: Vector3 = Vector3(0.0, 0.1, 18.0)
 var dummies: Array = []
+var sun: DirectionalLight3D
+var world_env: Environment
 ## Điểm sinh bot (rải quanh đấu trường, tránh cột/bục/dốc).
 var bot_spawns: Array = [
 	Vector3(-25.0, 0.1, -26.0), Vector3(25.0, 0.1, -26.0), Vector3(0.0, 0.1, -27.0),
@@ -93,7 +96,7 @@ func _spawn_dummy(pos: Vector3, color: Color) -> void:
 
 func _build_environment() -> void:
 	var e: Dictionary = Global.ENV
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = e["sun_rotation_deg"]
 	sun.light_color = e["sun_color"]
 	sun.light_energy = e["sun_energy"]
@@ -115,6 +118,7 @@ func _build_environment() -> void:
 	sky.sky_material = sky_mat
 
 	var env := Environment.new()
+	world_env = env
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -134,3 +138,13 @@ func _build_environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
+	Global.quality_changed.connect(_on_quality_changed)
+	_apply_quality()
+
+
+func _apply_quality() -> void:
+	Quality.apply(Global.quality, world_env, sun, get_viewport())
+
+
+func _on_quality_changed(_level: int) -> void:
+	_apply_quality()

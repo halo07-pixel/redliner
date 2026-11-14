@@ -7,6 +7,7 @@ signal menu_requested
 const UIKit = preload("res://scripts/ui_kit.gd")
 
 var resume_button: Button
+var quality_button: Button
 var menu_button: Button
 
 
@@ -21,8 +22,10 @@ func _ready() -> void:
 	var box := UIKit.center_box(dim, 16)
 	box.add_child(UIKit.title("TẠM DỪNG", 72, Color.WHITE))
 	resume_button = UIKit.button("Tiếp tục")
+	quality_button = UIKit.quality_button()
 	menu_button = UIKit.button("Về menu")
 	box.add_child(resume_button)
+	box.add_child(quality_button)
 	box.add_child(menu_button)
 	resume_button.pressed.connect(func(): resume_requested.emit())
 	menu_button.pressed.connect(func(): menu_requested.emit())
