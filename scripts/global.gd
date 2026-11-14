@@ -31,6 +31,31 @@ const BOTS: Dictionary = {
 	},
 }
 
+## Môi trường / ánh sáng (M6.1). Chỉnh tại đây, `arena.gd` chỉ đọc.
+const ENV: Dictionary = {
+	"sun_rotation_deg": Vector3(-48.0, 35.0, 0.0),
+	"sun_color": Color(1.0, 0.93, 0.8),
+	"sun_energy": 1.3,
+	"shadow_max_distance": 90.0,
+	"shadow_split_1": 0.08,
+	"shadow_split_2": 0.22,
+	"shadow_split_3": 0.5,
+	"shadow_bias": 0.04,
+	"sky_top": Color(0.22, 0.36, 0.6),
+	"sky_horizon": Color(0.62, 0.7, 0.8),
+	"ground_horizon": Color(0.45, 0.47, 0.5),
+	"ground_bottom": Color(0.12, 0.12, 0.14),
+	"ambient_energy": 0.7,
+	"fog_color": Color(0.6, 0.67, 0.76),
+	"fog_density": 0.004,
+	"fog_sky_affect": 0.4,
+	"tonemap_exposure": 1.0,
+	"tonemap_white": 6.0,
+	"glow_intensity": 0.6,
+	"glow_bloom": 0.05,
+	"glow_hdr_threshold": 1.1,
+}
+
 ## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
 ## parry thành công; đầy thì vào Redline: sát thương tăng, dash hồi nhanh hơn, thanh cạn dần.
 const INSTABILITY: Dictionary = {
