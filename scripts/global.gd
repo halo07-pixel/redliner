@@ -31,6 +31,21 @@ const BOTS: Dictionary = {
 	},
 }
 
+## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
+## parry thành công; đầy thì vào Redline: sát thương tăng, dash hồi nhanh hơn, thanh cạn dần.
+const INSTABILITY: Dictionary = {
+	"max": 100.0,
+	"speed_threshold": 14.0,  # m/s: chạy nhanh hơn mức này thì thanh đầy dần
+	"speed_gain": 8.0,        # /giây khi đang chạy nhanh
+	"idle_decay": 3.0,        # /giây khi chạy chậm
+	"hit_gain": 12.0,         # đòn kiếm trúng
+	"parry_gain": 20.0,       # parry thành công
+	"damage_loss": 15.0,      # mất khi bị đánh
+	"redline_time": 6.0,      # giây
+	"damage_mult": 1.5,
+	"dash_recharge_mult": 2.0,
+}
+
 ## Số cân bằng chiến đấu (chỉnh tại đây).
 const COMBAT: Dictionary = {
 	"player_health": 100.0,
@@ -110,8 +125,34 @@ const PLAYER: Dictionary = {
 }
 
 
+## Điểm cao nhất, lưu vào file để còn sau khi tắt game.
+var save_path: String = "user://savegame.cfg"
+var high_score: int = 0
+
+
 func _ready() -> void:
 	_setup_input()
+	load_save()
+
+
+func load_save() -> void:
+	high_score = 0
+	if not FileAccess.file_exists(save_path):
+		return
+	var cf := ConfigFile.new()
+	if cf.load(save_path) == OK:
+		high_score = int(cf.get_value("progress", "high_score", 0))
+
+
+## Trả về true nếu phá kỷ lục (và đã lưu).
+func submit_score(value: int) -> bool:
+	if value <= high_score:
+		return false
+	high_score = value
+	var cf := ConfigFile.new()
+	cf.set_value("progress", "high_score", high_score)
+	cf.save(save_path)
+	return true
 
 
 func _setup_input() -> void:

@@ -48,3 +48,10 @@ func _add_part(mesh: Mesh, pos: Vector3, mat: Material) -> void:
 func flash() -> void:
 	_mat.albedo_color = Color.WHITE
 	create_tween().tween_property(_mat, "albedo_color", color, 0.12)
+
+
+## Mờ dần (khi chết).
+func fade_out(duration: float) -> void:
+	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var c := _mat.albedo_color
+	create_tween().tween_property(_mat, "albedo_color", Color(c.r, c.g, c.b, 0.0), duration)
