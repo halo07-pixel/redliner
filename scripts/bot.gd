@@ -80,6 +80,7 @@ func _ready() -> void:
 
 	mannequin = MannequinScript.new()
 	mannequin.color = cfg["color"]
+	mannequin.kind = type_name
 	add_child(mannequin)
 
 	parry = ParryScript.new()
