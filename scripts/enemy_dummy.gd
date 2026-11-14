@@ -1,7 +1,6 @@
 extends StaticBody3D
-## Địch tập bắn/đánh thử: có hurtbox + máu, kiếm, parry. Dùng làm bia, và (auto_fire) làm
-## "súng thần công" bắn đạn vật thể để người chơi luyện parry. Các hàm swing()/shoot_at()
-## do test hoặc AI (mốc 4) điều khiển. Âm thanh chỉ phát qua Signal `sound`.
+## Bia tập: có hurtbox + máu, kiếm, parry. Các hàm swing()/shoot_at() dùng cho test.
+## Âm thanh chỉ phát qua Signal `sound`.
 
 signal sound(sound_name: String)
 signal died
@@ -12,7 +11,6 @@ const ParryScript = preload("res://scripts/components/parry_component.gd")
 const MeleeScript = preload("res://scripts/components/melee_hitbox_component.gd")
 const BulletScript = preload("res://scripts/bullet.gd")
 
-@export var auto_fire: bool = false
 @export var color: Color = Color(0.85, 0.2, 0.2)
 
 var hurtbox: Area3D
@@ -20,7 +18,6 @@ var parry: Node
 var melee: Node3D
 var mannequin: Node3D
 
-var _fire_t: float = 1.0
 var _body_shape: CollisionShape3D
 
 
@@ -85,22 +82,6 @@ func shoot_at(target_pos: Vector3) -> Node3D:
 	b.global_position = origin + dir * 0.8
 	sound.emit("shot")
 	return b
-
-
-func _physics_process(delta: float) -> void:
-	if not auto_fire or hurtbox.dead:
-		return
-	var player := get_tree().get_first_node_in_group("player") as Node3D
-	if player == null or player.dead:
-		return
-	var to: Vector3 = player.global_position - global_position
-	if to.length() > float(Global.COMBAT["turret_range"]):
-		return
-	rotation.y = atan2(-to.x, -to.z) # quay mặt về phía người chơi (-Z hướng tới nó)
-	_fire_t -= delta
-	if _fire_t <= 0.0:
-		_fire_t = Global.COMBAT["turret_interval"]
-		shoot_at(player.global_position + Vector3(0.0, 1.2, 0.0))
 
 
 func _on_hurt(_hit: Dictionary, _left: float) -> void:

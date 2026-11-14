@@ -22,6 +22,7 @@ func setup(p_team: int, p_shooter: Node3D, dir: Vector3) -> void:
 
 
 func _ready() -> void:
+	add_to_group("bullets")
 	var m := SphereMesh.new()
 	m.radius = 0.12
 	m.height = 0.24
