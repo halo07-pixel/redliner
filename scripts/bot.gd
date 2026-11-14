@@ -307,6 +307,7 @@ func _on_died() -> void:
 	velocity = Vector3.ZERO
 	sound.emit("hit")
 	died.emit(self, info)
+	mannequin.fade_out(0.3)
 	var tw := create_tween()
 	tw.tween_property(self, "scale", Vector3(1.0, 0.05, 1.0), 0.3)
 	tw.tween_callback(queue_free)

@@ -5,10 +5,14 @@ extends Node
 signal parry_started
 signal parried(hit: Dictionary)
 signal parry_missed
+signal cooldown_progress(ratio: float) # 0 = vừa phạt, 1 = sẵn sàng
 
 var body: Node3D
 var active_t: float = 0.0
 var cooldown_t: float = 0.0
+
+var _cd_total: float = 1.0
+var _was_cooling: bool = false
 
 
 func setup(p_body: Node3D) -> void:
@@ -37,6 +41,7 @@ func try_parry(hit: Dictionary) -> bool:
 		return false
 	active_t = 0.0
 	cooldown_t = Global.COMBAT["parry_hit_cooldown"]
+	_cd_total = cooldown_t
 	match hit["kind"]:
 		"bullet":
 			hit["bullet"].reflect(body, Global.COMBAT["reflect_damage_mult"], Global.COMBAT["reflect_speed_mult"])
@@ -50,9 +55,13 @@ func try_parry(hit: Dictionary) -> bool:
 
 func _physics_process(delta: float) -> void:
 	cooldown_t = maxf(cooldown_t - delta, 0.0)
+	if cooldown_t > 0.0 or _was_cooling:
+		_was_cooling = cooldown_t > 0.0
+		cooldown_progress.emit(1.0 - cooldown_t / _cd_total)
 	if active_t > 0.0:
 		active_t -= delta
 		if active_t <= 0.0:
 			active_t = 0.0
 			cooldown_t = Global.COMBAT["parry_miss_cooldown"] # phạt khi parry hụt
+			_cd_total = cooldown_t
 			parry_missed.emit()

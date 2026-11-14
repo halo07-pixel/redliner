@@ -5,6 +5,7 @@ extends Node
 signal ammo_changed(current: int, maximum: int)
 signal shot_fired(from: Vector3, to: Vector3)
 signal hit_confirmed(landed: bool)
+signal reloading_changed(on: bool)
 
 var want_attack: bool = false  # giữ
 var want_shoot: bool = false   # giữ
@@ -13,6 +14,7 @@ var want_reload: bool = false  # xung 1 lần
 
 var ammo: int = 0
 var reloading: bool = false
+var damage_mult: float = 1.0
 
 var _head: Node3D
 var _body: Node3D
@@ -32,6 +34,8 @@ func setup(p_body: Node3D, p_head: Node3D, p_melee: Node, p_parry: Node) -> void
 
 func refill() -> void:
 	ammo = Global.COMBAT["gun_mag"]
+	if reloading:
+		reloading_changed.emit(false)
 	reloading = false
 	_shot_cd = 0.0
 	ammo_changed.emit(ammo, Global.COMBAT["gun_mag"])
@@ -43,6 +47,7 @@ func _physics_process(delta: float) -> void:
 		_reload_t -= delta
 		if _reload_t <= 0.0:
 			reloading = false
+			reloading_changed.emit(false)
 			ammo = Global.COMBAT["gun_mag"]
 			ammo_changed.emit(ammo, Global.COMBAT["gun_mag"])
 
@@ -64,6 +69,7 @@ func _start_reload() -> void:
 		return
 	reloading = true
 	_reload_t = Global.COMBAT["gun_reload"]
+	reloading_changed.emit(true)
 
 
 func _shoot() -> void:
@@ -85,7 +91,7 @@ func _shoot() -> void:
 		var c: Object = hit["collider"]
 		if c.has_method("take_hit"):
 			var landed: bool = c.take_hit({
-				"damage": Global.COMBAT["gun_damage"],
+				"damage": float(Global.COMBAT["gun_damage"]) * damage_mult,
 				"kind": "hitscan",
 				"source": _body,
 				"direction": dir,

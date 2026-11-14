@@ -13,6 +13,7 @@ enum Phase { IDLE, WINDUP, ACTIVE, RECOVERY }
 var team: int = 0
 var body: Node3D
 var phase: Phase = Phase.IDLE
+var damage_mult: float = 1.0 # Redline tăng sát thương
 var windup_override: float = -1.0 # > 0: thời gian báo đòn riêng (bot báo đòn lâu hơn để người chơi kịp phản ứng)
 
 var _t: float = 0.0
@@ -137,7 +138,7 @@ func _scan() -> void:
 			continue
 		_hit_list.append(hb)
 		var hit := {
-			"damage": Global.COMBAT["sword_damage"],
+			"damage": float(Global.COMBAT["sword_damage"]) * damage_mult,
 			"kind": "melee",
 			"source": body,
 			"direction": _forward(),

@@ -41,6 +41,7 @@ var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
 var _shake: float = 0.0
+var _redline: bool = false
 
 @onready var head: Node3D = $Head
 @onready var body_shape: CollisionShape3D = $Body
@@ -51,6 +52,7 @@ var _shake: float = 0.0
 @onready var hurtbox: Area3D = $Hurtbox
 @onready var parry: Node = $Parry
 @onready var combat: Node = $Combat
+@onready var instability: Node = $Instability
 
 
 func _ready() -> void:
@@ -69,6 +71,11 @@ func _ready() -> void:
 	melee.clashed.connect(_on_clashed)
 	melee.swing_started.connect(sword_view.play_swing)
 	parry.parry_started.connect(sword_view.raise)
+	# Instability: tích khi đánh trúng / parry, mất khi bị đánh; Redline tăng sát thương
+	melee.hit_landed.connect(func(_hb, landed): if landed: instability.add(Global.INSTABILITY["hit_gain"]))
+	parry.parried.connect(func(_h): instability.add(Global.INSTABILITY["parry_gain"]))
+	hurtbox.hurt.connect(func(_h, _left): instability.lose(Global.INSTABILITY["damage_loss"]))
+	instability.redline_changed.connect(_on_redline)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -86,6 +93,8 @@ func _process(delta: float) -> void:
 		roll = -_wall_side * deg_to_rad(Global.PLAYER["wall_roll_deg"])
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
 	_shake = maxf(_shake - delta * 0.5, 0.0)
+	var target_fov: float = 90.0 + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
+	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, 6.0 * delta))
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
@@ -126,9 +135,17 @@ func respawn(pos: Vector3) -> void:
 	dead = false
 	hurtbox.revive()
 	combat.refill()
+	instability.reset()
 	global_position = pos
 	velocity = Vector3.ZERO
 	_set_state(State.NORMAL)
+
+
+func _on_redline(active: bool) -> void:
+	_redline = active
+	var mult: float = float(Global.INSTABILITY["damage_mult"]) if active else 1.0
+	melee.damage_mult = mult
+	combat.damage_mult = mult
 
 
 func _on_died() -> void:
@@ -164,6 +181,9 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+	if not dead:
+		instability.tick(delta, horizontal_speed())
+
 	var speed: float = horizontal_speed()
 	if absf(speed - _last_speed) > 0.05:
 		_last_speed = speed
@@ -189,7 +209,7 @@ func _tick_timers(delta: float) -> void:
 	_grapple_cd = maxf(_grapple_cd - delta, 0.0)
 	var max_c: int = Global.PLAYER["dash_max_charges"]
 	if dash_charges < max_c:
-		_dash_recharge_t -= delta
+		_dash_recharge_t -= delta * (float(Global.INSTABILITY["dash_recharge_mult"]) if _redline else 1.0)
 		if _dash_recharge_t <= 0.0:
 			dash_charges += 1
 			_dash_recharge_t = Global.PLAYER["dash_recharge"]
@@ -215,6 +235,7 @@ func _try_dash() -> void:
 		_dash_recharge_t = Global.PLAYER["dash_recharge"]
 	dash_charges -= 1
 	_dash_cd = Global.PLAYER["dash_cooldown"]
+	_shake = maxf(_shake, 0.02)
 	dash_charges_changed.emit(dash_charges, max_c)
 
 
