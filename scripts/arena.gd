@@ -72,16 +72,45 @@ func _spawn_dummy(pos: Vector3, color: Color) -> void:
 
 
 func _build_environment() -> void:
+	var e: Dictionary = Global.ENV
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55.0, 35.0, 0.0)
+	sun.rotation_degrees = e["sun_rotation_deg"]
+	sun.light_color = e["sun_color"]
+	sun.light_energy = e["sun_energy"]
 	sun.shadow_enabled = true
+	sun.shadow_bias = e["shadow_bias"]
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = e["shadow_max_distance"]
+	sun.directional_shadow_split_1 = e["shadow_split_1"]
+	sun.directional_shadow_split_2 = e["shadow_split_2"]
+	sun.directional_shadow_split_3 = e["shadow_split_3"]
 	add_child(sun)
+
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = e["sky_top"]
+	sky_mat.sky_horizon_color = e["sky_horizon"]
+	sky_mat.ground_horizon_color = e["ground_horizon"]
+	sky_mat.ground_bottom_color = e["ground_bottom"]
 	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
+	sky.sky_material = sky_mat
+
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = e["ambient_energy"]
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = e["tonemap_exposure"]
+	env.tonemap_white = e["tonemap_white"]
+	env.fog_enabled = true
+	env.fog_light_color = e["fog_color"]
+	env.fog_density = e["fog_density"]
+	env.fog_sky_affect = e["fog_sky_affect"]
+	env.glow_enabled = true
+	env.glow_intensity = e["glow_intensity"]
+	env.glow_bloom = e["glow_bloom"]
+	env.glow_hdr_threshold = e["glow_hdr_threshold"]
+
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
