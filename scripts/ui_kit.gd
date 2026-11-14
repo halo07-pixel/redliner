@@ -41,3 +41,14 @@ static func center_box(parent: Node, separation: int = 14) -> VBoxContainer:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(box)
 	return box
+
+
+## Nút xoay vòng mức đồ họa Thấp/Vừa/Cao; chữ tự cập nhật theo Global.quality.
+static func quality_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Đồ họa: %s" % Global.QUALITY_NAMES[Global.quality]
+	refresh.call()
+	b.pressed.connect(func():
+		Global.cycle_quality()
+		refresh.call())
+	return b

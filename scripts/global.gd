@@ -54,6 +54,15 @@ const MATERIAL_PARAMS: Dictionary = {
 	"trim": {"metallic": 0.0, "roughness": 0.5, "emission": 2.5, "tile": 1.0},
 }
 
+## Chất lượng đồ họa (M6.3): chỉ số 0=Thấp, 1=Vừa, 2=Cao.
+const QUALITY_NAMES: Array = ["Thấp", "Vừa", "Cao"]
+const QUALITY: Array = [
+	{"shadows": false, "shadow_dist": 40.0, "cascades": 1, "ssao": false, "glow": false, "fog": false, "msaa": 0, "scale": 0.75},
+	{"shadows": true, "shadow_dist": 60.0, "cascades": 2, "ssao": false, "glow": true, "fog": true, "msaa": 0, "scale": 1.0},
+	{"shadows": true, "shadow_dist": 90.0, "cascades": 4, "ssao": true, "glow": true, "fog": true, "msaa": 2, "scale": 1.0},
+]
+const QUALITY_DEFAULT: int = 1
+
 ## Môi trường / ánh sáng (M6.1). Chỉnh tại đây, `arena.gd` chỉ đọc.
 const ENV: Dictionary = {
 	"sun_rotation_deg": Vector3(-48.0, 35.0, 0.0),
@@ -173,9 +182,12 @@ const PLAYER: Dictionary = {
 }
 
 
-## Điểm cao nhất, lưu vào file để còn sau khi tắt game.
+signal quality_changed(level: int)
+
+## Điểm cao nhất + mức đồ họa, lưu vào file để còn sau khi tắt game.
 var save_path: String = "user://savegame.cfg"
 var high_score: int = 0
+var quality: int = QUALITY_DEFAULT
 
 
 func _ready() -> void:
@@ -185,11 +197,34 @@ func _ready() -> void:
 
 func load_save() -> void:
 	high_score = 0
+	quality = QUALITY_DEFAULT
 	if not FileAccess.file_exists(save_path):
 		return
 	var cf := ConfigFile.new()
 	if cf.load(save_path) == OK:
 		high_score = int(cf.get_value("progress", "high_score", 0))
+		quality = clampi(int(cf.get_value("graphics", "quality", QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
+
+
+func _write_save() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("progress", "high_score", high_score)
+	cf.set_value("graphics", "quality", quality)
+	cf.save(save_path)
+
+
+## Đổi mức đồ họa: lưu và phát Signal để arena áp dụng (call down, signal up).
+func set_quality(level: int) -> void:
+	level = clampi(level, 0, QUALITY.size() - 1)
+	if level == quality:
+		return
+	quality = level
+	_write_save()
+	quality_changed.emit(quality)
+
+
+func cycle_quality() -> void:
+	set_quality((quality + 1) % QUALITY.size())
 
 
 ## Trả về true nếu phá kỷ lục (và đã lưu).
@@ -197,9 +232,7 @@ func submit_score(value: int) -> bool:
 	if value <= high_score:
 		return false
 	high_score = value
-	var cf := ConfigFile.new()
-	cf.set_value("progress", "high_score", high_score)
-	cf.save(save_path)
+	_write_save()
 	return true
 
 
