@@ -29,4 +29,4 @@
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M6.3 (tùy chọn chất lượng) → M7… Mỗi việc phải đề xuất + chờ duyệt.
+M7 (nhân vật và hoạt ảnh) → M8… Mỗi việc phải đề xuất + chờ duyệt.
