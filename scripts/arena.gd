@@ -4,6 +4,7 @@ extends Node3D
 ## ở mốc sau.
 
 const DummyScript = preload("res://scripts/enemy_dummy.gd")
+const Materials = preload("res://scripts/materials.gd")
 
 const HALF: float = 30.0
 const WALL_H: float = 12.0
@@ -19,28 +20,29 @@ var bot_spawns: Array = [
 
 func _ready() -> void:
 	_build_environment()
-	_box(Vector3(HALF * 2.0, 1.0, HALF * 2.0), Vector3(0.0, -0.5, 0.0), Color(0.18, 0.18, 0.2))
+	_box(Vector3(HALF * 2.0, 1.0, HALF * 2.0), Vector3(0.0, -0.5, 0.0), "floor")
 	# 4 tường bao quanh
-	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, -HALF - 0.5), Color(0.3, 0.3, 0.34))
-	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, HALF + 0.5), Color(0.3, 0.3, 0.34))
-	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(HALF + 0.5, WALL_H * 0.5, 0.0), Color(0.3, 0.3, 0.34))
-	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(-HALF - 0.5, WALL_H * 0.5, 0.0), Color(0.3, 0.3, 0.34))
+	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, -HALF - 0.5), "wall")
+	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, HALF + 0.5), "wall")
+	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(HALF + 0.5, WALL_H * 0.5, 0.0), "wall")
+	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(-HALF - 0.5, WALL_H * 0.5, 0.0), "wall")
 	# 4 cột đỏ
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			_box(Vector3(2.5, 10.0, 2.5), Vector3(14.0 * sx, 5.0, 14.0 * sz), Color(0.75, 0.12, 0.12))
+			_box(Vector3(2.5, 10.0, 2.5), Vector3(14.0 * sx, 5.0, 14.0 * sz), "pillar")
 	# 2 bục liền nhau (cao 1.0 rồi 2.5): nhảy 2 nhịp là lên tới đỉnh
-	_box(Vector3(8.0, 1.0, 8.0), Vector3(8.0, 0.5, 10.0), Color(0.4, 0.4, 0.45))
-	_box(Vector3(6.0, 2.5, 6.0), Vector3(14.5, 1.25, 10.0), Color(0.5, 0.5, 0.55))
+	_box(Vector3(8.0, 1.0, 8.0), Vector3(8.0, 0.5, 10.0), "platform")
+	_box(Vector3(6.0, 2.5, 6.0), Vector3(14.5, 1.25, 10.0), "platform")
 	# Tường để chạy tường (dài 30m, cao 8m) + bục cao để móc lên
-	_box(Vector3(1.0, 8.0, 30.0), Vector3(-22.0, 4.0, -5.0), Color(0.25, 0.4, 0.7))
-	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), Color(0.9, 0.7, 0.2))
+	_box(Vector3(1.0, 8.0, 30.0), Vector3(-22.0, 4.0, -5.0), "runwall")
+	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), "grapple")
 	# Dốc 20° để tập trượt (cao dần về phía -Z, trượt xuống phía +Z)
-	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), Color(0.35, 0.55, 0.35), Vector3(20.0, 0.0, 0.0))
+	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), "ramp", Vector3(20.0, 0.0, 0.0))
+	_build_trim()
 	_spawn_dummy(Vector3(0.0, 0.0, -12.0), Color(0.85, 0.2, 0.2)) # bia tập kiếm/súng
 
 
-func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.ZERO) -> void:
+func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.ZERO) -> void:
 	var body := StaticBody3D.new()
 	body.collision_layer = Global.L_WORLD
 	body.collision_mask = 0
@@ -53,13 +55,31 @@ func _box(size: Vector3, pos: Vector3, color: Color, rot_deg: Vector3 = Vector3.
 	body.add_child(shape)
 	var bm := BoxMesh.new()
 	bm.size = size
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	bm.material = mat
+	bm.material = Materials.make(role)
 	var mi := MeshInstance3D.new()
 	mi.mesh = bm
 	body.add_child(mi)
 	add_child(body)
+
+
+## Vạch sáng mỏng ở chân 4 tường (chỉ hình ảnh, không va chạm) để nhìn ra biên đấu trường.
+func _build_trim() -> void:
+	var t: float = 0.15
+	var specs: Array = [
+		[Vector3(HALF * 2.0, t, t), Vector3(0.0, t * 0.5, -HALF)],
+		[Vector3(HALF * 2.0, t, t), Vector3(0.0, t * 0.5, HALF)],
+		[Vector3(t, t, HALF * 2.0), Vector3(HALF, t * 0.5, 0.0)],
+		[Vector3(t, t, HALF * 2.0), Vector3(-HALF, t * 0.5, 0.0)],
+	]
+	for sp in specs:
+		var bm := BoxMesh.new()
+		bm.size = sp[0]
+		bm.material = Materials.make("trim")
+		var mi := MeshInstance3D.new()
+		mi.mesh = bm
+		mi.position = sp[1]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
 
 
 func _spawn_dummy(pos: Vector3, color: Color) -> void:
