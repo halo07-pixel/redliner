@@ -13,6 +13,15 @@ func _check(cond: bool, msg: String) -> void:
 		printerr("  FAIL  ", msg)
 
 
+## Bot dùng model glTF (overlay lưu ở `_overlay`), hình nhân khối dùng animator.
+func _ov(m: Node3D) -> String:
+	return String(m.animator.overlay.get("name", "")) if m.get("animator") != null else String(m.get("_overlay"))
+
+
+func _ov_dur(m: Node3D) -> float:
+	return float(m.animator.overlay["dur"]) if m.get("animator") != null else float(m.get("_overlay_left"))
+
+
 func _initialize() -> void:
 	_run()
 
@@ -134,23 +143,23 @@ func _run() -> void:
 	root.add_child(b)
 	await process_frame
 	b.melee.swing_started.emit(0.3, 0.12, 0.3)
-	_check(b.mannequin.animator.overlay.get("name", "") == "swing" and absf(b.mannequin.animator.overlay["dur"] - 0.72) < 0.001, "bot: swing_started -> overlay swing đúng thời lượng")
+	_check(_ov(b.mannequin) == "swing" and absf(_ov_dur(b.mannequin) - 0.72) < 0.001, "bot: swing_started -> overlay swing đúng thời lượng")
 	b.melee.staggered.emit(1.0)
-	_check(b.mannequin.animator.overlay.get("name", "") == "stagger", "bot: staggered -> overlay stagger")
+	_check(_ov(b.mannequin) == "stagger", "bot: staggered -> overlay stagger")
 	b.parry.parry_started.emit()
-	_check(b.mannequin.animator.overlay.get("name", "") == "stagger", "bot: stagger không bị parry ngắt")
+	_check(_ov(b.mannequin) == "stagger", "bot: stagger không bị parry ngắt")
 	var g = load("res://scripts/bot.gd").new()
 	g.setup("gunner", 1)
 	root.add_child(g)
 	await process_frame
 	g.parry.parry_missed.emit()
-	_check(g.mannequin.animator.overlay.get("name", "") == "parry_miss", "bot: parry_missed -> overlay parry_miss")
+	_check(_ov(g.mannequin) == "parry_miss", "bot: parry_missed -> overlay parry_miss")
 	g.hurtbox.hurt.emit({"direction": Vector3(0, 0, -1), "damage": 1.0}, 10.0)
-	_check(g.mannequin.animator.overlay.get("name", "") == "hurt", "bot: hurt -> overlay hurt")
+	_check(_ov(g.mannequin) == "hurt", "bot: hurt -> overlay hurt")
 	g.shoot_at(Vector3(0, 1, -10))
-	_check(g.mannequin.animator.overlay.get("name", "") == "shoot", "bot xạ thủ: bắn -> overlay shoot")
+	_check(_ov(g.mannequin) == "shoot", "bot xạ thủ: bắn -> overlay shoot")
 	g._on_died()
-	_check(g.mannequin.animator.overlay.get("name", "") == "die", "bot: chết -> overlay die")
+	_check(_ov(g.mannequin) == "die", "bot: chết -> overlay die")
 
 	var p: Node3D = load("res://scenes/player.tscn").instantiate()
 	root.add_child(p)

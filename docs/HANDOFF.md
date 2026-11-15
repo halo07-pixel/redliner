@@ -1,7 +1,7 @@
-# Bàn giao Redliner (cập nhật 2026-11-14)
+# Bàn giao Redliner (cập nhật 2026-11-15)
 
 ## Trạng thái
-- `main` = `9b3bc9d` (5 mốc đầu + M6 + M7.1–M7.4 và nhánh A đã gộp). Nhánh chờ duyệt: `feature/m7-5-character-polish` (nhánh B = M7.5).
+- `main` = `ed43c01` (đến M7.5 đã gộp). Nhánh chờ duyệt: `feature/m7-6-external-assets` (nhánh C = M7.6).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -58,13 +58,20 @@
 - Test: `test_mannequin` và `test_animation` thêm kiểm khớp/chi tiết/hình bóng/nhún hông/lò xo; `test_combat_animation` thêm kiểm hạ người và lao tới (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_5_*.png`.
 - Chưa kiểm bằng người: độ mượt thật, độ tự nhiên của chu kỳ chạy. Vẫn là khối cơ bản (nhánh C sẽ thay bằng asset ngoài). Chỉnh ở `Global.ANIM`, `Global.RIG`, `overlay_pose()`.
 
+## M7.6 (nhánh C, asset ngoài CC0)
+- Bot dùng model KayKit Adventurers (CC0): kiếm sĩ=Knight, tinh anh=Barbarian, xạ thủ=Rogue_Hooded (`assets/characters/kaykit/`, nguồn/giấy phép: `docs/ASSETS.md`). Bia `dummy` và thân người chơi (chỉ thấy bóng) vẫn là hình nhân khối.
+- `scripts/mannequin_gltf.gd`: adapter cùng API với `mannequin.gd` (`animate/play/clear_overlay/flash/fade_out/set_render_layers/kind/color/weapon`). Co model về 1.8 m, chỉ giữ 1 vũ khí tay phải (+ mũ, áo choàng), bản sao vật liệu riêng mỗi bot. Locomotion: Idle / Running_A (tốc độ clip theo vận tốc) / Jump_Idle; slide/dash dùng Dodge_Forward, wallrun dùng Running_B, nghiêng thân bằng code. Overlay: swing→Slice_Diagonal, shoot→1H_Ranged_Shoot, parry→Block, parry_miss→Block_Hit, hurt→Hit_A, stagger→Hit_B, die→Death_A; tốc độ clip co theo thời lượng overlay, ưu tiên die>stagger>khác.
+- `bot.gd` chọn adapter nếu `has_asset(type_name)`, thiếu asset thì tự dùng `mannequin.gd`. Test bot (`test_mannequin`, `test_animation`, `test_combat_animation`) đã sửa chấp nhận cả hai loại; thêm `test_mannequin_gltf` (12 bộ đều xanh). Ảnh: `docs/screenshots/m7_6_*.png`.
+- Chưa kiểm bằng người: độ mượt/tự nhiên của clip, phong cách chibi đầu to có hợp game không (không hợp thì bỏ nhánh/đổi sang pack khác), khớp thời điểm chém của clip với cửa sổ hit. Cloud không có Vulkan nên ảnh là bản GL fallback.
+- Môi trường cloud có thể mất binary Godot: tải lại `Godot_v4.7-stable_linux.x86_64.zip` từ GitHub release `godotengine/godot-builds` tag `4.7-stable` vào `/opt/godot47` rồi symlink `godot`.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (11 bộ: test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (12 bộ: test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-Nhánh C (M7.6, asset ngoài) → M8 (Instability "Destabilized")… Mỗi việc phải đề xuất + chờ duyệt.
+M8 (Instability "Destabilized")… Mỗi việc phải đề xuất + chờ duyệt.

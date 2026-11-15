@@ -128,6 +128,6 @@ func _run() -> void:
 		b.setup(t, 1)
 		root.add_child(b)
 		await process_frame
-		_check(b.mannequin.kind == t and b.mannequin.get_joint("hand_r") != null, "bot %s dùng khung xương kind=%s" % [t, t])
+		_check(b.mannequin.kind == t and (b.mannequin.get_joint("hand_r") != null or b.mannequin.get("model") != null), "bot %s dùng nhân vật kind=%s" % [t, t])
 	print("---- ", "TẤT CẢ ĐẠT" if failures == 0 else "%d LỖI" % failures)
 	quit(1 if failures > 0 else 0)

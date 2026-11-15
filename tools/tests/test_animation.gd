@@ -140,7 +140,7 @@ func _run() -> void:
 	b.setup("swordsman", 1)
 	root.add_child(b)
 	await process_frame
-	_check(b.mannequin.animator != null, "bot có animator")
+	_check(b.mannequin.get("animator") != null or b.mannequin.get("player") != null, "bot có bộ hoạt ảnh")
 
 	# Người chơi
 	var p: Node3D = load("res://scenes/player.tscn").instantiate()
