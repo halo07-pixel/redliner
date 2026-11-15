@@ -105,6 +105,11 @@ func _ready() -> void:
 	add_child(melee)
 	melee.setup(Global.TEAM_ENEMY, self)
 	melee.windup_override = float(cfg["windup"])
+	# Hoạt ảnh chiến đấu nghe Signal của component (signal up); chỉ hiển thị, không ảnh hưởng logic.
+	melee.swing_started.connect(func(w, a, r): mannequin.play("swing", w + a + r, {"windup": w, "active": a, "recovery": r}))
+	melee.staggered.connect(func(d): mannequin.play("stagger", d))
+	parry.parry_started.connect(func(): mannequin.play("parry", float(Global.ANIM["parry_time"])))
+	parry.parry_missed.connect(func(): mannequin.play("parry_miss", float(Global.ANIM["parry_miss_time"])))
 	var blade := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.07, 0.07, 0.9)
@@ -115,6 +120,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if dead:
+		mannequin.animate(delta, 0.0, true, 0.0) # chạy nốt hoạt ảnh ngã
 		return
 	if target == null or not is_instance_valid(target):
 		target = get_tree().get_first_node_in_group("player") as Node3D
@@ -226,6 +232,7 @@ func shoot_at(target_pos: Vector3) -> Node3D:
 	get_parent().add_child(b)
 	b.global_position = origin + dir * 0.8
 	sound.emit("shot")
+	mannequin.play("shoot", float(Global.ANIM["shoot_time"]))
 	return b
 
 
@@ -293,6 +300,8 @@ func _react_to_threat(delta: float, dir: Vector3) -> void:
 func _on_hurt(hit: Dictionary, _left: float) -> void:
 	_last_hit = hit
 	mannequin.flash()
+	var local_dir: Vector3 = mannequin.global_transform.basis.inverse() * Vector3(hit.get("direction", Vector3.ZERO))
+	mannequin.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": local_dir})
 
 
 func _on_died() -> void:
@@ -309,7 +318,8 @@ func _on_died() -> void:
 	velocity = Vector3.ZERO
 	sound.emit("hit")
 	died.emit(self, info)
+	mannequin.play("die", float(Global.ANIM["die_time"]))
 	mannequin.fade_out(0.3)
 	var tw := create_tween()
-	tw.tween_property(self, "scale", Vector3(1.0, 0.05, 1.0), 0.3)
+	tw.tween_interval(0.3)
 	tw.tween_callback(queue_free)

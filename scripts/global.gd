@@ -109,6 +109,14 @@ const ANIM: Dictionary = {
 	"blend": 10.0,           # tốc độ pha trộn tư thế (lớn = nhanh)
 	"dash_time": 0.3,        # thời gian giữ tư thế dash
 	"slide_drop": 0.38,      # hạ hông khi trượt (m)
+	# Hoạt ảnh chiến đấu chồng lên di chuyển (M7.3). Thời lượng tính bằng giây.
+	"overlay_in": 0.06,      # pha vào / ra của overlay (pha trộn với hoạt ảnh nền)
+	"overlay_out": 0.12,
+	"shoot_time": 0.25,
+	"hurt_time": 0.25,
+	"parry_time": 0.28,      # giữ tư thế chắn: cửa sổ parry + một nhịp
+	"parry_miss_time": 0.6,
+	"die_time": 0.45,
 }
 
 ## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
