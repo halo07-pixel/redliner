@@ -91,11 +91,13 @@ const ENV: Dictionary = {
 ## Hình dáng khung xương theo loại (M7.1). shoulder/bulk = hệ số rộng vai / dày thân;
 ## armor 0=không, 1=vai nhỏ, 2=vai lớn+ngực; weapon: "none"/"sword"/"gun"; glow = vạch sáng (emissive).
 const RIG: Dictionary = {
-	"dummy": {"shoulder": 1.0, "bulk": 1.0, "armor": 0, "weapon": "none", "glow": false},
-	"swordsman": {"shoulder": 1.25, "bulk": 1.1, "armor": 1, "weapon": "sword", "glow": false},
-	"gunner": {"shoulder": 0.85, "bulk": 0.8, "armor": 0, "weapon": "gun", "glow": false},
-	"elite": {"shoulder": 1.4, "bulk": 1.3, "armor": 2, "weapon": "sword", "glow": true},
+	"dummy": {"shoulder": 1.0, "bulk": 1.0, "armor": 0, "weapon": "none", "glow": false, "style": "none"},
+	"swordsman": {"shoulder": 1.25, "bulk": 1.1, "armor": 1, "weapon": "sword", "glow": false, "style": "ronin"},
+	"gunner": {"shoulder": 0.85, "bulk": 0.8, "armor": 0, "weapon": "gun", "glow": false, "style": "ranger"},
+	"elite": {"shoulder": 1.4, "bulk": 1.3, "armor": 2, "weapon": "sword", "glow": true, "style": "guard"},
 }
+## Màu da dùng chung cho đầu, cổ, bàn tay (thân/quần áo lấy màu theo loại bot).
+const SKIN_COLOR: Color = Color(0.84, 0.68, 0.57)
 
 ## Hoạt ảnh thân (M7.2). Góc tính bằng độ; +x của khớp = vung về phía trước (-Z).
 const ANIM: Dictionary = {
@@ -106,7 +108,15 @@ const ANIM: Dictionary = {
 	"arm_swing": 40.0,
 	"lean_per_speed": 0.8,   # độ nghiêng thân mỗi m/s
 	"lean_max": 12.0,
-	"blend": 10.0,           # tốc độ pha trộn tư thế (lớn = nhanh)
+	# Lò xo cho mỗi khớp: k = độ cứng, c = giảm chấn (c = 2*sqrt(k)*zeta; zeta < 1 thì có nảy nhẹ).
+	"joint_k": 260.0,
+	"joint_c": 25.0,
+	"hip_bob": 0.035,        # hông nhún lên xuống theo bước chạy (m)
+	"hip_twist": 7.0,        # hông xoay theo bước (độ)
+	"spine_twist": 11.0,     # thân xoay ngược hông (độ)
+	"lunge": 0.14,           # lao tới khi chém (m, chỉ hiển thị)
+	"anticip_drop": 0.09,    # hạ người trước khi chém (m)
+	"idle_look": 12.0,       # góc quay đầu nhìn quanh khi đứng yên (độ)
 	"dash_time": 0.3,        # thời gian giữ tư thế dash
 	"slide_drop": 0.38,      # hạ hông khi trượt (m)
 	# Hoạt ảnh chiến đấu chồng lên di chuyển (M7.3). Thời lượng tính bằng giây.

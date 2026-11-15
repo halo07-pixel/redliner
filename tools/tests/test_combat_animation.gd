@@ -74,12 +74,31 @@ func _run() -> void:
 	var m2: Node3D = _make("swordsman")
 	await process_frame
 	m2.play("swing", 0.72, d)
-	for i in 30:
+	var lo: float = 1e9
+	var hi: float = -1e9
+	var sh_mid: float = -15.0
+	for i in 60:
 		m2.animate(1.0 / 60.0, 7.0, true, 0.0)
-	var hip: Vector3 = m2.get_joint("hip_l").rotation_degrees
-	var hip_r: Vector3 = m2.get_joint("hip_r").rotation_degrees
-	_check(absf(hip.x) > 5.0 and signf(hip.x) != signf(hip_r.x), "đang chém: chân vẫn theo nhịp chạy")
-	_check(absf(m2.get_joint("shoulder_r").rotation_degrees.x - (-15.0)) > 10.0, "đang chém: tay phải do overlay điều khiển")
+		var hr: float = m2.get_joint("hip_r").rotation_degrees.x
+		lo = minf(lo, hr)
+		hi = maxf(hi, hr)
+		if i == 29:
+			sh_mid = m2.get_joint("shoulder_r").rotation_degrees.x
+	_check(hi - lo > 20.0, "đang chém: chân sau vẫn dao động theo nhịp chạy (biên độ %.1f độ)" % (hi - lo))
+	_check(absf(sh_mid - (-15.0)) > 10.0, "đang chém: tay phải do overlay điều khiển")
+
+	# --- Chém có chuẩn bị: hạ người ở windup, lao tới ở active
+	var lg: Node3D = _make("swordsman")
+	await process_frame
+	lg.play("swing", 0.72, d)
+	var min_y: float = 1.0
+	var min_z: float = 0.0
+	for i in 50:
+		lg.animate(1.0 / 60.0, 0.0, true, 0.0)
+		min_y = minf(min_y, lg.get_joint("hips").position.y)
+		min_z = minf(min_z, lg.get_joint("hips").position.z)
+	_check(min_y < 0.92 - 0.06, "chém: hạ người dồn lực (hông xuống %.3f)" % min_y)
+	_check(min_z < -0.05, "chém: lao tới phía trước (%.3f m)" % min_z)
 
 	# --- Hết overlay -> về tư thế nền, không giật
 	var m3: Node3D = _make("swordsman")

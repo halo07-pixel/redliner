@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-14)
 
 ## Trạng thái
-- `main` = `e7ca7f3` (5 mốc đầu + M6 + M7.1–M7.3 đã gộp). Nhánh chờ duyệt: `feature/m7-4-viewmodel` (M7.4, kết thúc M7).
+- `main` = `9b3bc9d` (5 mốc đầu + M6 + M7.1–M7.4 và nhánh A đã gộp). Nhánh chờ duyệt: `feature/m7-5-character-polish` (nhánh B = M7.5).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -51,6 +51,13 @@
 - Test: `tools/tests/test_viewmodel.gd` (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_4_*.png` (đứng, chém, bắn, nạp), script `tools/screenshots/shoot_viewmodel.gd`.
 - Chưa kiểm bằng người: độ mượt của nhún/lắc/giật, độ "đã tay".
 
+## M7.5 (nhánh B, làm đẹp nhân vật bằng code)
+- `mannequin.gd` dựng chi tiết hơn: ngực/bụng/đai/cổ, đầu da + mắt, khớp tròn vai/khuỷu/gối, bàn tay có ngón, bốt có cổ. Khớp mới: `hand_l`, `ankle_l`, `ankle_r` (thêm vào `JOINT_NAMES`; mọi khớp cũ và API cũ giữ nguyên). Màu da `Global.SKIN_COLOR`; thân/quần/giáp theo màu loại bot.
+- Chi tiết riêng theo `Global.RIG[kind]["style"]`: `ronin` (băng đầu, dây đeo chéo, tà áo, giáp vai), `ranger` (mũ trùm, kính phát sáng, dây đạn, túi đạn), `guard` (mũ giáp có mào + khe nhìn phát sáng, giáp ống chân và cẳng tay, giáp ngực, vạch sáng). Hình bóng ba loại khác nhau rõ.
+- `rig_animator.gd`: mỗi khớp đi qua lò xo (`Global.ANIM.joint_k/joint_c`) nên chuyển tư thế có quán tính; chạy: hông nhún (`hip_bob`), hông xoay/vai xoay ngược (`hip_twist`, `spine_twist`), đầu bù xoay giữ hướng nhìn, bàn chân gót chạm/đẩy mũi, khuỷu gập theo nhịp; đứng yên: thở, đổi trọng tâm, thỉnh thoảng quay đầu (`idle_look`). Overlay có khóa cộng thêm (`"+tên_khớp"`): chém hạ người dồn lực (`anticip_drop`) rồi lao tới (`lunge`, qua `hips_z`) mà chân vẫn chạy; bị đánh khuỵu gối; choáng đung đưa; ngã nảy nhẹ khi chạm đất.
+- Test: `test_mannequin` và `test_animation` thêm kiểm khớp/chi tiết/hình bóng/nhún hông/lò xo; `test_combat_animation` thêm kiểm hạ người và lao tới (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_5_*.png`.
+- Chưa kiểm bằng người: độ mượt thật, độ tự nhiên của chu kỳ chạy. Vẫn là khối cơ bản (nhánh C sẽ thay bằng asset ngoài). Chỉnh ở `Global.ANIM`, `Global.RIG`, `overlay_pose()`.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
@@ -60,4 +67,4 @@
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-Nhánh B (M7.5) → nhánh C (M7.6) → M8 (Instability "Destabilized")… Mỗi việc phải đề xuất + chờ duyệt.
+Nhánh C (M7.6, asset ngoài) → M8 (Instability "Destabilized")… Mỗi việc phải đề xuất + chờ duyệt.

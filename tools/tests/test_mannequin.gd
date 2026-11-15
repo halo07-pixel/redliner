@@ -88,6 +88,25 @@ func _run() -> void:
 	_check(et.x > gt.x and et.z > gt.z, "thân elite rộng và dày hơn gunner")
 	_check(made["elite"].find_children("*", "MeshInstance3D", true, false).size() > made["swordsman"].find_children("*", "MeshInstance3D", true, false).size(), "elite có thêm giáp/vạch sáng")
 
+	# --- M7.5: khớp và chi tiết mới
+	for kind in made.keys():
+		var mm: Node3D = made[kind]
+		var parts_ok: bool = mm.get_joint("ankle_l").get_parent() == mm.get_joint("knee_l") and mm.get_joint("hand_l").get_parent() == mm.get_joint("elbow_l")
+		_check(parts_ok, "%s: bàn chân gắn gối, bàn tay gắn khuỷu" % kind)
+		_check(mm.get_joint("hand_l").get_child_count() >= 2 and mm.get_joint("ankle_l").get_child_count() >= 2, "%s: có bàn tay và bàn chân bằng khối" % kind)
+	var counts := {}
+	for kind in made.keys():
+		counts[kind] = made[kind].find_children("*", "MeshInstance3D", true, false).size()
+	_check(counts["dummy"] >= 30, "hình nhân có chi tiết (>= 30 khối, hiện %d)" % counts["dummy"])
+	_check(counts["elite"] > counts["gunner"] and counts["gunner"] > counts["dummy"] and counts["swordsman"] > counts["dummy"], "mỗi loại có thêm chi tiết riêng so với bia")
+	var sil := {}
+	for kind in ["swordsman", "gunner", "elite"]:
+		var bb := _bounds(made[kind])
+		sil[kind] = Vector3(bb.size.x, bb.size.y, bb.size.z)
+	var distinct: bool = absf(sil["swordsman"].x - sil["gunner"].x) > 0.05 and absf(sil["elite"].x - sil["swordsman"].x) > 0.05 and absf(sil["elite"].x - sil["gunner"].x) > 0.15
+	_check(distinct, "hình bóng ba loại khác nhau rõ (rộng: kiếm %.2f, xạ thủ %.2f, tinh nhuệ %.2f)" % [sil["swordsman"].x, sil["gunner"].x, sil["elite"].x])
+	_check(made["elite"].find_children("*", "MeshInstance3D", true, false).any(func(n): return (n.material_override as StandardMaterial3D).emission_enabled), "tinh nhuệ có phần phát sáng")
+
 	# Pose
 	made["swordsman"].get_joint("knee_l").rotation_degrees = Vector3(40.0, 0.0, 0.0)
 	made["swordsman"].reset_pose()
