@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-14)
 
 ## Trạng thái
-- `main` = `6897057` (5 mốc đầu + M6.1, M6.2, M6.3 đã gộp; M6 xong). Nhánh chờ duyệt: `feature/m7-1-character-models` (M7.1).
+- `main` = `b2154ae` (5 mốc đầu + M6 + M7.1 đã gộp). Nhánh chờ duyệt: `feature/m7-2-body-animation` (M7.2).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -26,13 +26,22 @@
 - Chưa có chuyển động: M7.2 làm hoạt ảnh bằng cách xoay các khớp này (chân khớp tốc độ, nhảy, trượt...). Chiều cao ~1.8m khớp capsule va chạm.
 - Test: `tools/tests/test_mannequin.gd`. Ảnh: `docs/screenshots/m7_1_nhan_vat_*.png`, script `tools/screenshots/shoot_characters.gd`. Chưa kiểm bằng mắt người: có nhận ra từ xa không, súng của xạ thủ hơi nhỏ.
 
+## M7.2 (nhánh này)
+- `scripts/rig_animator.gd` (RefCounted): `pick_state()`, `target_pose()` (hàm thuần theo trạng thái/pha/tốc độ), `update()` pha trộn mượt về tư thế đích. Trạng thái: `idle, run, air, slide, dash, wallrun, grapple`. Không có logic game.
+- `Mannequin.animate(delta, speed, grounded, vel_y, state_name, side)` giao cho animator; `set_render_layers(mask)`. Hằng số trong `Global.ANIM` (nhịp chạy, biên độ, `blend`, hạ hông khi trượt).
+- Bot: `bot.gd` gọi `mannequin.animate` sau `move_and_slide`. Chưa có hoạt ảnh chém/bắn/choáng/chết (M7.3).
+- Người chơi: `player.gd` thêm `body_view` (hình nhân kind swordsman) ở render layer `BODY_LAYER`=2; camera cull_mask loại layer này nên không thấy thân mình nhưng vẫn có bóng. `_animate_body()` đẩy trạng thái xuống (slide/wallrun/grapple/dash qua `_dash_anim_t`). Quy ước `side`: +1 tường bên phải (= `_wall_side`).
+- Quy ước góc khớp: +x = vung về phía trước (-Z); +z của vai phải = dang ra ngoài.
+- Test: `tools/tests/test_animation.gd` (9 bộ test tổng cộng đều xanh). Ảnh: `docs/screenshots/m7_2_cac_tu_the.png`, script `tools/screenshots/shoot_poses.gd`.
+- Chưa kiểm bằng người: độ mượt khi chạy thật, tần số bước chân, biên độ; thân người chơi chỉ thấy qua bóng. Chỉnh ở `Global.ANIM`.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (8 bộ: test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (9 bộ: test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M7.2 (hoạt ảnh thân) → M7.3 (hoạt ảnh chiến đấu) → M7.4 (tay góc nhìn thứ nhất) → M8… Mỗi việc phải đề xuất + chờ duyệt.
+M7.3 (hoạt ảnh chiến đấu) → M7.4 (tay góc nhìn thứ nhất) → M8… Mỗi việc phải đề xuất + chờ duyệt.

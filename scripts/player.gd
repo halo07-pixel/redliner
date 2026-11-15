@@ -11,6 +11,7 @@ signal grapple_ended
 signal died
 
 enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE }
+const BODY_LAYER: int = 2 # render layer 2 (bit thứ hai): thân người chơi
 
 const STAND_HEIGHT: float = 1.8
 const SLIDE_HEIGHT: float = 0.9
@@ -42,6 +43,8 @@ var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
 var _shake: float = 0.0
 var _redline: bool = false
+var _dash_anim_t: float = 0.0
+var body_view: Node3D
 
 @onready var head: Node3D = $Head
 @onready var body_shape: CollisionShape3D = $Body
@@ -68,6 +71,13 @@ func _ready() -> void:
 	hurtbox.setup(Global.TEAM_PLAYER, Global.COMBAT["player_health"], parry)
 	combat.setup(self, head, melee, parry)
 	hurtbox.died.connect(_on_died)
+	# Thân người: ẩn với camera của chính mình (layer 2) nhưng vẫn đổ bóng.
+	body_view = load("res://scripts/mannequin.gd").new()
+	body_view.color = Color(0.8, 0.8, 0.85)
+	body_view.kind = "swordsman"
+	add_child(body_view)
+	body_view.set_render_layers(BODY_LAYER)
+	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
 	melee.swing_started.connect(sword_view.play_swing)
 	parry.parry_started.connect(sword_view.raise)
@@ -180,6 +190,7 @@ func _physics_process(delta: float) -> void:
 			_move_grapple(delta)
 
 	move_and_slide()
+	_animate_body(delta)
 
 	if not dead:
 		instability.tick(delta, horizontal_speed())
@@ -188,6 +199,23 @@ func _physics_process(delta: float) -> void:
 	if absf(speed - _last_speed) > 0.05:
 		_last_speed = speed
 		speed_changed.emit(speed)
+
+
+## Đẩy trạng thái xuống hình nhân (call down). Chỉ hiển thị, không ảnh hưởng vật lý.
+func _animate_body(delta: float) -> void:
+	_dash_anim_t = maxf(_dash_anim_t - delta, 0.0)
+	var name_s: String = ""
+	match state:
+		State.SLIDE:
+			name_s = "slide"
+		State.WALLRUN:
+			name_s = "wallrun"
+		State.GRAPPLE:
+			name_s = "grapple"
+		_:
+			if _dash_anim_t > 0.0:
+				name_s = "dash"
+	body_view.animate(delta, horizontal_speed(), is_on_floor(), velocity.y, name_s, _wall_side)
 
 
 func _wish_dir() -> Vector3:
@@ -236,6 +264,7 @@ func _try_dash() -> void:
 	dash_charges -= 1
 	_dash_cd = Global.PLAYER["dash_cooldown"]
 	_shake = maxf(_shake, 0.02)
+	_dash_anim_t = float(Global.ANIM["dash_time"])
 	dash_charges_changed.emit(dash_charges, max_c)
 
 

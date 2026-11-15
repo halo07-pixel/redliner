@@ -97,6 +97,20 @@ const RIG: Dictionary = {
 	"elite": {"shoulder": 1.4, "bulk": 1.3, "armor": 2, "weapon": "sword", "glow": true},
 }
 
+## Hoạt ảnh thân (M7.2). Góc tính bằng độ; +x của khớp = vung về phía trước (-Z).
+const ANIM: Dictionary = {
+	"stride_rate": 1.3,      # rad pha chạy trên mỗi mét đi được
+	"run_min_speed": 0.6,    # dưới ngưỡng này coi là đứng yên
+	"leg_swing": 45.0,
+	"knee_bend": 70.0,
+	"arm_swing": 40.0,
+	"lean_per_speed": 0.8,   # độ nghiêng thân mỗi m/s
+	"lean_max": 12.0,
+	"blend": 10.0,           # tốc độ pha trộn tư thế (lớn = nhanh)
+	"dash_time": 0.3,        # thời gian giữ tư thế dash
+	"slide_drop": 0.38,      # hạ hông khi trượt (m)
+}
+
 ## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
 ## parry thành công; đầy thì vào Redline: sát thương tăng, dash hồi nhanh hơn, thanh cạn dần.
 const INSTABILITY: Dictionary = {
