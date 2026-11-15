@@ -89,6 +89,52 @@ func _run() -> void:
 		m3.animate(1.0 / 60.0, 0.0, true, 0.0)
 	_check(m3.get_joint("hips").position.y > 0.9, "về idle: hông trở lại độ cao đứng")
 
+	# --- M7.5: chu kỳ chạy chi tiết, đứng yên có sức sống, lò xo ổn định
+	var run_p: Dictionary = an.target_pose("run", PI * 0.5, 7.0, 0.0, 1.0, 0.0)
+	var run_q: Dictionary = an.target_pose("run", PI * 0.5 + PI * 0.5, 7.0, 0.0, 1.0, 0.0)
+	_check(run_p["hips"].y * run_p["spine"].y < 0.0, "chạy: thân xoay ngược chiều hông")
+	_check(absf(run_p["head"].y + run_p["spine"].y + run_p["hips"].y) < 0.01, "chạy: đầu giữ thẳng hướng nhìn (bù xoay thân)")
+	var bob_lo: float = 0.0
+	var bob_hi: float = -1.0
+	for i in 64:
+		var bp: Dictionary = an.target_pose("run", TAU * i / 64.0, 7.0, 0.0, 1.0, 0.0)
+		bob_lo = minf(bob_lo, bp["hips_y"].x)
+		bob_hi = maxf(bob_hi, bp["hips_y"].x)
+	_check(bob_hi - bob_lo > 0.02 and bob_hi <= 0.0, "chạy: hông nhún %.3f m theo bước" % (bob_hi - bob_lo))
+	_check(run_p["ankle_l"].x * run_p["ankle_r"].x <= 0.0, "chạy: hai bàn chân lật ngược pha")
+	var sw_a: float = an.target_pose("run", 0.5 * PI, 7.0, 0.0, 1.0, 0.0)["hips_y"].x
+	var sw_b: float = an.target_pose("run", 1.0 * PI, 7.0, 0.0, 1.0, 0.0)["hips_y"].x
+	_check(absf(sw_a - sw_b) > 0.005, "chạy: hông nhún lên xuống giữa hai pha")
+	var idle_a: Dictionary = an.target_pose("idle", 0.0, 0.0, 0.0, 1.0, 1.0)
+	var idle_b: Dictionary = an.target_pose("idle", 0.0, 0.0, 0.0, 1.0, 5.0)
+	_check(idle_a["spine"] != idle_b["spine"] and idle_a["hips"] != idle_b["hips"], "đứng yên: thở và đổi trọng tâm theo thời gian")
+	var looked: bool = false
+	for i in 200:
+		var ip: Dictionary = an.target_pose("idle", 0.0, 0.0, 0.0, 1.0, i * 0.1)
+		if absf(ip["head"].y) > 5.0:
+			looked = true
+	_check(looked, "đứng yên: thỉnh thoảng quay đầu nhìn quanh")
+	var spr: Node3D = _make("swordsman")
+	await process_frame
+	spr.animate(0.5, 7.0, true, 0.0, "slide") # frame rất chậm: lò xo vẫn ổn định
+	var finite: bool = true
+	for jn in spr.JOINT_NAMES:
+		var r: Vector3 = spr.get_joint(jn).rotation_degrees
+		if not (is_finite(r.x) and is_finite(r.y) and is_finite(r.z)) or r.length() > 400.0:
+			finite = false
+	_check(finite, "frame chậm 0.5s: lò xo khớp không nổ")
+	var overshoot: bool = false
+	var sp2: Node3D = _make("swordsman")
+	await process_frame
+	var prev: float = 0.0
+	for i in 90:
+		sp2.animate(1.0 / 60.0, 8.0, true, 0.0, "slide")
+		var v: float = sp2.get_joint("knee_r").rotation_degrees.x
+		if v < -95.0 - 0.2:
+			overshoot = true
+		prev = v
+	_check(absf(prev - (-95.0)) < 2.0, "tư thế trượt: khớp hội tụ về tư thế đích (%.1f)" % prev)
+
 	# Bot
 	var b = load("res://scripts/bot.gd").new()
 	b.setup("swordsman", 1)

@@ -10,6 +10,12 @@ var anim_state: String = "idle"
 var phase: float = 0.0
 var _t: float = 0.0
 var _hips_base_y: float = 0.0
+var _rot: Dictionary = {}    # khớp -> góc hiện tại (độ), do lò xo điều khiển
+var _vel: Dictionary = {}
+var _hy: float = 0.0         # độ lệch hông theo Y, Z (m) và vận tốc lò xo
+var _hyv: float = 0.0
+var _hz: float = 0.0
+var _hzv: float = 0.0
 # Overlay chiến đấu: {name, t, dur, data, prio, hold}. Chỉ điều khiển một số khớp, còn lại giữ hoạt ảnh nền.
 var overlay: Dictionary = {}
 
@@ -19,6 +25,9 @@ const OVERLAY_PRIO: Dictionary = {"swing": 1, "shoot": 1, "parry": 1, "parry_mis
 func setup(p_mannequin: Node3D) -> void:
 	mannequin = p_mannequin
 	_hips_base_y = mannequin.get_joint("hips").position.y
+	for jn in mannequin.JOINT_NAMES:
+		_rot[jn] = mannequin.get_joint(jn).rotation_degrees
+		_vel[jn] = Vector3.ZERO
 
 
 ## Chọn trạng thái hoạt ảnh. state_name: "" (bình thường) | "slide" | "dash" | "wallrun" | "grapple".
@@ -40,20 +49,31 @@ func target_pose(st: String, p_phase: float, speed: float, vel_y: float, side: f
 	var lean: float = -minf(speed * float(A["lean_per_speed"]), float(A["lean_max"]))
 	match st:
 		"idle":
-			pose["spine"] = Vector3(sin(t * 1.6) * 1.2, 0.0, 0.0)
-			pose["shoulder_l"] = Vector3(0.0, 0.0, -4.0)
-			pose["shoulder_r"] = Vector3(0.0, 0.0, 4.0)
+			var look: float = float(A["idle_look"]) * sin(t * 0.37) * maxf(0.0, sin(t * 0.9)) # thỉnh thoảng quay đầu nhìn quanh
+			pose["spine"] = Vector3(sin(t * 1.6) * 1.2, 0.0, 0.0)                         # thở
+			pose["hips"] = Vector3(0.0, 0.0, sin(t * 0.6) * 2.2)                           # đổi trọng tâm
+			pose["hip_l"] = Vector3(sin(t * 0.6) * 2.5, 0.0, 0.0)
+			pose["hip_r"] = Vector3(-sin(t * 0.6) * 2.5, 0.0, 0.0)
+			pose["head"] = Vector3(0.0, look, 0.0)
+			pose["shoulder_l"] = Vector3(0.0, 0.0, -4.0 + sin(t * 1.6) * 0.8)
+			pose["shoulder_r"] = Vector3(0.0, 0.0, 4.0 - sin(t * 1.6) * 0.8)
 		"run", "wallrun":
 			var k: float = 1.0 if st == "run" else 1.15
 			var ls: float = float(A["leg_swing"]) * k
-			pose["spine"] = Vector3(lean, 0.0, side * 14.0 if st == "wallrun" else 0.0)
+			var hip_y: float = -float(A["hip_twist"]) * swing                             # hông xoay: chân trái tiến -> hông trái tiến
+			var sp_y: float = float(A["spine_twist"]) * swing                              # vai xoay ngược hông
+			pose["hips"] = Vector3(0.0, hip_y, 0.0)
+			pose["spine"] = Vector3(lean, sp_y, side * 14.0 if st == "wallrun" else 0.0)
+			pose["hips_y"] = Vector3(-float(A["hip_bob"]) * (0.5 + 0.5 * cos(2.0 * p_phase)), 0.0, 0.0)  # nhún theo từng bước
 			pose["hip_l"] = Vector3(ls * swing, 0.0, 0.0)
 			pose["hip_r"] = Vector3(-ls * swing, 0.0, 0.0)
 			pose["knee_l"] = Vector3(-float(A["knee_bend"]) * (0.5 - 0.5 * cos(p_phase + 1.0)) * k, 0.0, 0.0)
 			pose["knee_r"] = Vector3(-float(A["knee_bend"]) * (0.5 - 0.5 * cos(p_phase + 1.0 + PI)) * k, 0.0, 0.0)
+			pose["ankle_l"] = Vector3(15.0 * maxf(0.0, swing) - 20.0 * maxf(0.0, -swing), 0.0, 0.0)   # gót chạm rồi đẩy mũi chân
+			pose["ankle_r"] = Vector3(15.0 * maxf(0.0, -swing) - 20.0 * maxf(0.0, swing), 0.0, 0.0)
 			pose["shoulder_l"] = Vector3(-float(A["arm_swing"]) * swing, 0.0, -5.0)
-			pose["elbow_l"] = Vector3(40.0, 0.0, 0.0)
-			pose["head"] = Vector3(-lean * 0.5, 0.0, 0.0)
+			pose["elbow_l"] = Vector3(45.0 + 15.0 * sin(p_phase + 0.6), 0.0, 0.0)
+			pose["head"] = Vector3(-lean * 0.5, -(sp_y + hip_y), 0.0)                       # đầu giữ hướng nhìn
 			if st == "wallrun":
 				pose["shoulder_" + ("r" if side > 0.0 else "l")] = Vector3(-30.0, 0.0, side * 70.0)
 		"air":
@@ -158,16 +178,30 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 				o["shoulder_r"] = Vector3(lerpf(-15.0, 150.0, k), 0.0, 0.0)
 				o["elbow_r"] = Vector3(lerpf(60.0, 80.0, k), 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(0.0, 8.0, k), lerpf(0.0, 28.0, k), 0.0)
+				o["+hips_y"] = Vector3(-float(Global.ANIM["anticip_drop"]) * k, 0.0, 0.0)           # hạ người dồn lực
+				o["+hip_l"] = Vector3(22.0 * k, 0.0, 0.0)
+				o["+knee_l"] = Vector3(-30.0 * k, 0.0, 0.0)
+				o["+knee_r"] = Vector3(-22.0 * k, 0.0, 0.0)
 			elif t < wu + ac: # chém xuống/ngang qua người
 				var k2: float = _ease((t - wu) / maxf(ac, 0.001))
 				o["shoulder_r"] = Vector3(lerpf(150.0, -20.0, k2), 0.0, 0.0)
 				o["elbow_r"] = Vector3(lerpf(80.0, 20.0, k2), 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(8.0, -20.0, k2), lerpf(28.0, -38.0, k2), 0.0)
+				o["+hips_y"] = Vector3(lerpf(-float(Global.ANIM["anticip_drop"]), -0.05, k2), 0.0, 0.0)
+				o["hips_z"] = Vector3(-float(Global.ANIM["lunge"]) * k2, 0.0, 0.0)                  # lao tới khi chém
+				o["+hip_l"] = Vector3(lerpf(22.0, 45.0, k2), 0.0, 0.0)
+				o["+knee_l"] = Vector3(lerpf(-30.0, -20.0, k2), 0.0, 0.0)
+				o["+knee_r"] = Vector3(lerpf(-22.0, -10.0, k2), 0.0, 0.0)
 			else:           # thu về
 				var k3: float = _ease((t - wu - ac) / maxf(rc, 0.001))
 				o["shoulder_r"] = Vector3(lerpf(-20.0, -15.0, k3), 0.0, 0.0)
 				o["elbow_r"] = Vector3(lerpf(20.0, 60.0, k3), 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(-20.0, 0.0, k3), lerpf(-38.0, 0.0, k3), 0.0)
+				o["+hips_y"] = Vector3(lerpf(-0.05, 0.0, k3), 0.0, 0.0)
+				o["hips_z"] = Vector3(-float(Global.ANIM["lunge"]) * (1.0 - k3), 0.0, 0.0)
+				o["+hip_l"] = Vector3(lerpf(45.0, 0.0, k3), 0.0, 0.0)
+				o["+knee_l"] = Vector3(lerpf(-20.0, 0.0, k3), 0.0, 0.0)
+				o["+knee_r"] = Vector3(lerpf(-10.0, 0.0, k3), 0.0, 0.0)
 		"shoot":
 			var kick: float = (1.0 - p) * (1.0 - p)
 			o["shoulder_r"] = Vector3(-70.0 + 16.0 * kick, 0.0, 0.0)
@@ -188,16 +222,22 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 			o["spine"] = Vector3(22.0 * env * signf(d.z if absf(d.z) > 0.01 else 1.0), 0.0, -14.0 * env * clampf(d.x, -1.0, 1.0))
 			o["head"] = Vector3(14.0 * env, 0.0, 0.0)
 			o["shoulder_l"] = Vector3(-25.0 * env, 0.0, -20.0 * env)
+			o["+knee_l"] = Vector3(-18.0 * env, 0.0, 0.0)                                         # khuỵu gối
+			o["+knee_r"] = Vector3(-12.0 * env, 0.0, 0.0)
+			o["+hips_y"] = Vector3(-0.06 * env, 0.0, 0.0)
 		"stagger":  # choáng: cúi đầu, tay buông, lắc nhẹ
 			o["spine"] = Vector3(-24.0, 0.0, sin(t * 9.0) * 5.0)
 			o["head"] = Vector3(-28.0, 0.0, sin(t * 7.0) * 6.0)
 			o["shoulder_l"] = Vector3(8.0, 0.0, -6.0)
 			o["shoulder_r"] = Vector3(8.0, 0.0, 6.0)
 			o["elbow_r"] = Vector3(10.0, 0.0, 0.0)
+			o["+hips_y"] = Vector3(-0.05, 0.0, 0.0)
+			o["+knee_l"] = Vector3(-16.0 + sin(t * 8.0) * 5.0, 0.0, 0.0)
+			o["+knee_r"] = Vector3(-16.0 - sin(t * 8.0) * 5.0, 0.0, 0.0)
 		"die":      # ngã ngửa ra sau, hông hạ xuống đất
 			var k4: float = _ease(p)
 			o["hips"] = Vector3(88.0 * k4, 0.0, 0.0)
-			o["hips_y"] = Vector3(-0.72 * k4, 0.0, 0.0)
+			o["hips_y"] = Vector3(-0.72 * k4 + 0.035 * sin(PI * clampf((p - 0.8) / 0.2, 0.0, 1.0)), 0.0, 0.0) # nảy nhẹ khi chạm đất
 			o["spine"] = Vector3(-8.0 * k4, 0.0, 0.0)
 			o["head"] = Vector3(-10.0 * k4, 0.0, 0.0)
 			o["shoulder_l"] = Vector3(20.0 * k4, 0.0, -50.0 * k4)
@@ -224,13 +264,34 @@ func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name
 			var w: float = overlay_weight()
 			var op: Dictionary = overlay_pose(overlay["name"], overlay["t"], overlay["dur"], overlay["data"])
 			for key in op:
-				var base: Vector3 = pose.get(key, Vector3.ZERO)
-				pose[key] = base.lerp(op[key], w)
-	var f: float = 1.0 - exp(-float(Global.ANIM["blend"]) * delta)
+				var kk: String = key
+				if kk.begins_with("+"): # cộng thêm lên hoạt ảnh nền (vd. hạ người khi chém nhưng chân vẫn chạy)
+					kk = kk.substr(1)
+					pose[kk] = pose.get(kk, Vector3.ZERO) + (op[key] as Vector3) * w
+				else:
+					pose[kk] = (pose.get(kk, Vector3.ZERO) as Vector3).lerp(op[key], w)
+	# Lò xo cho từng khớp: chuyển tư thế có quán tính, đuổi theo tư thế đích và nảy nhẹ khi dừng.
+	var k: float = float(Global.ANIM["joint_k"])
+	var c: float = float(Global.ANIM["joint_c"])
+	var n: int = maxi(1, ceili(delta / (1.0 / 120.0)))
+	var h: float = delta / float(n)
 	for jn in mannequin.JOINT_NAMES:
-		var j: Node3D = mannequin.get_joint(jn)
 		var tgt: Vector3 = pose.get(jn, Vector3.ZERO)
-		j.rotation_degrees = j.rotation_degrees.lerp(tgt, f)
+		var x: Vector3 = _rot[jn]
+		var v: Vector3 = _vel[jn]
+		for i in n:
+			v += ((tgt - x) * k - v * c) * h
+			x += v * h
+		_rot[jn] = x
+		_vel[jn] = v
+		mannequin.get_joint(jn).rotation_degrees = x
+	var ty: float = (pose["hips_y"] as Vector3).x if pose.has("hips_y") else 0.0
+	var tz: float = (pose["hips_z"] as Vector3).x if pose.has("hips_z") else 0.0
+	for i in n:
+		_hyv += ((ty - _hy) * k - _hyv * c) * h
+		_hy += _hyv * h
+		_hzv += ((tz - _hz) * k - _hzv * c) * h
+		_hz += _hzv * h
 	var hips: Node3D = mannequin.get_joint("hips")
-	var dy: float = (pose["hips_y"] as Vector3).x if pose.has("hips_y") else 0.0
-	hips.position.y = lerpf(hips.position.y, _hips_base_y + dy, f)
+	hips.position.y = _hips_base_y + _hy
+	hips.position.z = _hz
