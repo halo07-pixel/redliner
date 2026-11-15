@@ -51,7 +51,7 @@ var body_view: Node3D
 @onready var rope: Node3D = $Head/Rope
 @onready var camera: Camera3D = $Head/Camera
 @onready var melee: Node3D = $Head/Melee
-@onready var sword_view: Node3D = $Head/SwordView
+@onready var viewmodel: Node3D = $Head/ViewModel
 @onready var hurtbox: Area3D = $Hurtbox
 @onready var parry: Node = $Parry
 @onready var combat: Node = $Combat
@@ -79,7 +79,10 @@ func _ready() -> void:
 	body_view.set_render_layers(BODY_LAYER)
 	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
-	melee.swing_started.connect(sword_view.play_swing)
+	melee.swing_started.connect(viewmodel.play_swing)
+	combat.shot_fired.connect(func(_f, _t): viewmodel.kick())
+	combat.reloading_changed.connect(viewmodel.set_reloading)
+	hurtbox.hurt.connect(func(h, _left): viewmodel.flinch(camera.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))))
 	# Hoạt ảnh thân chiến đấu (chỉ thấy qua bóng): nghe Signal, không ảnh hưởng logic.
 	melee.swing_started.connect(func(w, a, r): body_view.play("swing", w + a + r, {"windup": w, "active": a, "recovery": r}))
 	melee.staggered.connect(func(d): body_view.play("stagger", d))
@@ -87,7 +90,7 @@ func _ready() -> void:
 	parry.parry_missed.connect(func(): body_view.play("parry_miss", float(Global.ANIM["parry_miss_time"])))
 	hurtbox.hurt.connect(func(h, _left): body_view.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": body_view.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))}))
 	combat.shot_fired.connect(func(_f, _t): body_view.play("shoot", float(Global.ANIM["shoot_time"])))
-	parry.parry_started.connect(sword_view.raise)
+	parry.parry_started.connect(viewmodel.raise)
 	# Instability: tích khi đánh trúng / parry, mất khi bị đánh; Redline tăng sát thương
 	melee.hit_landed.connect(func(_hb, landed): if landed: instability.add(Global.INSTABILITY["hit_gain"]))
 	parry.parried.connect(func(_h): instability.add(Global.INSTABILITY["parry_gain"]))
@@ -101,6 +104,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		rotate_y(-event.relative.x * sens)
 		_pitch = clampf(_pitch - event.relative.y * sens, -PI * 0.49, PI * 0.49)
 		head.rotation.x = _pitch
+		viewmodel.add_look(event.relative)
 
 
 func _process(delta: float) -> void:
@@ -114,6 +118,7 @@ func _process(delta: float) -> void:
 	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, 6.0 * delta))
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
+	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name())
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
 	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
 
@@ -157,6 +162,7 @@ func respawn(pos: Vector3) -> void:
 	velocity = Vector3.ZERO
 	_set_state(State.NORMAL)
 	body_view.clear_overlay()
+	viewmodel.reset()
 
 
 func _on_redline(active: bool) -> void:
@@ -213,18 +219,19 @@ func _physics_process(delta: float) -> void:
 ## Đẩy trạng thái xuống hình nhân (call down). Chỉ hiển thị, không ảnh hưởng vật lý.
 func _animate_body(delta: float) -> void:
 	_dash_anim_t = maxf(_dash_anim_t - delta, 0.0)
-	var name_s: String = ""
+	body_view.animate(delta, horizontal_speed(), is_on_floor(), velocity.y, _anim_state_name(), _wall_side)
+
+
+## Tên trạng thái dùng chung cho hoạt ảnh thân và viewmodel: "" | slide | wallrun | grapple | dash.
+func _anim_state_name() -> String:
 	match state:
 		State.SLIDE:
-			name_s = "slide"
+			return "slide"
 		State.WALLRUN:
-			name_s = "wallrun"
+			return "wallrun"
 		State.GRAPPLE:
-			name_s = "grapple"
-		_:
-			if _dash_anim_t > 0.0:
-				name_s = "dash"
-	body_view.animate(delta, horizontal_speed(), is_on_floor(), velocity.y, name_s, _wall_side)
+			return "grapple"
+	return "dash" if _dash_anim_t > 0.0 else ""
 
 
 func _wish_dir() -> Vector3:
