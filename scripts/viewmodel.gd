@@ -1,8 +1,23 @@
 extends Node3D
 ## Tay + vũ khí góc nhìn thứ nhất (con của Head). Chỉ là hiển thị, không ảnh hưởng vật lý.
-## Lớp nền (`update`): nhún khi chạy, lắc theo chuột, tư thế theo trạng thái, nảy khi tiếp đất.
+## Lớp nền (`update`): nhún khi chạy, lắc theo chuột, tư thế theo trạng thái, nảy khi tiếp đất; các
+## chuyển động này đi qua LÒ XO nên có quán tính và nảy nhẹ khi hồi về.
 ## Lớp chiến đấu: kiếm (`play_swing`, `raise`), súng (`kick`, `set_reloading`), giật khi bị đánh (`flinch`).
 ## Chủ nhân (player) nối Signal của component tới các hàm này ("signal up").
+
+
+## Lò xo 3 chiều: kéo `x` về `target`. Bước nhỏ cố định để ổn định khi frame chậm.
+class Spring extends RefCounted:
+	var x: Vector3 = Vector3.ZERO
+	var v: Vector3 = Vector3.ZERO
+
+	func step(dt: float, target: Vector3, k: float, c: float) -> void:
+		var n: int = maxi(1, ceili(dt / (1.0 / 120.0)))
+		var h: float = dt / float(n)
+		for i in n:
+			v += ((target - x) * k - v * c) * h
+			x += v * h
+
 
 var sword_pivot: Node3D
 var gun_pivot: Node3D
@@ -13,12 +28,9 @@ var state_name: String = ""
 var reloading: bool = false
 
 var _bob_phase: float = 0.0
-var _sway: Vector2 = Vector2.ZERO        # độ (pitch, yaw) trễ theo chuột
-var _state_pos: Vector3 = Vector3.ZERO
-var _state_rot: Vector3 = Vector3.ZERO
-var _land: float = 0.0
+var _pos_spring := Spring.new()          # độ lệch vị trí (m): tư thế trạng thái + tiếp đất + giật
+var _rot_spring := Spring.new()          # độ lệch xoay (độ: pitch, yaw, roll): lắc chuột + tư thế trạng thái
 var _was_grounded: bool = true
-var _flinch: Vector3 = Vector3.ZERO
 var _sword_tween: Tween
 var _gun_tween: Tween
 var _sword_rest: Vector3 = Vector3(-15.0, 10.0, -25.0)
@@ -30,27 +42,42 @@ func _ready() -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	var sleeve := _mat(V["sleeve"], 0.1, 0.8)
 	var glove := _mat(V["glove"], 0.0, 0.9)
-	var steel := _mat(Color(0.85, 0.9, 1.0), 0.7, 0.3)
-	var dark := _mat(Color(0.15, 0.15, 0.18), 0.5, 0.5)
+	var steel := _mat(V["steel"], 0.8, 0.25)
+	var steel_dark := _mat(Color(V["steel"]).darkened(0.35), 0.8, 0.3)
+	var metal := _mat(V["gun_metal"], 0.6, 0.4)
+	var metal_light := _mat(Color(V["gun_metal"]).lightened(0.18), 0.7, 0.35)
+	var gold := _mat(Color(0.8, 0.65, 0.25), 0.8, 0.3)
 
+	# ---- Kiếm (gốc = bàn tay cầm chuôi, lưỡi chỉ về -Z) ----
 	sword_pivot = _node("SwordPivot", self, V["sword_pos"])
 	sword_pivot.rotation_degrees = _sword_rest
-	_mesh(sword_pivot, _box(Vector3(0.07, 0.07, 0.95)), Vector3(0.0, 0.0, -0.45), steel)
-	_mesh(sword_pivot, _box(Vector3(0.1, 0.1, 0.1)), Vector3(0.0, 0.0, 0.1), glove)       # bàn tay cầm chuôi
-	_arm(sword_pivot, Vector3(0.12, -0.14, 0.62), Vector3(0.0, 0.0, 0.08), sleeve)
+	_part(sword_pivot, Vector3(0.036, 0.036, 0.2), Vector3(0.0, 0.0, 0.0), metal)             # chuôi
+	_part(sword_pivot, Vector3(0.042, 0.042, 0.03), Vector3(0.0, 0.0, 0.1), gold)           # đầu chuôi
+	_part(sword_pivot, Vector3(0.14, 0.03, 0.03), Vector3(0.0, 0.0, -0.115), gold)            # tsuba (chắn tay)
+	_part(sword_pivot, Vector3(0.016, 0.058, 0.86), Vector3(0.0, 0.0, -0.57), steel)          # lưỡi
+	_part(sword_pivot, Vector3(0.022, 0.014, 0.82), Vector3(0.0, 0.032, -0.56), steel_dark)   # sống lưỡi
+	_part(sword_pivot, Vector3(0.016, 0.058, 0.06), Vector3(0.0, 0.0, -1.03), steel, Vector3(0.0, 0.0, 0.0)) # mũi
+	_hand(sword_pivot, Vector3(0.0, 0.0, 0.0), glove, true)
+	_arm(sword_pivot, Vector3(0.12, -0.52, 0.42), Vector3(0.0, -0.02, 0.09), sleeve)
 
+	# ---- Súng lục (gốc = bàn tay cầm báng, nòng chỉ về -Z) ----
 	gun_pivot = _node("GunPivot", self, V["gun_pos"])
 	_gun_rest_pos = gun_pivot.position
-	_mesh(gun_pivot, _box(Vector3(0.12, 0.14, 0.4)), Vector3.ZERO, dark)
-	_mesh(gun_pivot, _box(Vector3(0.1, 0.1, 0.1)), Vector3(0.0, -0.1, 0.1), glove)        # bàn tay cầm báng
-	_arm(gun_pivot, Vector3(-0.1, -0.16, 0.62), Vector3(0.0, -0.1, 0.1), sleeve)
+	_part(gun_pivot, Vector3(0.05, 0.04, 0.2), Vector3(0.0, 0.0, -0.08), metal)               # khung
+	_part(gun_pivot, Vector3(0.056, 0.05, 0.27), Vector3(0.0, 0.045, -0.1), metal_light)      # thân trượt
+	_part(gun_pivot, Vector3(0.026, 0.026, 0.09), Vector3(0.0, 0.048, -0.275), metal)         # nòng
+	_part(gun_pivot, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
+	_part(gun_pivot, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
+	_part(gun_pivot, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
+	_hand(gun_pivot, Vector3(0.0, -0.06, 0.02), glove, false)
+	_arm(gun_pivot, Vector3(-0.1, -0.55, 0.38), Vector3(0.0, -0.1, 0.07), sleeve)
 	var fm := StandardMaterial3D.new()
 	fm.albedo_color = Color(1.0, 0.85, 0.4)
 	fm.emission_enabled = true
 	fm.emission = Color(1.0, 0.8, 0.3)
 	fm.emission_energy_multiplier = 4.0
 	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	muzzle_flash = _mesh(gun_pivot, _box(Vector3(0.1, 0.1, 0.12)), Vector3(0.0, 0.0, -0.3), fm)
+	muzzle_flash = _part(gun_pivot, Vector3(0.09, 0.09, 0.1), Vector3(0.0, 0.048, -0.36), fm)
 	muzzle_flash.visible = false
 
 
@@ -76,21 +103,32 @@ func _box(size: Vector3) -> BoxMesh:
 	return b
 
 
-func _mesh(parent: Node3D, mesh: Mesh, pos: Vector3, mat: Material) -> MeshInstance3D:
+## Một khối: không đổ bóng (thân người chơi đã có bóng riêng).
+func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, rot_deg: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
+	mi.mesh = _box(size)
 	mi.material_override = mat
 	mi.position = pos
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # thân người chơi đã có bóng riêng
+	mi.rotation_degrees = rot_deg
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
 	return mi
 
 
-## Cánh tay: hộp dài nối từ `from` (ngoài màn hình, phía sau) tới bàn tay `to`, đi theo vũ khí.
+## Bàn tay bằng khối: lòng bàn tay + 4 ngón quấn quanh vật cầm + ngón cái.
+func _hand(parent: Node3D, at: Vector3, mat: Material, grip_thick: bool) -> void:
+	var w: float = 0.075 if grip_thick else 0.07
+	_part(parent, Vector3(w, 0.085, 0.08), at + Vector3(0.0, 0.0, 0.025), mat)               # lòng bàn tay
+	for i in 4:
+		_part(parent, Vector3(w + 0.012, 0.02, 0.026), at + Vector3(0.0, 0.03 - 0.021 * i, -0.03), mat)  # ngón tay
+	_part(parent, Vector3(0.026, 0.03, 0.06), at + Vector3(-0.045, 0.02, -0.01), mat, Vector3(0.0, 15.0, 0.0)) # ngón cái
+
+
+## Cánh tay: hộp dài nối từ `from` (ngoài màn hình, phía sau) tới cổ tay `to`, đi theo vũ khí.
 func _arm(parent: Node3D, from: Vector3, to: Vector3, mat: Material) -> void:
 	var length: float = from.distance_to(to)
 	var arm := MeshInstance3D.new()
-	arm.mesh = _box(Vector3(0.09, 0.09, length))
+	arm.mesh = _box(Vector3(0.085, 0.075, length))
 	arm.material_override = mat
 	arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(arm)
@@ -100,12 +138,12 @@ func _arm(parent: Node3D, from: Vector3, to: Vector3, mat: Material) -> void:
 
 # ------------------------------------------------------------------ lớp nền
 
-## Chuột xoay: vũ khí trễ lại một chút rồi hồi về (relative = Vector2 pixel).
+## Chuột xoay: vũ khí bị "hất" lệch rồi lò xo kéo về (có nảy nhẹ). relative = Vector2 pixel.
 func add_look(relative: Vector2) -> void:
 	var V: Dictionary = Global.VIEWMODEL
-	var m: float = float(V["sway_max"])
-	_sway.x = clampf(_sway.x + relative.y * float(V["sway_per_pixel"]), -m, m)
-	_sway.y = clampf(_sway.y + relative.x * float(V["sway_per_pixel"]), -m, m)
+	var imp: float = float(V["sway_impulse"])
+	_rot_spring.v.x += relative.y * imp
+	_rot_spring.v.y += relative.x * imp
 
 
 ## Gọi mỗi frame hiển thị. st: "" | "slide" | "dash" | "wallrun" | "grapple" (cùng quy ước hoạt ảnh thân).
@@ -116,15 +154,11 @@ func update(delta: float, speed: float, grounded: bool, st: String = "") -> void
 	var amp: float = clampf(speed / float(V["bob_speed_ref"]), 0.0, 1.5) if grounded else 0.0
 	_bob_phase = fmod(_bob_phase + speed * delta * float(V["bob_freq"]) * TAU, TAU * 100.0)
 	bob_offset = Vector3(cos(_bob_phase * 0.5) * float(V["bob_side"]) * amp, absf(sin(_bob_phase * 0.5)) * float(V["bob_amp"]) * amp * -1.0, 0.0)
-	# Tiếp đất: nảy xuống rồi hồi.
+	# Tiếp đất: đẩy một xung xuống, lò xo nảy lại.
 	if grounded and not _was_grounded:
-		_land = float(V["land_dip"])
+		_pos_spring.v.y -= float(V["land_impulse"])
 	_was_grounded = grounded
-	_land = lerpf(_land, 0.0, minf(1.0, float(V["land_recover"]) * delta))
-	# Trễ theo chuột hồi về 0.
-	_sway = _sway.lerp(Vector2.ZERO, minf(1.0, float(V["sway_recover"]) * delta))
-	_flinch = _flinch.lerp(Vector3.ZERO, minf(1.0, float(V["flinch_recover"]) * delta))
-	# Tư thế theo trạng thái (pha trộn mượt).
+	# Tư thế đích theo trạng thái; lò xo tự làm mượt việc chuyển tư thế.
 	var tp: Vector3 = Vector3.ZERO
 	var tr: Vector3 = Vector3.ZERO
 	match st:
@@ -136,15 +170,16 @@ func update(delta: float, speed: float, grounded: bool, st: String = "") -> void
 			tr = Vector3(-6.0, 0.0, 0.0)
 		"wallrun":
 			tr = Vector3(0.0, 0.0, 8.0)
-		"grapple":
-			tp = Vector3(0.0, 0.0, 0.0)
-	var f: float = minf(1.0, float(V["state_blend"]) * delta)
-	_state_pos = _state_pos.lerp(tp, f)
-	_state_rot = _state_rot.lerp(tr, f)
-	position = bob_offset + _state_pos + Vector3(0.0, -_land, 0.0) + _flinch
-	rotation_degrees = Vector3(_sway.x, _sway.y, 0.0) + _state_rot
-	# Đu móc: tay trái (súng) giơ lên trừ khi đang nạp đạn.
+	_pos_spring.step(delta, tp, float(V["spring_k"]), float(V["spring_c"]))
+	_rot_spring.step(delta, tr, float(V["rot_spring_k"]), float(V["rot_spring_c"]))
+	var m: float = float(V["sway_max"])
+	_rot_spring.x.x = clampf(_rot_spring.x.x, tr.x - m, tr.x + m)
+	_rot_spring.x.y = clampf(_rot_spring.x.y, tr.y - m, tr.y + m)
+	position = bob_offset + _pos_spring.x
+	rotation_degrees = _rot_spring.x
+	# Đu móc: tay trái (súng) giơ lên trừ khi đang nạp/bắn.
 	if not reloading and (_gun_tween == null or not _gun_tween.is_valid()):
+		var f: float = minf(1.0, float(V["state_blend"]) * delta)
 		var up: Vector3 = _gun_rest_pos + (Vector3(0.05, 0.22, -0.08) if st == "grapple" else Vector3.ZERO)
 		gun_pivot.position = gun_pivot.position.lerp(up, f)
 	# Chớp nòng tắt sau flash_time.
@@ -223,10 +258,10 @@ func _gun_restart() -> void:
 	_gun_tween = create_tween()
 
 
-## Bị đánh: cả viewmodel giật lùi theo hướng đòn (direction theo hệ tọa độ camera).
+## Bị đánh: cả viewmodel bị đẩy lùi theo hướng đòn (direction theo hệ tọa độ camera), lò xo kéo về.
 func flinch(direction: Vector3) -> void:
-	var f: float = float(Global.VIEWMODEL["flinch_pos"])
-	_flinch = Vector3(clampf(direction.x, -1.0, 1.0) * f, -f * 0.5, f)
+	var f: float = float(Global.VIEWMODEL["flinch_impulse"])
+	_pos_spring.v += Vector3(clampf(direction.x, -1.0, 1.0) * f * 0.7, -f * 0.35, f)
 
 
 ## Hồi sinh: xóa mọi hiệu ứng đang chạy, về tư thế nghỉ.
@@ -235,8 +270,8 @@ func reset() -> void:
 		if t != null and t.is_valid():
 			t.kill()
 	reloading = false
-	_flinch = Vector3.ZERO
-	_land = 0.0
+	_pos_spring = Spring.new()
+	_rot_spring = Spring.new()
 	sword_pivot.rotation_degrees = _sword_rest
 	gun_pivot.position = _gun_rest_pos
 	gun_pivot.rotation_degrees = Vector3.ZERO

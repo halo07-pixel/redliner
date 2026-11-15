@@ -121,28 +121,32 @@ const ANIM: Dictionary = {
 
 ## Tay + vũ khí góc nhìn thứ nhất (M7.4). Chỉ là hiển thị, không ảnh hưởng vật lý. Vị trí tính theo mét, góc theo độ.
 const VIEWMODEL: Dictionary = {
-	"sword_pos": Vector3(0.38, -0.3, -0.5),
-	"gun_pos": Vector3(-0.32, -0.28, -0.55),
+	"sword_pos": Vector3(0.34, -0.27, -0.5),
+	"gun_pos": Vector3(-0.3, -0.26, -0.5),
 	"bob_freq": 0.55,          # rad pha bước trên mỗi mét đi được
 	"bob_amp": 0.014,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
 	"bob_side": 0.009,
 	"bob_speed_ref": 10.0,
-	"sway_per_pixel": 0.06,    # độ xoay trễ mỗi pixel chuột
-	"sway_max": 5.0,
-	"sway_recover": 9.0,
+	# Lò xo (đàn hồi, hồi về có nảy nhẹ): k = độ cứng, c = giảm chấn (c < 2*sqrt(k) thì có nảy).
+	"spring_k": 140.0,
+	"spring_c": 13.0,
+	"rot_spring_k": 110.0,
+	"rot_spring_c": 11.0,
+	"sway_impulse": 18.0,      # vận tốc xoay (độ/s) thêm vào mỗi pixel chuột
+	"sway_max": 7.0,           # giới hạn độ lệch xoay (độ)
 	"state_blend": 10.0,
-	"land_dip": 0.07,          # nảy xuống khi tiếp đất (m)
-	"land_recover": 10.0,
+	"land_impulse": 0.8,       # vận tốc nảy xuống khi tiếp đất (m/s)
 	"kick_back": 0.09,         # súng giật lùi (m)
 	"kick_pitch": 9.0,         # hất nòng (độ)
 	"kick_time": 0.14,
 	"flash_time": 0.05,
 	"reload_down_time": 0.2,
 	"reload_up_time": 0.2,
-	"flinch_pos": 0.05,
-	"flinch_recover": 12.0,
-	"sleeve": Color(0.2, 0.23, 0.3),
-	"glove": Color(0.1, 0.1, 0.12),
+	"flinch_impulse": 1.0,     # vận tốc giật khi bị đánh (m/s)
+	"sleeve": Color(0.16, 0.36, 0.55),
+	"glove": Color(0.62, 0.52, 0.42),
+	"steel": Color(0.82, 0.86, 0.95),
+	"gun_metal": Color(0.17, 0.18, 0.21),
 }
 
 ## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,

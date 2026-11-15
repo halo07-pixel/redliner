@@ -60,16 +60,35 @@ func _run() -> void:
 		air_max = maxf(air_max, absf(air.bob_offset.y))
 	_check(air_max < 0.0001, "trên không không nhún")
 
-	# Lắc theo chuột và hồi về
+	# Lắc theo chuột: lò xo hất lệch rồi kéo về có nảy nhẹ
 	var s: Node3D = _fresh()
 	s.update(1.0 / 60.0, 0.0, true)
 	s.add_look(Vector2(200.0, 0.0))
-	s.update(1.0 / 60.0, 0.0, true)
-	var yaw1: float = s.rotation_degrees.y
-	_check(absf(yaw1) > 1.0 and absf(yaw1) <= float(V["sway_max"]) + 0.5, "xoay chuột nhanh -> vũ khí trễ, có giới hạn (%.2f độ)" % yaw1)
-	for i in 120:
+	var peak: float = 0.0
+	var crossed: bool = false
+	for i in 90:
+		s.update(1.0 / 60.0, 0.0, true)
+		peak = maxf(peak, s.rotation_degrees.y)
+		if peak > 1.0 and s.rotation_degrees.y < -0.05:
+			crossed = true
+	_check(peak > 1.0 and peak <= float(V["sway_max"]) + 0.5, "xoay chuột nhanh -> vũ khí lệch, có giới hạn (đỉnh %.2f độ)" % peak)
+	_check(crossed, "lò xo hồi về có nảy nhẹ qua vị trí nghỉ")
+	for i in 240:
 		s.update(1.0 / 60.0, 0.0, true)
 	_check(absf(s.rotation_degrees.y) < 0.1, "lắc hồi về 0")
+	var big: Node3D = _fresh()
+	big.update(1.0 / 60.0, 0.0, true)
+	big.add_look(Vector2(5000.0, 5000.0))
+	var bmax: float = 0.0
+	for i in 60:
+		big.update(1.0 / 60.0, 0.0, true)
+		bmax = maxf(bmax, maxf(absf(big.rotation_degrees.x), absf(big.rotation_degrees.y)))
+	_check(bmax <= float(V["sway_max"]) + 0.01, "xoay cực mạnh vẫn bị chặn ở sway_max")
+	var slowf: Node3D = _fresh()
+	slowf.update(1.0 / 60.0, 0.0, true)
+	slowf.add_look(Vector2(200.0, 0.0))
+	slowf.update(0.5, 0.0, true) # frame rất chậm: lò xo vẫn ổn định
+	_check(is_finite(slowf.rotation_degrees.y) and absf(slowf.rotation_degrees.y) <= float(V["sway_max"]) + 0.01, "frame chậm 0.5s: lò xo không nổ")
 
 	# Trạng thái
 	var st: Node3D = _fresh()
@@ -84,13 +103,21 @@ func _run() -> void:
 		gr.update(1.0 / 60.0, 0.0, true, "")
 	_check(gr.gun_pivot.position.is_equal_approx(V["gun_pos"]) or gr.gun_pivot.position.distance_to(V["gun_pos"]) < 0.01, "hết đu móc: tay trái về chỗ cũ")
 
-	# Tiếp đất
+	# Tiếp đất: xung xuống, nảy lại
 	var ld: Node3D = _fresh()
 	ld.update(1.0 / 60.0, 0.0, false)
 	ld.update(1.0 / 60.0, 0.0, true)
-	var dip: float = ld.position.y
-	_check(dip < -0.03, "tiếp đất: nảy xuống (%.3f)" % dip)
-	for i in 90:
+	var lo: float = 0.0
+	var hi_after: float = -1.0
+	for i in 60:
+		ld.update(1.0 / 60.0, 0.0, true)
+		if ld.position.y < lo:
+			lo = ld.position.y
+		elif lo < -0.02:
+			hi_after = maxf(hi_after, ld.position.y)
+	_check(lo < -0.02, "tiếp đất: nảy xuống (%.3f)" % lo)
+	_check(hi_after > 0.0003, "tiếp đất: lò xo nảy ngược lên một chút")
+	for i in 240:
 		ld.update(1.0 / 60.0, 0.0, true)
 	_check(absf(ld.position.y) < 0.002, "nảy tiếp đất hồi về")
 
@@ -137,12 +164,17 @@ func _run() -> void:
 	await create_timer(0.1).timeout
 	_check(sw.sword_pivot.rotation_degrees.x < -70.0, "parry: kiếm chắn")
 
-	# Giật khi bị đánh
+	# Giật khi bị đánh: đẩy lùi theo hướng đòn rồi lò xo kéo về
 	var fl: Node3D = _fresh()
 	fl.flinch(Vector3(1.0, 0.0, 0.0))
-	fl.update(1.0 / 60.0, 0.0, true)
-	_check(fl.position.z > 0.02 and fl.position.x > 0.01, "bị đánh: viewmodel giật theo hướng đòn")
-	for i in 90:
+	var fz: float = 0.0
+	var fx: float = 0.0
+	for i in 20:
+		fl.update(1.0 / 60.0, 0.0, true)
+		fz = maxf(fz, fl.position.z)
+		fx = maxf(fx, fl.position.x)
+	_check(fz > 0.02 and fx > 0.01, "bị đánh: viewmodel giật theo hướng đòn (z %.3f, x %.3f)" % [fz, fx])
+	for i in 240:
 		fl.update(1.0 / 60.0, 0.0, true)
 	_check(fl.position.length() < 0.003, "giật hồi về")
 	fl.reset()
