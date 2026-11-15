@@ -87,6 +87,16 @@ func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_nam
 	animator.update(delta, speed, grounded, vel_y, state_name, side)
 
 
+## Chạy overlay chiến đấu ("swing", "shoot", "parry", "parry_miss", "hurt", "stagger", "die"); xem rig_animator.gd.
+func play(overlay_name: String, duration: float, data: Dictionary = {}) -> void:
+	animator.play(overlay_name, duration, data)
+
+
+func clear_overlay() -> void:
+	animator.clear_overlay()
+	reset_pose()
+
+
 ## Đặt render layer cho mọi mesh (vd. ẩn với camera của chính người chơi nhưng vẫn đổ bóng).
 func set_render_layers(mask: int) -> void:
 	for n in find_children("*", "MeshInstance3D", true, false):

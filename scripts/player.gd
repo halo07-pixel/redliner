@@ -80,6 +80,13 @@ func _ready() -> void:
 	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
 	melee.swing_started.connect(sword_view.play_swing)
+	# Hoạt ảnh thân chiến đấu (chỉ thấy qua bóng): nghe Signal, không ảnh hưởng logic.
+	melee.swing_started.connect(func(w, a, r): body_view.play("swing", w + a + r, {"windup": w, "active": a, "recovery": r}))
+	melee.staggered.connect(func(d): body_view.play("stagger", d))
+	parry.parry_started.connect(func(): body_view.play("parry", float(Global.ANIM["parry_time"])))
+	parry.parry_missed.connect(func(): body_view.play("parry_miss", float(Global.ANIM["parry_miss_time"])))
+	hurtbox.hurt.connect(func(h, _left): body_view.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": body_view.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))}))
+	combat.shot_fired.connect(func(_f, _t): body_view.play("shoot", float(Global.ANIM["shoot_time"])))
 	parry.parry_started.connect(sword_view.raise)
 	# Instability: tích khi đánh trúng / parry, mất khi bị đánh; Redline tăng sát thương
 	melee.hit_landed.connect(func(_hb, landed): if landed: instability.add(Global.INSTABILITY["hit_gain"]))
@@ -149,6 +156,7 @@ func respawn(pos: Vector3) -> void:
 	global_position = pos
 	velocity = Vector3.ZERO
 	_set_state(State.NORMAL)
+	body_view.clear_overlay()
 
 
 func _on_redline(active: bool) -> void:
@@ -159,6 +167,7 @@ func _on_redline(active: bool) -> void:
 
 
 func _on_died() -> void:
+	body_view.play("die", float(Global.ANIM["die_time"]))
 	dead = true
 	died.emit()
 
