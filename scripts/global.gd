@@ -119,6 +119,32 @@ const ANIM: Dictionary = {
 	"die_time": 0.45,
 }
 
+## Tay + vũ khí góc nhìn thứ nhất (M7.4). Chỉ là hiển thị, không ảnh hưởng vật lý. Vị trí tính theo mét, góc theo độ.
+const VIEWMODEL: Dictionary = {
+	"sword_pos": Vector3(0.38, -0.3, -0.5),
+	"gun_pos": Vector3(-0.32, -0.28, -0.55),
+	"bob_freq": 0.55,          # rad pha bước trên mỗi mét đi được
+	"bob_amp": 0.014,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
+	"bob_side": 0.009,
+	"bob_speed_ref": 10.0,
+	"sway_per_pixel": 0.06,    # độ xoay trễ mỗi pixel chuột
+	"sway_max": 5.0,
+	"sway_recover": 9.0,
+	"state_blend": 10.0,
+	"land_dip": 0.07,          # nảy xuống khi tiếp đất (m)
+	"land_recover": 10.0,
+	"kick_back": 0.09,         # súng giật lùi (m)
+	"kick_pitch": 9.0,         # hất nòng (độ)
+	"kick_time": 0.14,
+	"flash_time": 0.05,
+	"reload_down_time": 0.2,
+	"reload_up_time": 0.2,
+	"flinch_pos": 0.05,
+	"flinch_recover": 12.0,
+	"sleeve": Color(0.2, 0.23, 0.3),
+	"glove": Color(0.1, 0.1, 0.12),
+}
+
 ## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
 ## parry thành công; đầy thì vào Redline: sát thương tăng, dash hồi nhanh hơn, thanh cạn dần.
 const INSTABILITY: Dictionary = {
