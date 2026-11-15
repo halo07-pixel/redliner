@@ -6,6 +6,7 @@ extends Node3D
 ## Cây khớp: hips > spine > head | shoulder_l > elbow_l | shoulder_r > elbow_r ; hips > hip_l > knee_l | hip_r > knee_r.
 ## Cầm vũ khí: node "hand_r" (con của elbow_r), vũ khí là node "weapon".
 
+const AnimatorScript = preload("res://scripts/rig_animator.gd")
 const JOINT_NAMES: Array = [
 	"hips", "spine", "head", "shoulder_l", "elbow_l", "shoulder_r", "elbow_r",
 	"hip_l", "knee_l", "hip_r", "knee_r", "hand_r",
@@ -17,6 +18,7 @@ var kind: String = "dummy"
 
 var joints: Dictionary = {}
 var weapon: Node3D
+var animator: RefCounted
 var _body_mats: Array = []   # vật liệu thân/giáp: nháy trắng và mờ dần
 var _base_colors: Array = []
 
@@ -76,6 +78,19 @@ func _ready() -> void:
 			_mesh(weapon, _box(Vector3(0.08, 0.14, 0.75)), Vector3(0.0, 0.0, -0.3), dark)
 			_mesh(weapon, _box(Vector3(0.06, 0.2, 0.08)), Vector3(0.0, -0.12, -0.05), dark)
 	reset_pose()
+	animator = AnimatorScript.new()
+	animator.setup(self)
+
+
+## Chủ nhân gọi mỗi frame vật lý để chạy hoạt ảnh thân (xem rig_animator.gd).
+func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_name: String = "", side: float = 1.0) -> void:
+	animator.update(delta, speed, grounded, vel_y, state_name, side)
+
+
+## Đặt render layer cho mọi mesh (vd. ẩn với camera của chính người chơi nhưng vẫn đổ bóng).
+func set_render_layers(mask: int) -> void:
+	for n in find_children("*", "MeshInstance3D", true, false):
+		(n as MeshInstance3D).layers = mask
 
 
 func get_joint(joint_name: String) -> Node3D:

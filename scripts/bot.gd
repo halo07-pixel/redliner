@@ -152,6 +152,7 @@ func _physics_process(delta: float) -> void:
 	velocity.x = wish.x
 	velocity.z = wish.z
 	move_and_slide()
+	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
 
 
 # ------------------------------------------------------------------ quyết định
