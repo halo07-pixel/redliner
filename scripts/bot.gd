@@ -138,6 +138,16 @@ func _on_destabilized(active: bool) -> void:
 		mannequin.flash()
 
 
+var _kb: Vector3 = Vector3.ZERO # lực đẩy từ vụ nổ, tắt dần
+var _lift: float = 0.0
+
+
+## Bị đẩy lùi (vụ nổ). Ngang tắt dần theo thời gian, dọc là xung nhảy một lần.
+func apply_knockback(push: Vector3) -> void:
+	_kb = Vector3(push.x, 0.0, push.z)
+	_lift = maxf(push.y, 0.0)
+
+
 func _physics_process(delta: float) -> void:
 	if not dead:
 		instability.tick(delta)
@@ -155,6 +165,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y -= GRAVITY * delta
 
+	if _lift > 0.0:
+		velocity.y = _lift
+		_lift = 0.0
 	var to: Vector3 = target.global_position - global_position
 	to.y = 0.0
 	var dist: float = to.length()
@@ -177,8 +190,9 @@ func _physics_process(delta: float) -> void:
 		wish = Vector3.ZERO # đang ra đòn: đứng yên cam kết
 	else:
 		wish = _decide(dir, dist)
-	velocity.x = wish.x
-	velocity.z = wish.z
+	velocity.x = wish.x + _kb.x
+	velocity.z = wish.z + _kb.z
+	_kb = _kb.move_toward(Vector3.ZERO, 30.0 * delta)
 	move_and_slide()
 	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
 

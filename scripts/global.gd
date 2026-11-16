@@ -213,6 +213,28 @@ const COMBAT: Dictionary = {
 
 ## Số di chuyển của người chơi. Không có trần tốc độ: chỉ có "wish speed" (tốc độ đi bộ)
 ## và ma sát mặt đất — động lượng vượt quá wish speed được giữ nguyên trên không.
+## Kho vũ khí của người chơi. Súng lục = số trong COMBAT (gun_*). kind: hitscan | pellets | explosive.
+const WEAPON_ORDER: Array = ["pistol", "shotgun", "launcher", "sniper"]
+const WEAPONS: Dictionary = {
+	"pistol": {"name": "Súng lục", "kind": "hitscan", "mag": 6, "cooldown": 0.35, "reload": 1.1, "damage": 25.0,
+		"range": 80.0, "recoil": 1.0, "draw": 0.25, "sfx": "shot"},
+	"shotgun": {"name": "Shotgun", "kind": "pellets", "mag": 2, "cooldown": 0.6, "reload": 1.8, "damage": 12.0,
+		"pellets": 8, "spread_deg": 5.0, "falloff_range": 18.0, "min_falloff": 0.2,
+		"range": 40.0, "recoil": 3.0, "draw": 0.4, "sfx": "shotgun"},
+	"launcher": {"name": "Pháo nổ", "kind": "explosive", "mag": 2, "cooldown": 0.9, "reload": 2.2, "damage": 60.0,
+		"projectile_speed": 38.0, "gravity": 6.0, "blast_radius": 4.5, "min_falloff": 0.4,
+		"knockback": 16.0, "self_damage_mult": 0.15, "stagger": 0.6, "life": 4.0,
+		"range": 80.0, "recoil": 0.0, "draw": 0.5, "sfx": "launcher"},
+	"sniper": {"name": "Bắn tỉa", "kind": "hitscan", "mag": 3, "cooldown": 1.1, "reload": 2.2, "damage": 80.0,
+		"headshot_mult": 2.0, "headshot_height": 1.5, "pierce": 1, "pierce_mult": 0.6,
+		"range": 200.0, "recoil": 1.5, "draw": 0.5, "zoom_fov": 35.0, "sfx": "sniper"},
+}
+## Chém rộng (phím Q): quét rộng và xa hơn, chậm và để hở lâu hơn, sát thương cao hơn.
+const HEAVY_SLASH: Dictionary = {
+	"windup_mult": 1.7, "active_mult": 1.5, "recovery_mult": 1.8,
+	"width_mult": 1.9, "reach_mult": 1.5, "damage_mult": 1.4,
+}
+
 const PLAYER: Dictionary = {
 	"walk_speed": 9.0,       # m/s, tốc độ đích khi đi bộ
 	"ground_accel": 100.0,   # m/s² trên mặt đất (đủ lớn để đạt đúng walk_speed dù có ma sát)
@@ -341,6 +363,14 @@ func _setup_input() -> void:
 	_add_key("slide", KEY_CTRL)
 	_add_key("dash", KEY_SHIFT)
 	_add_key("slam", KEY_C)
+	_add_key("heavy", KEY_Q)
+	_add_key("zoom", KEY_Z)
+	_add_key("weapon_1", KEY_1)
+	_add_key("weapon_2", KEY_2)
+	_add_key("weapon_3", KEY_3)
+	_add_key("weapon_4", KEY_4)
+	_add_mouse("weapon_next", MOUSE_BUTTON_WHEEL_DOWN)
+	_add_mouse("weapon_prev", MOUSE_BUTTON_WHEEL_UP)
 	_add_mouse("grapple", MOUSE_BUTTON_RIGHT)
 	_add_mouse("attack", MOUSE_BUTTON_LEFT)
 	_add_key("shoot", KEY_E)

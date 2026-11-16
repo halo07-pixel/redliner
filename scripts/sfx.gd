@@ -13,6 +13,10 @@ var _music_player: AudioStreamPlayer
 func _ready() -> void:
 	_streams["slash"] = _noise_burst(0.18, 0.6, 0.08, 0.0, 0.0)
 	_streams["shot"] = _noise_burst(0.16, 0.7, 0.2, 150.0, 0.5)
+	_streams["shotgun"] = _noise_burst(0.3, 0.95, 0.15, 90.0, 0.4)
+	_streams["launcher"] = _sweep(0.3, 260.0, 90.0, 0.5)
+	_streams["explosion"] = _noise_burst(0.7, 1.0, 0.05, 55.0, 0.6)
+	_streams["sniper"] = _noise_burst(0.35, 1.0, 0.1, 70.0, 0.5)
 	_streams["hit"] = _noise_burst(0.12, 0.4, 0.15, 90.0, 0.9)
 	_streams["clash"] = _noise_burst(0.28, 0.9, 0.5, 880.0, 0.5)
 	_streams["parry"] = _ping(0.4, 1320.0, 1980.0)

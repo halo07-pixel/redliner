@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `4befabf` (đến M8 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m9-advanced-movement` (M9 di chuyển nâng cao).
+- `main` = `ae5a429` (đến M9 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m10-weapons` (M10 kho vũ khí).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -84,13 +84,24 @@
 - Số cân bằng ở `Global.PLAYER`. Test: `test_m9_movement`. Ảnh: `docs/screenshots/m9_*.png`, script `tools/screenshots/shoot_m9.gd`. Menu hướng dẫn có dòng C và nhả móc.
 - Chưa kiểm bằng người: cảm giác (độ mạnh slide hop/slam/recoil, có "vỡ" cân bằng không, ví dụ chuỗi slide hop + dash + recoil vượt tốc độ), phím C có tiện không.
 
+## M10 (nhánh `feature/m10-weapons`: kho vũ khí)
+- `Global.WEAPONS` + `WEAPON_ORDER` (súng lục, shotgun, pháo nổ, bắn tỉa) và `Global.HEAVY_SLASH`. `COMBAT.gun_*` giữ nguyên cho súng lục (test cũ dùng).
+- `player_combat.gd` viết lại: `weapon`, đạn riêng mỗi súng (`ammo` là property theo súng đang cầm), `switch_to`, rút súng = `draw` giây khoá bắn, đổi súng huỷ nạp. Signal mới `weapon_changed(id, name)`, `exploded(pos, radius)`. Input xung: `want_weapon` (0..3), `want_cycle` (±1), `want_heavy`; giữ: `want_zoom`.
+- Shotgun: 2 đạn, 8 viên x 12, tản 5°, giảm sát thương theo xa (min 20% ở 18 m), recoil trên không x3.
+- Pháo nổ: `scripts/rocket.gd` đạn bay có trọng lực nhẹ, nổ khi chạm; `Rocket.explode()` tĩnh: sát thương giảm theo khoảng cách, đẩy lùi + choáng (`bot.apply_knockback`), người bắn bị đẩy (`player.apply_blast`, rocket-jump) và chịu 15% sát thương.
+- Bắn tỉa: 80 sát thương, headshot x2 (điểm trúng cao hơn gốc hurtbox 1.5 m), xuyên 1 mục tiêu (x0.6), tường chặn; giữ Z để zoom FOV 35 (độ nhạy chuột theo FOV).
+- Chém rộng: phím Q (KHÔNG phải giữ chuột trái, tránh làm trễ đòn thường/parry): `melee.try_swing(true)` báo đòn x1.7, hộp rộng x1.9, dài x1.5, sát thương x1.4, hồi x1.8.
+- Phím: 1-4 hoặc cuộn chuột đổi súng, Q chém rộng, Z ngắm. Viewmodel có 4 mẫu súng (`set_weapon`), HUD hiện tên súng, SFX shotgun/launcher/explosion/sniper, vụ nổ có tia lửa + rung.
+- Test: `test_weapons` (40 kiểm tra). Ảnh: `docs/screenshots/m10_*.png`, script `tools/screenshots/shoot_m10.gd` (ảnh GL dự phòng, không phải Vulkan).
+- Chưa kiểm bằng người: cân bằng (sát thương/recoil/rocket-jump), cảm giác bắn tỉa zoom, mô hình súng còn thô (hộp), bot chưa né/phản ứng với pháo.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (13 bộ: test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (14 bộ: test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M10 (kho vũ khí, 4 súng) → M11… Mỗi việc phải đề xuất + chờ duyệt.
+M11… (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
