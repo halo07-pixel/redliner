@@ -12,6 +12,7 @@ signal sound(sound_name: String)
 signal died(bot: Node3D, info: Dictionary)
 
 const MannequinScript = preload("res://scripts/mannequin.gd")
+const MannequinGltfScript = preload("res://scripts/mannequin_gltf.gd")
 const HurtboxScript = preload("res://scripts/components/hurtbox_component.gd")
 const ParryScript = preload("res://scripts/components/parry_component.gd")
 const MeleeScript = preload("res://scripts/components/melee_hitbox_component.gd")
@@ -78,7 +79,8 @@ func _ready() -> void:
 	_body_shape.position = Vector3(0.0, 0.9, 0.0)
 	add_child(_body_shape)
 
-	mannequin = MannequinScript.new()
+	# Người que glTF (GodoDude + vũ khí thật) nếu có asset; không thì dùng hình nhân dựng bằng khối.
+	mannequin = (MannequinGltfScript if MannequinGltfScript.has_asset(type_name) else MannequinScript).new()
 	mannequin.color = cfg["color"]
 	mannequin.kind = type_name
 	add_child(mannequin)

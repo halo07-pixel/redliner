@@ -174,7 +174,7 @@ func reset_pose() -> void:
 	if weapon != null and joints.has("elbow_r"):
 		joints["elbow_r"].rotation_degrees = Vector3(-20.0, 0.0, 0.0)
 	if weapon != null and weapon.name == "weapon" and kind == "gunner":
-		joints["shoulder_r"].rotation_degrees = Vector3(-70.0, 0.0, 0.0)
+		joints["shoulder_r"].rotation_degrees = Vector3(70.0, 0.0, 0.0)
 
 
 func _joint(joint_name: String, parent: Node3D, pos: Vector3) -> Node3D:
