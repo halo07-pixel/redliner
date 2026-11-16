@@ -1,7 +1,7 @@
-# Bàn giao Redliner (cập nhật 2026-11-14)
+# Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `9b3bc9d` (5 mốc đầu + M6 + M7.1–M7.4 và nhánh A đã gộp). Nhánh chờ duyệt: `feature/m7-5-character-polish` (nhánh B = M7.5).
+- `main` = `ed43c01` (đến M7.5 đã gộp). Nhánh chờ duyệt: `feature/m7-7-stickman-weapons` (M7.7 người que + vũ khí thật; thay hướng chibi M7.6 đã bị từ chối).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -57,6 +57,15 @@
 - `rig_animator.gd`: mỗi khớp đi qua lò xo (`Global.ANIM.joint_k/joint_c`) nên chuyển tư thế có quán tính; chạy: hông nhún (`hip_bob`), hông xoay/vai xoay ngược (`hip_twist`, `spine_twist`), đầu bù xoay giữ hướng nhìn, bàn chân gót chạm/đẩy mũi, khuỷu gập theo nhịp; đứng yên: thở, đổi trọng tâm, thỉnh thoảng quay đầu (`idle_look`). Overlay có khóa cộng thêm (`"+tên_khớp"`): chém hạ người dồn lực (`anticip_drop`) rồi lao tới (`lunge`, qua `hips_z`) mà chân vẫn chạy; bị đánh khuỵu gối; choáng đung đưa; ngã nảy nhẹ khi chạm đất.
 - Test: `test_mannequin` và `test_animation` thêm kiểm khớp/chi tiết/hình bóng/nhún hông/lò xo; `test_combat_animation` thêm kiểm hạ người và lao tới (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_5_*.png`.
 - Chưa kiểm bằng người: độ mượt thật, độ tự nhiên của chu kỳ chạy. Vẫn là khối cơ bản (nhánh C sẽ thay bằng asset ngoài). Chỉnh ở `Global.ANIM`, `Global.RIG`, `overlay_pose()`.
+
+## M7.7 (nhánh `feature/m7-7-stickman-weapons`: người que + vũ khí thật)
+- Nhánh chibi KayKit (M7.6) bị user từ chối, KHÔNG gộp; nhánh `feature/m7-6-external-assets` chỉ để tham khảo. Nhân vật user chọn: GodoDude (MIT); vũ khí: Quaternius (kiếm, rìu đôi, CC0), HoneyBadger (CC0). Nguồn/giấy phép: `docs/ASSETS.md`.
+- `scripts/mannequin_gltf.gd`: cùng API với `mannequin.gd` (`animate/play/clear_overlay/flash/fade_out/set_render_layers/get_joint/kind/color/weapon/animator`). Cây khớp "proxy" (Node3D vô hình, cùng tên với hình nhân khối) do `RigAnimator` điều khiển như cũ; mỗi frame `_apply_pose()` chuyển góc proxy sang xương model bằng delta toàn cục (độc lập hướng trục xương Rigify), bù: model quay 180° quanh Y, kéo tay/chân thẳng xuống (model dạng chữ A), hông hạ qua vị trí xương gốc. Bảng ánh xạ: `JOINT_TREE`, `STRAIGHTEN`.
+- Vũ khí: `WEAPONS` (file, độ dài, điểm cầm, `hold_deg` xoay quanh trục X bàn tay: cận chiến lưỡi chếch lên -56°, súng nòng dọc cẳng tay -90°). Gắn qua BoneAttachment3D ở `hand.R`.
+- Sửa lỗi cũ lộ ra khi đổi nhân vật: tư thế xạ thủ giơ súng RA SAU (vai -70°); nay là +70° (rig_animator, mannequin, test_animation).
+- `bot.gd` chọn adapter nếu `has_asset(type_name)`, thiếu thì dùng `mannequin.gd`. 12 bộ test xanh (thêm `test_mannequin_gltf`). Ảnh: `docs/screenshots/m7_7_*.png`; script: `tools/screenshots/shoot_stickman.gd`.
+- Chưa kiểm bằng người: độ mượt khi chơi thật, vũ khí xuyên cơ thể ở vài tư thế (chém/đỡ), màu tô theo loại bot (nhân với texture gốc), clip chém/bắn là tư thế code chứ không phải mocap. Cloud không có Vulkan nên ảnh là bản GL fallback.
+- Môi trường cloud có thể mất binary Godot: tải `Godot_v4.7-stable_linux.x86_64.zip` từ GitHub release `godotengine/godot-builds` tag `4.7-stable` vào `/opt/godot47`, symlink `godot`.
 
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.

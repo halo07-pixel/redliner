@@ -60,7 +60,7 @@ func _run() -> void:
 	var gun: Node3D = _make("gunner")
 	await process_frame
 	var gp: Dictionary = gun.animator.target_pose("run", 1.0, 5.0, 0.0, 1.0, 0.0)
-	_check(gp["shoulder_r"].x < -60.0, "xạ thủ: giữ súng nhắm khi chạy")
+	_check(gp["shoulder_r"].x > 60.0, "xạ thủ: giữ súng nhắm về phía trước khi chạy")
 
 	# Chu kỳ chạy khớp tốc độ: chạy nhanh -> pha tăng nhanh hơn
 	var m2: Node3D = _make("swordsman")

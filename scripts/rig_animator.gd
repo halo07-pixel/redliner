@@ -120,7 +120,7 @@ func _hold_weapon_arm(pose: Dictionary, st: String) -> void:
 	if mannequin.weapon == null or st == "grapple":
 		return
 	if mannequin.kind == "gunner":
-		pose["shoulder_r"] = Vector3(-70.0, 0.0, 0.0)
+		pose["shoulder_r"] = Vector3(70.0, 0.0, 0.0)
 		pose["elbow_r"] = Vector3(10.0, 0.0, 0.0)
 	else:
 		pose["shoulder_r"] = Vector3(-15.0, 0.0, 6.0)
@@ -204,7 +204,7 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 				o["+knee_r"] = Vector3(lerpf(-10.0, 0.0, k3), 0.0, 0.0)
 		"shoot":
 			var kick: float = (1.0 - p) * (1.0 - p)
-			o["shoulder_r"] = Vector3(-70.0 + 16.0 * kick, 0.0, 0.0)
+			o["shoulder_r"] = Vector3(70.0 + 12.0 * kick, 0.0, 0.0)
 			o["elbow_r"] = Vector3(10.0 + 20.0 * kick, 0.0, 0.0)
 			o["spine"] = Vector3(7.0 * kick, 0.0, 0.0)
 		"parry":    # kiếm chắn ngang trước ngực
