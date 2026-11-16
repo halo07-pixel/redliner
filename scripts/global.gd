@@ -297,11 +297,16 @@ const PLAYER: Dictionary = {
 
 
 signal quality_changed(level: int)
+signal map_changed(id: String)
+
+const MAP_IDS: Array = ["yard", "alley", "tower"]
+const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
 
 ## Điểm cao nhất + mức đồ họa, lưu vào file để còn sau khi tắt game.
 var save_path: String = "user://savegame.cfg"
 var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
+var selected_map: String = "yard"
 
 
 func _ready() -> void:
@@ -312,18 +317,22 @@ func _ready() -> void:
 func load_save() -> void:
 	high_score = 0
 	quality = QUALITY_DEFAULT
+	selected_map = "yard"
 	if not FileAccess.file_exists(save_path):
 		return
 	var cf := ConfigFile.new()
 	if cf.load(save_path) == OK:
 		high_score = int(cf.get_value("progress", "high_score", 0))
 		quality = clampi(int(cf.get_value("graphics", "quality", QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
+		var m: String = str(cf.get_value("game", "map", "yard"))
+		selected_map = m if m in MAP_IDS else "yard"
 
 
 func _write_save() -> void:
 	var cf := ConfigFile.new()
 	cf.set_value("progress", "high_score", high_score)
 	cf.set_value("graphics", "quality", quality)
+	cf.set_value("game", "map", selected_map)
 	cf.save(save_path)
 
 
@@ -335,6 +344,19 @@ func set_quality(level: int) -> void:
 	quality = level
 	_write_save()
 	quality_changed.emit(quality)
+
+
+## Chọn đấu trường cho lần chơi sau (lưu file, phát Signal).
+func set_map(id: String) -> void:
+	if id not in MAP_IDS or id == selected_map:
+		return
+	selected_map = id
+	_write_save()
+	map_changed.emit(id)
+
+
+func cycle_map() -> void:
+	set_map(MAP_IDS[(MAP_IDS.find(selected_map) + 1) % MAP_IDS.size()])
 
 
 func cycle_quality() -> void:

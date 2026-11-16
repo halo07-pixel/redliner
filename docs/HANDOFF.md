@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `ae5a429` (đến M9 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m10-weapons` (M10 kho vũ khí).
+- `main` = `39af58e` (đến M10 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m11-maps` (M11 bản đồ).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -95,13 +95,22 @@
 - Test: `test_weapons` (40 kiểm tra). Ảnh: `docs/screenshots/m10_*.png`, script `tools/screenshots/shoot_m10.gd` (ảnh GL dự phòng, không phải Vulkan).
 - Chưa kiểm bằng người: cân bằng (sát thương/recoil/rocket-jump), cảm giác bắn tỉa zoom, mô hình súng còn thô (hộp), bot chưa né/phản ứng với pháo.
 
+## M11 (nhánh `feature/m11-maps`: bản đồ)
+- `scripts/maps.gd`: dữ liệu 3 map (yard "Sân tập" = bố cục gốc, alley "Hẻm tường" 34x90, tower "Tháp" 56x56 tường cao 18 m): half, wall_h, void_y, boxes, spawn, bot_spawns, dummies. Chỉ là dữ liệu, test không cần cảnh.
+- `arena.gd` đọc dữ liệu (`_build_map`), có `half` (Vector2), `wall_h`, `void_y`, `map_id`, signal `map_loaded(id)`. Mặc định dùng `Global.selected_map`; test/ảnh đặt `arena.map_id` trước `add_child`.
+- `Global`: `MAP_IDS`, `MAP_NAMES`, `selected_map` (lưu trong savegame mục `game/map`), `set_map`, `cycle_map`, signal `map_changed`. Menu có nút "Bản đồ: ..." (`UIKit.map_button`), đổi cho lần chơi sau.
+- `main.gd`: rơi dưới `void_y` -> mất 30 máu và về điểm xuất phát (chỉ người chơi). Wave lấy `arena.bot_spawns` của map.
+- KHÔNG có hố/vực: bot chưa có navmesh nên đi thẳng vào hố; để M14. Lối bot đi luôn là sàn phẳng.
+- Test: `test_maps` (kiểm tra spawn không kẹt khối, bot đứng được ở mọi điểm sinh, chọn/lưu map, menu, rơi map). Ảnh: `docs/screenshots/m11_*.png`, `tools/screenshots/shoot_m11.gd`. Trong test `-s`, truy cập thuộc tính của Global qua `root.get_node("Global")` (viết `Global.x` cho biến không phải const sẽ lỗi biên dịch).
+- Chưa kiểm bằng người: bố cục có hay/cân bằng không, bot có kẹt ở dốc/khe hẻm không, tháp có dễ leo không, tầm nhìn bắn tỉa ở hẻm.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (14 bộ: test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (15 bộ: test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M11… (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M12 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

@@ -188,6 +188,17 @@ func _on_parried(_hit: Dictionary) -> void:
 	Global.hitstop(0.08)
 
 
+## Lưới an toàn: rơi khỏi bản đồ thì mất 30 máu và quay về điểm xuất phát (không hồi máu).
+func _physics_process(_delta: float) -> void:
+	if _over or player.dead:
+		return
+	if player.global_position.y < arena.void_y:
+		player.hurtbox.take_hit({"damage": 30.0, "kind": "void", "source": null, "direction": Vector3.ZERO})
+		if not player.dead:
+			player.global_position = arena.spawn_point
+			player.velocity = Vector3.ZERO
+
+
 func _on_slammed(pos: Vector3, _radius: float) -> void:
 	Sfx.play("clash")
 	Fx.sparks(self, pos + Vector3(0.0, 0.2, 0.0), Color(1.0, 0.7, 0.3))

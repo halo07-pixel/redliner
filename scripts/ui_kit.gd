@@ -43,6 +43,17 @@ static func center_box(parent: Node, separation: int = 14) -> VBoxContainer:
 	return box
 
 
+## Nút xoay vòng đấu trường; chữ theo Global.selected_map.
+static func map_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Bản đồ: %s" % Global.MAP_NAMES[Global.selected_map]
+	refresh.call()
+	b.pressed.connect(func():
+		Global.cycle_map()
+		refresh.call())
+	return b
+
+
 ## Nút xoay vòng mức đồ họa Thấp/Vừa/Cao; chữ tự cập nhật theo Global.quality.
 static func quality_button() -> Button:
 	var b := button("")
