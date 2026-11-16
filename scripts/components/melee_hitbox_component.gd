@@ -7,13 +7,13 @@ signal swing_started(windup: float, active: float, recovery: float)
 signal hit_landed(hurtbox: Area3D, landed: bool)
 signal clashed(direction: Vector3)
 signal staggered(duration: float)
+signal got_parried # đòn của mình bị đối phương parry
 
 enum Phase { IDLE, WINDUP, ACTIVE, RECOVERY }
 
 var team: int = 0
 var body: Node3D
 var phase: Phase = Phase.IDLE
-var damage_mult: float = 1.0 # Redline tăng sát thương
 var windup_override: float = -1.0 # > 0: thời gian báo đòn riêng (bot báo đòn lâu hơn để người chơi kịp phản ứng)
 
 var _t: float = 0.0
@@ -56,7 +56,7 @@ func try_swing() -> bool:
 func stagger(duration: float) -> void:
 	_leave_active()
 	phase = Phase.IDLE
-	_stagger_t = duration
+	_stagger_t = maxf(_stagger_t, duration)
 	staggered.emit(duration)
 
 
@@ -138,7 +138,7 @@ func _scan() -> void:
 			continue
 		_hit_list.append(hb)
 		var hit := {
-			"damage": float(Global.COMBAT["sword_damage"]) * damage_mult,
+			"damage": float(Global.COMBAT["sword_damage"]),
 			"kind": "melee",
 			"source": body,
 			"direction": _forward(),
@@ -149,4 +149,5 @@ func _scan() -> void:
 
 
 func _on_parried() -> void:
+	got_parried.emit()
 	stagger(Global.COMBAT["sword_stagger_when_parried"])

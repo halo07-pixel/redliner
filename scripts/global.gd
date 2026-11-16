@@ -159,19 +159,19 @@ const VIEWMODEL: Dictionary = {
 	"gun_metal": Color(0.17, 0.18, 0.21),
 }
 
-## Instability / Redline (cơ chế riêng của game này). Thanh đầy dần khi chạy nhanh, đánh trúng,
-## parry thành công; đầy thì vào Redline: sát thương tăng, dash hồi nhanh hơn, thanh cạn dần.
+## Instability "mất thế" (Destabilized). Thanh tăng khi mất thế trong giao đấu (thua clash, parry hụt,
+## bị parry); đầy thì Destabilized vài giây: không tấn công/parry/bắn, stamina dash về 0. Áp dụng cả bot.
 const INSTABILITY: Dictionary = {
 	"max": 100.0,
-	"speed_threshold": 14.0,  # m/s: chạy nhanh hơn mức này thì thanh đầy dần
-	"speed_gain": 8.0,        # /giây khi đang chạy nhanh
-	"idle_decay": 3.0,        # /giây khi chạy chậm
-	"hit_gain": 12.0,         # đòn kiếm trúng
-	"parry_gain": 20.0,       # parry thành công
-	"damage_loss": 15.0,      # mất khi bị đánh
-	"redline_time": 6.0,      # giây
-	"damage_mult": 1.5,
-	"dash_recharge_mult": 2.0,
+	"clash_loss": 30.0,        # thua clash (nhân 0.6..1.4 theo thanh hiện tại: càng mất thế càng dễ thua)
+	"parried_loss": 40.0,      # đòn bị người kia parry
+	"parry_miss_loss": 25.0,   # parry hụt
+	"parry_relief": 20.0,      # parry thành công: bớt mất thế
+	"hit_relief": 8.0,         # đòn kiếm trúng: bớt mất thế
+	"decay_delay": 1.5,        # giây không bị cộng thêm thì thanh mới tự giảm
+	"decay": 8.0,              # /giây
+	"destabilized_time": 3.0,  # giây
+	"immunity_time": 1.5,      # giây sau khi hồi phục không bị cộng thanh (tránh khóa liên tục)
 }
 
 ## Số cân bằng chiến đấu (chỉnh tại đây).

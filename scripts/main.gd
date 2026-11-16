@@ -52,7 +52,7 @@ func _ready() -> void:
 	player.parry.parry_missed.connect(func(): hud.flash("PARRY HỤT", Color(0.8, 0.8, 0.8)))
 	player.parry.cooldown_progress.connect(hud.set_parry)
 	player.instability.changed.connect(hud.set_instability)
-	player.instability.redline_changed.connect(_on_redline)
+	player.instability.destabilized_changed.connect(_on_destabilized)
 	player.died.connect(_on_player_died)
 
 	hud.set_health(player.hurtbox.health, player.hurtbox.max_health)
@@ -184,11 +184,11 @@ func _on_parried(_hit: Dictionary) -> void:
 	Global.hitstop(0.08)
 
 
-func _on_redline(active: bool) -> void:
-	hud.set_redline(active)
+func _on_destabilized(active: bool) -> void:
+	hud.set_destabilized(active)
 	if active:
-		Sfx.play("redline")
-		hud.flash("REDLINE!", Color(1.0, 0.35, 0.15))
+		Sfx.play("destabilized")
+		hud.flash("MẤT THẾ!", Color(0.7, 0.5, 1.0))
 
 
 func _on_shot_fired(from: Vector3, to: Vector3) -> void:

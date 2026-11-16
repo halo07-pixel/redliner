@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `ed43c01` (đến M7.5 đã gộp). Nhánh chờ duyệt: `feature/m7-7-stickman-weapons` (M7.7 người que + vũ khí thật; thay hướng chibi M7.6 đã bị từ chối).
+- `main` = `fd6c3c7` (đến M7.7 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m8-destabilized` (M8 mất thế).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -67,13 +67,21 @@
 - Chưa kiểm bằng người: độ mượt khi chơi thật, vũ khí xuyên cơ thể ở vài tư thế (chém/đỡ), màu tô theo loại bot (nhân với texture gốc), clip chém/bắn là tư thế code chứ không phải mocap. Cloud không có Vulkan nên ảnh là bản GL fallback.
 - Môi trường cloud có thể mất binary Godot: tải `Godot_v4.7-stable_linux.x86_64.zip` từ GitHub release `godotengine/godot-builds` tag `4.7-stable` vào `/opt/godot47`, symlink `godot`.
 
+## M8 (nhánh `feature/m8-destabilized`: Instability "mất thế")
+- Thay hẳn Redline cũ. `scripts/instability.gd` (Node dùng chung người chơi + bot): `add/lose/clash_penalty/tick/reset`, signal `changed`, `destabilized_changed`. Số cân bằng: `Global.INSTABILITY` (clash_loss 30 nhân 0.6–1.4 theo thanh, parried_loss 40, parry_miss_loss 25, parry_relief 20, hit_relief 8, decay_delay 1.5s, decay 8/s, destabilized_time 3s, immunity_time 1.5s).
+- Nguồn cộng: `melee.clashed` (thua clash), `melee.got_parried` (signal mới), `parry.parry_missed`. Nguồn bớt: parry thành công, đòn kiếm trúng.
+- Destabilized: `melee.stagger(3s)` (khóa kiếm, bắn, parry qua `is_staggered`), `parry.locked`, người chơi `dash_charges = 0` và ngừng hồi dash; bot chững lại + nháy. `melee.stagger` nay lấy max(thời gian cũ, mới).
+- HUD: thanh vàng→cam→đỏ, nhãn "MẤT THẾ x.xs" + viền tím + SFX `destabilized`; bỏ SFX/vignette Redline, bỏ `damage_mult`.
+- Test: `test_menu_instability` viết lại (logic thuần, trong game, bot). Ảnh: `docs/screenshots/m8_*.png`, script `tools/screenshots/shoot_destabilized.gd`.
+- Chưa kiểm bằng người: cân bằng số (mất thế có quá dễ/khó), cảm giác 3s bị khóa; bot chưa tận dụng cơ hội (M14).
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (11 bộ: test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (12 bộ: test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-Nhánh C (M7.6, asset ngoài) → M8 (Instability "Destabilized")… Mỗi việc phải đề xuất + chờ duyệt.
+M9 (di chuyển nâng cao) → M10 (4 súng) →… Mỗi việc phải đề xuất + chờ duyệt.
