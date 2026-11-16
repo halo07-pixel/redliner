@@ -45,6 +45,9 @@ func _ready() -> void:
 	player.combat.ammo_changed.connect(hud.set_ammo)
 	player.combat.reloading_changed.connect(hud.set_reloading)
 	player.combat.shot_fired.connect(_on_shot_fired)
+	player.combat.weapon_changed.connect(hud.set_weapon)
+	player.combat.weapon_changed.connect(func(id, _n): player.viewmodel.set_weapon(id))
+	player.combat.exploded.connect(_on_exploded)
 	player.combat.hit_confirmed.connect(_on_hit_confirmed)
 	player.melee.swing_started.connect(func(_w, _a, _r): Sfx.play("slash"))
 	player.melee.hit_landed.connect(_on_melee_hit)
@@ -199,8 +202,18 @@ func _on_destabilized(active: bool) -> void:
 
 
 func _on_shot_fired(from: Vector3, to: Vector3) -> void:
-	Sfx.play("shot")
-	_spawn_tracer(from, to)
+	Sfx.play(String(player.combat.cfg()["sfx"]))
+	if player.combat.cfg()["kind"] != "explosive":
+		_spawn_tracer(from, to)
+
+
+func _on_exploded(pos: Vector3, radius: float) -> void:
+	Sfx.play("explosion")
+	Fx.sparks(self, pos, Color(1.0, 0.55, 0.15))
+	Fx.sparks(self, pos + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.4))
+	var near: float = clampf(1.0 - player.global_position.distance_to(pos) / (radius * 3.0), 0.0, 1.0)
+	player.shake(0.03 + 0.07 * near)
+	Global.hitstop(0.04)
 
 
 func _spawn_tracer(from: Vector3, to: Vector3) -> void:

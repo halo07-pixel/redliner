@@ -26,6 +26,7 @@ var _destabilized: bool = false
 var _inst_ratio: float = 0.0
 var _inst_max_time: float = 1.0
 var _reloading: bool = false
+var _weapon_name: String = "Súng lục"
 var _ammo_cur: int = 0
 var _ammo_max: int = 0
 var _flash_tween: Tween
@@ -74,7 +75,7 @@ func _ready() -> void:
 	_ammo_label.anchor_right = 1.0
 	_ammo_label.anchor_top = 1.0
 	_ammo_label.anchor_bottom = 1.0
-	_ammo_label.offset_left = -240.0
+	_ammo_label.offset_left = -400.0
 	_ammo_label.offset_right = -24.0
 	_ammo_label.offset_top = -56.0
 	_ammo_label.offset_bottom = -20.0
@@ -204,13 +205,18 @@ func set_ammo(current: int, maximum: int) -> void:
 	_refresh_ammo()
 
 
+func set_weapon(_id: String, display_name: String) -> void:
+	_weapon_name = display_name
+	_refresh_ammo()
+
+
 func set_reloading(on: bool) -> void:
 	_reloading = on
 	_refresh_ammo()
 
 
 func _refresh_ammo() -> void:
-	_ammo_label.text = "Ammo %d / %d" % [_ammo_cur, _ammo_max] + ("  (nạp...)" if _reloading else "")
+	_ammo_label.text = "%s  %d / %d" % [_weapon_name, _ammo_cur, _ammo_max] + ("  (nạp...)" if _reloading else "")
 
 
 func set_instability(value: float, maximum: float) -> void:

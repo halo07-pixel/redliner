@@ -115,7 +115,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = Global.PLAYER["mouse_sens"]
+		var sens: float = float(Global.PLAYER["mouse_sens"]) * (camera.fov / 90.0) # ngắm thì chậm tay lại
 		rotate_y(-event.relative.x * sens)
 		_pitch = clampf(_pitch - event.relative.y * sens, -PI * 0.49, PI * 0.49)
 		head.rotation.x = _pitch
@@ -130,7 +130,10 @@ func _process(delta: float) -> void:
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
 	_shake = maxf(_shake - delta * 0.5, 0.0)
 	var target_fov: float = 90.0 + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
-	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, 6.0 * delta))
+	var zoom: float = combat.zoom_fov()
+	if zoom > 0.0:
+		target_fov = zoom
+	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, (14.0 if zoom > 0.0 else 6.0) * delta))
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
 	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name())
@@ -153,6 +156,16 @@ func _read_input() -> void:
 		combat.want_parry = true
 	if Input.is_action_just_pressed("reload"):
 		combat.want_reload = true
+	if Input.is_action_just_pressed("heavy"):
+		combat.want_heavy = true
+	combat.want_zoom = Input.is_action_pressed("zoom")
+	for i in Global.WEAPON_ORDER.size():
+		if Input.is_action_just_pressed("weapon_%d" % (i + 1)):
+			combat.want_weapon = i
+	if Input.is_action_just_pressed("weapon_next"):
+		combat.want_cycle = 1
+	if Input.is_action_just_pressed("weapon_prev"):
+		combat.want_cycle = -1
 	if dead: # chết thì không điều khiển được
 		move_input = Vector2.ZERO
 		want_jump = false
@@ -164,6 +177,8 @@ func _read_input() -> void:
 		combat.want_shoot = false
 		combat.want_parry = false
 		combat.want_reload = false
+		combat.want_heavy = false
+		combat.want_zoom = false
 
 
 ## Rung camera (gọi từ main khi có va chạm/đòn trúng).
@@ -608,6 +623,14 @@ func _land_slam() -> void:
 	slammed.emit(global_position, radius)
 
 
+## Bị đẩy bởi vụ nổ của chính mình (rocket-jump): cộng thẳng vào vận tốc, bỏ giới hạn tốc độ recoil.
+func apply_blast(push: Vector3) -> void:
+	velocity += push
+	if state == State.GRAPPLE:
+		_end_grapple()
+	_shake = maxf(_shake, 0.06)
+
+
 ## Recoil movement: bắn khi đang trên không đẩy người chơi ngược hướng nòng.
 func _on_shot_recoil(from: Vector3, to: Vector3) -> void:
 	if is_on_floor() or state == State.SLAM:
@@ -615,4 +638,4 @@ func _on_shot_recoil(from: Vector3, to: Vector3) -> void:
 	if velocity.length() > float(Global.PLAYER["recoil_max_speed"]):
 		return
 	var dir: Vector3 = (to - from).normalized()
-	velocity -= dir * float(Global.PLAYER["recoil_impulse"])
+	velocity -= dir * float(Global.PLAYER["recoil_impulse"]) * float(combat.cfg()["recoil"])

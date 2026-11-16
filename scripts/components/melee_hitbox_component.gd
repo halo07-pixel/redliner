@@ -20,6 +20,10 @@ var _t: float = 0.0
 var _stagger_t: float = 0.0
 var _armed: bool = false
 var _hit_list: Array = []
+var heavy: bool = false # đòn đang đánh là chém rộng
+var _active_time: float = 0.0
+var _recovery_time: float = 0.0
+var _reach: float = 0.0
 var _shape := BoxShape3D.new()
 
 
@@ -27,6 +31,9 @@ func setup(p_team: int, p_body: Node3D) -> void:
 	team = p_team
 	body = p_body
 	_shape.size = Vector3(1.8, 1.6, Global.COMBAT["sword_reach"])
+	_active_time = Global.COMBAT["sword_active"]
+	_recovery_time = Global.COMBAT["sword_recovery"]
+	_reach = Global.COMBAT["sword_reach"]
 
 
 func is_staggered() -> bool:
@@ -41,14 +48,28 @@ func can_swing() -> bool:
 	return phase == Phase.IDLE and _stagger_t <= 0.0
 
 
-func try_swing() -> bool:
+func try_swing(wide: bool = false) -> bool:
 	if not can_swing():
 		return false
-	var windup: float = windup_override if windup_override > 0.0 else Global.COMBAT["sword_windup"]
+	var C: Dictionary = Global.COMBAT
+	var H: Dictionary = Global.HEAVY_SLASH
+	var windup: float = windup_override if windup_override > 0.0 else C["sword_windup"]
+	_active_time = C["sword_active"]
+	_recovery_time = C["sword_recovery"]
+	_reach = C["sword_reach"]
+	var width: float = 1.8
+	heavy = wide
+	if wide:
+		windup *= float(H["windup_mult"])
+		_active_time *= float(H["active_mult"])
+		_recovery_time *= float(H["recovery_mult"])
+		_reach *= float(H["reach_mult"])
+		width *= float(H["width_mult"])
+	_shape.size = Vector3(width, 1.6, _reach)
 	phase = Phase.WINDUP
 	_t = windup
 	_hit_list.clear()
-	swing_started.emit(windup, Global.COMBAT["sword_active"], Global.COMBAT["sword_recovery"])
+	swing_started.emit(windup, _active_time, _recovery_time)
 	return true
 
 
@@ -87,7 +108,7 @@ func _physics_process(delta: float) -> void:
 			_t -= delta
 			if _t <= 0.0:
 				phase = Phase.ACTIVE
-				_t = Global.COMBAT["sword_active"]
+				_t = _active_time
 				_armed = false # frame đầu chỉ đăng ký "đang active" để clash không phụ thuộc thứ tự xử lý
 				add_to_group("swords_active")
 		Phase.ACTIVE:
@@ -98,7 +119,7 @@ func _physics_process(delta: float) -> void:
 			if phase == Phase.ACTIVE and _t <= 0.0:
 				_leave_active()
 				phase = Phase.RECOVERY
-				_t = Global.COMBAT["sword_recovery"]
+				_t = _recovery_time
 		Phase.RECOVERY:
 			_t -= delta
 			if _t <= 0.0:
@@ -125,7 +146,7 @@ func _scan() -> void:
 		force_clash(other.global_position)
 		other.force_clash(my_pos)
 		return
-	var reach: float = Global.COMBAT["sword_reach"]
+	var reach: float = _reach
 	var q := PhysicsShapeQueryParameters3D.new()
 	q.shape = _shape
 	q.transform = Transform3D(global_transform.basis, global_position + _forward() * (reach * 0.5 + 0.2))
@@ -138,7 +159,7 @@ func _scan() -> void:
 			continue
 		_hit_list.append(hb)
 		var hit := {
-			"damage": float(Global.COMBAT["sword_damage"]),
+			"damage": float(Global.COMBAT["sword_damage"]) * (float(Global.HEAVY_SLASH["damage_mult"]) if heavy else 1.0),
 			"kind": "melee",
 			"source": body,
 			"direction": _forward(),

@@ -21,6 +21,9 @@ class Spring extends RefCounted:
 
 var sword_pivot: Node3D
 var gun_pivot: Node3D
+var weapon_id: String = "pistol"
+var _gun_models: Dictionary = {}
+var _flash_z: Dictionary = {}
 var muzzle_flash: MeshInstance3D
 
 var bob_offset: Vector3 = Vector3.ZERO   # nhún hiện tại (để test)
@@ -63,12 +66,13 @@ func _ready() -> void:
 	# ---- Súng lục (gốc = bàn tay cầm báng, nòng chỉ về -Z) ----
 	gun_pivot = _node("GunPivot", self, V["gun_pos"])
 	_gun_rest_pos = gun_pivot.position
-	_part(gun_pivot, Vector3(0.05, 0.04, 0.2), Vector3(0.0, 0.0, -0.08), metal)               # khung
-	_part(gun_pivot, Vector3(0.056, 0.05, 0.27), Vector3(0.0, 0.045, -0.1), metal_light)      # thân trượt
-	_part(gun_pivot, Vector3(0.026, 0.026, 0.09), Vector3(0.0, 0.048, -0.275), metal)         # nòng
-	_part(gun_pivot, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
-	_part(gun_pivot, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
-	_part(gun_pivot, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
+	var pistol := _node("Pistol", gun_pivot, Vector3.ZERO)
+	_part(pistol, Vector3(0.05, 0.04, 0.2), Vector3(0.0, 0.0, -0.08), metal)               # khung
+	_part(pistol, Vector3(0.056, 0.05, 0.27), Vector3(0.0, 0.045, -0.1), metal_light)      # thân trượt
+	_part(pistol, Vector3(0.026, 0.026, 0.09), Vector3(0.0, 0.048, -0.275), metal)         # nòng
+	_part(pistol, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
+	_part(pistol, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
+	_part(pistol, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
 	_hand(gun_pivot, Vector3(0.0, -0.06, 0.02), glove, false)
 	_arm(gun_pivot, Vector3(-0.1, -0.55, 0.38), Vector3(0.0, -0.1, 0.07), sleeve)
 	var fm := StandardMaterial3D.new()
@@ -79,6 +83,55 @@ func _ready() -> void:
 	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	muzzle_flash = _part(gun_pivot, Vector3(0.09, 0.09, 0.1), Vector3(0.0, 0.048, -0.36), fm)
 	muzzle_flash.visible = false
+
+	# ---- Các súng khác (cùng gốc = bàn tay cầm; chỉ hiện súng đang chọn) ----
+	_gun_models["pistol"] = pistol
+	_flash_z["pistol"] = -0.36
+	var wood := _mat(Color(0.32, 0.2, 0.1), 0.0, 0.8)
+	var scope_mat := _mat(Color(0.08, 0.08, 0.1), 0.5, 0.3)
+	var red := _mat(Color(0.7, 0.15, 0.1), 0.2, 0.6)
+	var sg := _node("Shotgun", gun_pivot, Vector3.ZERO)
+	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(-0.02, 0.05, -0.3), metal)                  # nòng trái
+	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(0.02, 0.05, -0.3), metal)                   # nòng phải
+	_part(sg, Vector3(0.09, 0.05, 0.12), Vector3(0.0, 0.02, -0.02), metal_light)            # thân
+	_part(sg, Vector3(0.05, 0.035, 0.22), Vector3(0.0, 0.01, -0.2), wood)                   # ốp tay
+	_part(sg, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.04), wood, Vector3(12.0, 0.0, 0.0)) # báng
+	_gun_models["shotgun"] = sg
+	_flash_z["shotgun"] = -0.6
+	var ln := _node("Launcher", gun_pivot, Vector3.ZERO)
+	_part(ln, Vector3(0.11, 0.11, 0.55), Vector3(0.0, 0.07, -0.22), metal_light)            # ống phóng
+	_part(ln, Vector3(0.13, 0.13, 0.06), Vector3(0.0, 0.07, -0.5), red)                     # miệng ống
+	_part(ln, Vector3(0.05, 0.1, 0.05), Vector3(0.0, -0.04, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
+	_part(ln, Vector3(0.03, 0.04, 0.1), Vector3(0.0, 0.15, -0.1), metal)                    # ngắm
+	_gun_models["launcher"] = ln
+	_flash_z["launcher"] = -0.58
+	var sn := _node("Sniper", gun_pivot, Vector3.ZERO)
+	_part(sn, Vector3(0.03, 0.03, 0.75), Vector3(0.0, 0.05, -0.4), metal)                   # nòng dài
+	_part(sn, Vector3(0.06, 0.06, 0.3), Vector3(0.0, 0.02, -0.02), metal_light)             # thân
+	_part(sn, Vector3(0.05, 0.05, 0.22), Vector3(0.0, 0.11, -0.1), scope_mat)               # ống ngắm
+	_part(sn, Vector3(0.03, 0.04, 0.03), Vector3(0.0, 0.075, -0.05), metal)                 # chân ngắm
+	_part(sn, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.06), metal, Vector3(12.0, 0.0, 0.0)) # báng
+	_gun_models["sniper"] = sn
+	_flash_z["sniper"] = -0.82
+	set_weapon("pistol", false)
+
+
+## Chọn súng hiển thị + hoạt ảnh rút súng (hạ xuống rồi nâng lên).
+func set_weapon(id: String, animate: bool = true) -> void:
+	if not _gun_models.has(id):
+		return
+	for k in _gun_models:
+		(_gun_models[k] as Node3D).visible = (k == id)
+	muzzle_flash.position.z = float(_flash_z[id])
+	weapon_id = id
+	if animate and is_inside_tree():
+		_gun_restart()
+		var up: float = float(Global.WEAPONS[id]["draw"]) if Global.WEAPONS.has(id) else 0.3
+		gun_pivot.position = _gun_rest_pos + Vector3(0.0, -0.3, 0.1)
+		gun_pivot.rotation_degrees = Vector3(-35.0, 0.0, 0.0)
+		_gun_tween.set_parallel(true)
+		_gun_tween.tween_property(gun_pivot, "position", _gun_rest_pos, up)
+		_gun_tween.tween_property(gun_pivot, "rotation_degrees", Vector3.ZERO, up)
 
 
 func _node(node_name: String, parent: Node3D, pos: Vector3) -> Node3D:
@@ -233,7 +286,7 @@ func set_reloading(on: bool) -> void:
 	if on:
 		reloading = true
 		_gun_restart()
-		var total: float = float(Global.COMBAT["gun_reload"])
+		var total: float = float(Global.WEAPONS[weapon_id]["reload"])
 		var down: float = float(V["reload_down_time"])
 		var up: float = float(V["reload_up_time"])
 		var hold: float = maxf(total - down - up, 0.0)
