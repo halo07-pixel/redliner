@@ -35,7 +35,8 @@ func _ready() -> void:
 	player.speed_changed.connect(hud.set_speed)
 	player.state_changed.connect(hud.set_state)
 	player.state_changed.connect(_on_state_changed)
-	player.dash_charges_changed.connect(hud.set_dash)
+	player.stamina_changed.connect(hud.set_stamina)
+	player.slammed.connect(_on_slammed)
 	player.dash_charges_changed.connect(_on_dash_charges)
 
 	# --- Chiến đấu -> HUD / âm thanh / hiệu ứng
@@ -182,6 +183,12 @@ func _on_parried(_hit: Dictionary) -> void:
 	Fx.sparks(self, _front_point(), Color(0.5, 0.9, 1.0))
 	player.shake(0.05)
 	Global.hitstop(0.08)
+
+
+func _on_slammed(pos: Vector3, _radius: float) -> void:
+	Sfx.play("clash")
+	Fx.sparks(self, pos + Vector3(0.0, 0.2, 0.0), Color(1.0, 0.7, 0.3))
+	Global.hitstop(0.06)
 
 
 func _on_destabilized(active: bool) -> void:
