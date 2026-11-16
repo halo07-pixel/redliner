@@ -6,11 +6,13 @@ extends CharacterBody3D
 signal speed_changed(speed: float)
 signal state_changed(state_name: String)
 signal dash_charges_changed(charges: int, max_charges: int)
+signal stamina_changed(value: float, maximum: float)
+signal slammed(position: Vector3, radius: float)
 signal grapple_started(point: Vector3)
 signal grapple_ended
 signal died
 
-enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE }
+enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE, SLAM }
 const BODY_LAYER: int = 2 # render layer 2 (bit thứ hai): thân người chơi
 
 const STAND_HEIGHT: float = 1.8
@@ -23,16 +25,27 @@ var want_jump: bool = false
 var want_slide: bool = false
 var want_dash: bool = false     # xung 1 lần, được tiêu thụ khi dash
 var want_grapple: bool = false  # giữ
+var want_slam: bool = false     # xung 1 lần, được tiêu thụ khi slam
 var use_input: bool = true
 
 var state: State = State.NORMAL
 var dead: bool = false
-var dash_charges: int = 0
+var dash_stamina: float = 0.0
+## Số charge dash hiển thị = stamina / dash_cost (gán trực tiếp được: đặt stamina tương ứng).
+var dash_charges: int:
+	get:
+		return int(floor(dash_stamina / float(Global.PLAYER["dash_cost"]) + 0.0001))
+	set(v):
+		dash_stamina = float(v) * float(Global.PLAYER["dash_cost"])
 
 var _pitch: float = 0.0
 var _last_speed: float = -1.0
 var _dash_cd: float = 0.0
-var _dash_recharge_t: float = 0.0
+var _regen_delay_t: float = 0.0
+var _last_charges: int = -1
+var _slide_boost_cd: float = 0.0
+var _slam_cd: float = 0.0
+var _slam_start_y: float = 0.0
 var _wall_lockout: float = 0.0
 var _wall_time: float = 0.0
 var _wall_normal: Vector3 = Vector3.ZERO
@@ -97,6 +110,7 @@ func _ready() -> void:
 	parry.parried.connect(func(_h): instability.lose(Global.INSTABILITY["parry_relief"]))
 	melee.hit_landed.connect(func(_hb, landed): if landed: instability.lose(Global.INSTABILITY["hit_relief"]))
 	instability.destabilized_changed.connect(_on_destabilized)
+	combat.shot_fired.connect(_on_shot_recoil)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -131,6 +145,8 @@ func _read_input() -> void:
 	want_grapple = Input.is_action_pressed("grapple")
 	if Input.is_action_just_pressed("dash"):
 		want_dash = true
+	if Input.is_action_just_pressed("slam"):
+		want_slam = true
 	combat.want_attack = Input.is_action_pressed("attack")
 	combat.want_shoot = Input.is_action_pressed("shoot")
 	if Input.is_action_just_pressed("parry"):
@@ -143,6 +159,7 @@ func _read_input() -> void:
 		want_slide = false
 		want_grapple = false
 		want_dash = false
+		want_slam = false
 		combat.want_attack = false
 		combat.want_shoot = false
 		combat.want_parry = false
@@ -171,8 +188,8 @@ func _on_destabilized(active: bool) -> void:
 	parry.locked = active
 	if active:
 		melee.stagger(float(Global.INSTABILITY["destabilized_time"]))
-		dash_charges = 0
-		dash_charges_changed.emit(dash_charges, Global.PLAYER["dash_max_charges"])
+		dash_stamina = 0.0
+		_emit_dash()
 		_shake = maxf(_shake, 0.1)
 
 
@@ -197,6 +214,7 @@ func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
 	_try_dash()
 	_try_start_grapple()
+	_try_slam()
 
 	match state:
 		State.NORMAL:
@@ -207,8 +225,12 @@ func _physics_process(delta: float) -> void:
 			_move_wallrun(delta)
 		State.GRAPPLE:
 			_move_grapple(delta)
+		State.SLAM:
+			_move_slam(delta)
 
 	move_and_slide()
+	if state == State.SLAM and is_on_floor():
+		_land_slam()
 	_animate_body(delta)
 
 	if not dead:
@@ -255,19 +277,26 @@ func _tick_timers(delta: float) -> void:
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
 	_wall_lockout = maxf(_wall_lockout - delta, 0.0)
 	_grapple_cd = maxf(_grapple_cd - delta, 0.0)
-	var max_c: int = Global.PLAYER["dash_max_charges"]
-	if dash_charges < max_c and not instability.destabilized:
-		_dash_recharge_t -= delta
-		if _dash_recharge_t <= 0.0:
-			dash_charges += 1
-			_dash_recharge_t = Global.PLAYER["dash_recharge"]
-			dash_charges_changed.emit(dash_charges, max_c)
+	_slide_boost_cd = maxf(_slide_boost_cd - delta, 0.0)
+	_slam_cd = maxf(_slam_cd - delta, 0.0)
+	var cfg: Dictionary = Global.PLAYER
+	_regen_delay_t = maxf(_regen_delay_t - delta, 0.0)
+	if dash_stamina < float(cfg["dash_stamina_max"]) and _regen_delay_t <= 0.0 and not instability.destabilized:
+		dash_stamina = minf(dash_stamina + float(cfg["dash_regen"]) * delta, float(cfg["dash_stamina_max"]))
+		_emit_dash()
+
+
+func _emit_dash() -> void:
+	stamina_changed.emit(dash_stamina, Global.PLAYER["dash_stamina_max"])
+	if dash_charges != _last_charges:
+		_last_charges = dash_charges
+		dash_charges_changed.emit(dash_charges, Global.PLAYER["dash_max_charges"])
 
 
 func _try_dash() -> void:
 	var wants: bool = want_dash
 	want_dash = false # xung 1 lần
-	if not wants or dash_charges <= 0 or _dash_cd > 0.0:
+	if not wants or dash_stamina < float(Global.PLAYER["dash_cost"]) or _dash_cd > 0.0:
 		return
 	var dir: Vector3 = _wish_dir()
 	if dir == Vector3.ZERO:
@@ -278,14 +307,12 @@ func _try_dash() -> void:
 	var imp: float = Global.PLAYER["dash_impulse"]
 	velocity.x += dir.x * imp
 	velocity.z += dir.z * imp
-	var max_c: int = Global.PLAYER["dash_max_charges"]
-	if dash_charges == max_c:
-		_dash_recharge_t = Global.PLAYER["dash_recharge"]
-	dash_charges -= 1
+	dash_stamina -= float(Global.PLAYER["dash_cost"])
+	_regen_delay_t = Global.PLAYER["dash_regen_delay"]
 	_dash_cd = Global.PLAYER["dash_cooldown"]
 	_shake = maxf(_shake, 0.02)
 	_dash_anim_t = float(Global.ANIM["dash_time"])
-	dash_charges_changed.emit(dash_charges, max_c)
+	_emit_dash()
 
 
 # ------------------------------------------------------------------ NORMAL
@@ -354,7 +381,9 @@ func _can_stand() -> bool:
 func _enter_slide() -> void:
 	var cfg: Dictionary = Global.PLAYER
 	var dir := Vector3(velocity.x, 0.0, velocity.z).normalized()
-	velocity += dir * float(cfg["slide_boost"])
+	if _slide_boost_cd <= 0.0:
+		velocity += dir * float(cfg["slide_boost"])
+		_slide_boost_cd = cfg["slide_boost_cooldown"]
 	_set_crouch(true)
 	_set_state(State.SLIDE)
 
@@ -377,6 +406,10 @@ func _move_slide(delta: float) -> void:
 
 	if want_jump and _can_stand():
 		velocity.y = cfg["jump_velocity"]
+		# Slide hop: nhảy ngay khi đang trượt giữ trọn động lượng và được cộng thêm một chút.
+		if horizontal_speed() < float(cfg["slide_hop_max_speed"]):
+			var hop_dir := Vector3(velocity.x, 0.0, velocity.z).normalized()
+			velocity += hop_dir * float(cfg["slide_hop_boost"])
 		_exit_slide()
 		return
 
@@ -494,7 +527,11 @@ func _move_grapple(delta: float) -> void:
 	_grapple_time += delta
 	var to: Vector3 = _grapple_point - head.global_position
 	var dist: float = to.length()
-	if not want_grapple or dist < float(cfg["grapple_stop_dist"]) or _grapple_time > float(cfg["grapple_max_time"]):
+	if not want_grapple:
+		_release_redirect() # tự nhả: xoay vận tốc theo hướng nhìn thay vì giữ nguyên hướng kéo
+		_end_grapple()
+		return
+	if dist < float(cfg["grapple_stop_dist"]) or _grapple_time > float(cfg["grapple_max_time"]):
 		_end_grapple() # thả ra: giữ nguyên quán tính hiện tại
 		return
 	var dir: Vector3 = to / dist
@@ -505,3 +542,77 @@ func _move_grapple(delta: float) -> void:
 		velocity += dir * pull * delta
 	velocity.y -= float(cfg["gravity"]) * 0.4 * delta
 	_accelerate(_wish_dir(), cfg["walk_speed"], cfg["air_accel"], delta)
+
+
+## Nhả móc chủ động: xoay vận tốc về hướng nhìn (giữ độ lớn) + cộng một chút dọc hướng nhìn.
+func _release_redirect() -> void:
+	var cfg: Dictionary = Global.PLAYER
+	var speed: float = velocity.length()
+	if speed < 8.0:
+		return
+	var look: Vector3 = -head.global_transform.basis.z
+	var blended: Vector3 = velocity.lerp(look * speed, float(cfg["grapple_redirect_blend"]))
+	velocity = blended.normalized() * speed + look * float(cfg["grapple_release_boost"])
+
+
+# ------------------------------------------------------------------ SLAM
+
+func _height_above_ground() -> float:
+	var q := PhysicsRayQueryParameters3D.create(global_position, global_position + Vector3.DOWN * 60.0, Global.L_WORLD)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
+	return 999.0 if hit.is_empty() else global_position.y - hit["position"].y
+
+
+func _try_slam() -> void:
+	var wants: bool = want_slam
+	want_slam = false # xung 1 lần
+	if not wants or dead or _slam_cd > 0.0 or is_on_floor() or state == State.SLAM or state == State.WALLRUN:
+		return
+	if _height_above_ground() < float(Global.PLAYER["slam_min_height"]):
+		return
+	if state == State.GRAPPLE:
+		_end_grapple()
+	if state == State.SLIDE:
+		_exit_slide()
+	_slam_start_y = global_position.y
+	_set_state(State.SLAM)
+
+
+func _move_slam(delta: float) -> void:
+	var cfg: Dictionary = Global.PLAYER
+	velocity.y = -float(cfg["slam_speed"])
+	velocity.x = move_toward(velocity.x, 0.0, 30.0 * delta)
+	velocity.z = move_toward(velocity.z, 0.0, 30.0 * delta)
+	_accelerate(_wish_dir(), cfg["slam_air_steer"], cfg["air_accel"], delta)
+
+
+## Chạm đất: sóng xung kích gây sát thương + choáng bot gần đó, người chơi nảy lên theo độ cao rơi.
+func _land_slam() -> void:
+	var cfg: Dictionary = Global.PLAYER
+	var fallen: float = _slam_start_y - global_position.y
+	var radius: float = cfg["slam_radius"]
+	for b in get_tree().get_nodes_in_group("bots"):
+		if b.dead:
+			continue
+		var to: Vector3 = b.global_position - global_position
+		if to.length() > radius:
+			continue
+		var dir: Vector3 = to.normalized() if to.length() > 0.01 else Vector3.FORWARD
+		b.hurtbox.take_hit({"damage": float(cfg["slam_damage"]), "kind": "slam", "source": self, "direction": dir})
+		b.melee.stagger(float(cfg["slam_stagger"]))
+	velocity.y = minf(float(cfg["slam_speed"]) * float(cfg["slam_bounce"]) + fallen * 0.1, float(cfg["slam_bounce_max"]))
+	_slam_cd = cfg["slam_cooldown"]
+	_shake = maxf(_shake, 0.08)
+	_set_state(State.NORMAL)
+	slammed.emit(global_position, radius)
+
+
+## Recoil movement: bắn khi đang trên không đẩy người chơi ngược hướng nòng.
+func _on_shot_recoil(from: Vector3, to: Vector3) -> void:
+	if is_on_floor() or state == State.SLAM:
+		return
+	if velocity.length() > float(Global.PLAYER["recoil_max_speed"]):
+		return
+	var dir: Vector3 = (to - from).normalized()
+	velocity -= dir * float(Global.PLAYER["recoil_impulse"])

@@ -225,13 +225,19 @@ const PLAYER: Dictionary = {
 	# --- Slide ---
 	"slide_min_speed": 6.0,  # phải chạy nhanh hơn mức này mới trượt được
 	"slide_boost": 4.0,      # cú đẩy khi bắt đầu trượt (m/s)
+	"slide_boost_cooldown": 1.0, # giây tối thiểu giữa 2 cú đẩy (chống spam trượt)
+	"slide_hop_boost": 2.5,  # nhảy ngay lúc đang trượt: cộng thêm tốc độ ngang (m/s)
+	"slide_hop_max_speed": 26.0, # slide hop không cộng nếu đã nhanh hơn mức này
 	"slide_friction": 0.2,   # ma sát rất nhỏ khi trượt (tỉ lệ theo tốc độ, 1/giây)
 	"slide_end_speed": 2.5,  # chậm hơn mức này thì tự đứng dậy
 	"slide_steer": 5.0,      # khả năng bẻ hướng khi trượt
 	# --- Dash ---
 	"dash_impulse": 18.0,    # m/s cộng thêm vào vận tốc hiện tại
-	"dash_max_charges": 2,
-	"dash_recharge": 1.5,    # giây hồi 1 lần dash
+	"dash_stamina_max": 100.0, # dash dùng thanh stamina; 1 charge hiển thị = dash_cost stamina
+	"dash_cost": 50.0,
+	"dash_max_charges": 2,   # = dash_stamina_max / dash_cost (dùng cho HUD)
+	"dash_regen": 50.0,      # stamina/giây
+	"dash_regen_delay": 0.25, # giây sau mỗi cú dash thanh mới bắt đầu hồi
 	"dash_cooldown": 0.25,   # giây tối thiểu giữa 2 lần dash
 	# --- Wallrun ---
 	"wall_ray": 1.0,         # tầm dò tường hai bên (m)
@@ -250,6 +256,21 @@ const PLAYER: Dictionary = {
 	"grapple_stop_dist": 2.5,    # tới gần điểm móc thì thả
 	"grapple_max_time": 3.0,
 	"grapple_cooldown": 0.5,
+	"grapple_redirect_blend": 0.7, # nhả móc: tỉ lệ vận tốc được xoay theo hướng nhìn (giữ nguyên độ lớn)
+	"grapple_release_boost": 3.0,  # + m/s dọc hướng nhìn khi nhả móc (redirect)
+	# --- Ground slam ---
+	"slam_min_height": 2.0,  # phải cách mặt đất ít nhất chừng này mới slam được
+	"slam_speed": 42.0,      # tốc độ lao xuống
+	"slam_radius": 5.0,
+	"slam_damage": 25.0,
+	"slam_stagger": 1.0,     # giây địch bị choáng
+	"slam_bounce": 0.25,     # tỉ lệ vận tốc rơi chuyển thành nảy lên
+	"slam_bounce_max": 11.0,
+	"slam_cooldown": 1.0,
+	"slam_air_steer": 2.0,
+	# --- Recoil movement ---
+	"recoil_impulse": 6.0,   # bắn trên không đẩy ngược hướng nòng (m/s)
+	"recoil_max_speed": 30.0, # không cộng nếu đã nhanh hơn mức này
 }
 
 
@@ -319,6 +340,7 @@ func _setup_input() -> void:
 	_add_key("jump", KEY_SPACE)
 	_add_key("slide", KEY_CTRL)
 	_add_key("dash", KEY_SHIFT)
+	_add_key("slam", KEY_C)
 	_add_mouse("grapple", MOUSE_BUTTON_RIGHT)
 	_add_mouse("attack", MOUSE_BUTTON_LEFT)
 	_add_key("shoot", KEY_E)

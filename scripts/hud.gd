@@ -167,7 +167,7 @@ func _ready() -> void:
 	set_wave(0, 0)
 	set_speed(0.0)
 	set_state("NORMAL")
-	set_dash(2, 2)
+	set_stamina(100.0, 100.0)
 	set_health(100.0, 100.0)
 	set_ammo(6, 6)
 
@@ -178,6 +178,12 @@ func set_speed(speed: float) -> void:
 
 func set_state(state_name: String) -> void:
 	_state_label.text = "State: %s" % state_name
+
+
+## Thanh stamina dash (10 ô); mỗi dash tốn dash_cost, hồi dần sau độ trễ ngắn.
+func set_stamina(value: float, maximum: float) -> void:
+	var n: int = int(round(10.0 * value / maximum))
+	_dash_label.text = "Dash: [" + "#".repeat(n) + "-".repeat(10 - n) + "]"
 
 
 func set_dash(charges: int, max_charges: int) -> void:

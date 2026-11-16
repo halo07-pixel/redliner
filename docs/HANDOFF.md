@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `fd6c3c7` (đến M7.7 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m8-destabilized` (M8 mất thế).
+- `main` = `4befabf` (đến M8 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m9-advanced-movement` (M9 di chuyển nâng cao).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -75,13 +75,22 @@
 - Test: `test_menu_instability` viết lại (logic thuần, trong game, bot). Ảnh: `docs/screenshots/m8_*.png`, script `tools/screenshots/shoot_destabilized.gd`.
 - Chưa kiểm bằng người: cân bằng số (mất thế có quá dễ/khó), cảm giác 3s bị khóa; bot chưa tận dụng cơ hội (M14).
 
+## M9 (nhánh `feature/m9-advanced-movement`: di chuyển nâng cao)
+- Slide boost có cooldown (`slide_boost_cooldown` 1s, chống spam) + slide hop (nhảy khi đang trượt: +2.5 m/s, không cộng nếu đã > 26 m/s).
+- Stamina dash: `dash_stamina` 0..100, mỗi dash tốn 50, hồi 50/s sau độ trễ 0.25s; `dash_charges` là property suy ra (gán được, giữ tương thích test cũ). Signal mới `stamina_changed` -> HUD thanh 10 ô; Destabilized đưa stamina về 0 và ngừng hồi.
+- Grapple redirect: nhả móc chủ động xoay vận tốc về hướng nhìn (`grapple_redirect_blend` 0.7, giữ độ lớn, +3 m/s dọc hướng nhìn). Hết dây/chạm đích không redirect.
+- Ground slam: phím C trên không cách đất >= 2 m; state `SLAM` lao xuống 42 m/s, chạm đất gây 25 sát thương + choáng 1s bot trong 5 m, người chơi nảy lên (tối đa 11 m/s), cooldown 1s; signal `slammed` -> SFX/tia lửa ở `main.gd`.
+- Recoil: bắn khi trên không đẩy ngược hướng nòng 6 m/s (không cộng nếu đã > 30 m/s). Bắn xuống để bay lên.
+- Số cân bằng ở `Global.PLAYER`. Test: `test_m9_movement`. Ảnh: `docs/screenshots/m9_*.png`, script `tools/screenshots/shoot_m9.gd`. Menu hướng dẫn có dòng C và nhả móc.
+- Chưa kiểm bằng người: cảm giác (độ mạnh slide hop/slam/recoil, có "vỡ" cân bằng không, ví dụ chuỗi slide hop + dash + recoil vượt tốc độ), phím C có tiện không.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (12 bộ: test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (13 bộ: test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M9 (di chuyển nâng cao) → M10 (4 súng) →… Mỗi việc phải đề xuất + chờ duyệt.
+M10 (kho vũ khí, 4 súng) → M11… Mỗi việc phải đề xuất + chờ duyệt.
