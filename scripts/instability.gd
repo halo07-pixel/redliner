@@ -1,63 +1,89 @@
 extends Node
-## Instability / Redline. Thanh đầy dần khi chạy nhanh, đánh trúng, parry thành công; đầy thì vào
-## Redline (sát thương tăng, dash hồi nhanh) rồi cạn dần về 0. Chỉ phát Signal; Player nối hiệu ứng.
+## Instability "mất thế". Thanh tăng khi mất thế trong giao đấu; đầy thì Destabilized: kẻ bị mất thế không
+## tấn công/parry được và stamina dash về 0 trong vài giây, rồi thanh về 0 và có khoảng miễn nhiễm ngắn.
+## Dùng chung cho người chơi và bot. Chỉ phát Signal; chủ nhân nối hiệu ứng (call down, signal up).
 
 signal changed(value: float, maximum: float)
-signal redline_changed(active: bool)
+signal destabilized_changed(active: bool)
 
 var value: float = 0.0
-var redline: bool = false
+var destabilized: bool = false
 
-var _t: float = 0.0
+var _t: float = 0.0          # còn lại của trạng thái Destabilized
+var _immune_t: float = 0.0
+var _since_gain: float = 0.0
 
 
 func maximum() -> float:
 	return Global.INSTABILITY["max"]
 
 
+func ratio() -> float:
+	return value / maximum()
+
+
+func time_left() -> float:
+	return _t if destabilized else 0.0
+
+
+func is_immune() -> bool:
+	return _immune_t > 0.0
+
+
 func add(amount: float) -> void:
-	if redline:
-		return # đang Redline thì không tích thêm
+	if destabilized or _immune_t > 0.0 or amount <= 0.0:
+		return
 	value = minf(value + amount, maximum())
+	_since_gain = 0.0
 	changed.emit(value, maximum())
 	if value >= maximum():
-		_start_redline()
+		_start_destabilized()
 
 
+## Bớt mất thế (parry thành công, đòn kiếm trúng). Không tác dụng khi đang Destabilized.
 func lose(amount: float) -> void:
-	if redline:
+	if destabilized:
 		return
 	value = maxf(value - amount, 0.0)
 	changed.emit(value, maximum())
 
 
+## Thua clash: càng mất thế (thanh cao) càng chịu nhiều.
+func clash_penalty() -> void:
+	add(float(Global.INSTABILITY["clash_loss"]) * (0.6 + 0.8 * ratio()))
+
+
 func reset() -> void:
 	value = 0.0
-	if redline:
-		redline = false
-		redline_changed.emit(false)
+	_t = 0.0
+	_immune_t = 0.0
+	_since_gain = 0.0
+	if destabilized:
+		destabilized = false
+		destabilized_changed.emit(false)
 	changed.emit(value, maximum())
 
 
-## Gọi mỗi bước vật lý từ Player kèm tốc độ ngang hiện tại.
-func tick(delta: float, speed: float) -> void:
-	if redline:
+## Gọi mỗi bước vật lý.
+func tick(delta: float) -> void:
+	if destabilized:
 		_t -= delta
-		value = maximum() * maxf(_t, 0.0) / float(Global.INSTABILITY["redline_time"])
-		changed.emit(value, maximum())
+		value = maximum() * maxf(_t, 0.0) / float(Global.INSTABILITY["destabilized_time"])
 		if _t <= 0.0:
-			redline = false
+			destabilized = false
 			value = 0.0
-			redline_changed.emit(false)
-			changed.emit(value, maximum())
-	elif speed > float(Global.INSTABILITY["speed_threshold"]):
-		add(float(Global.INSTABILITY["speed_gain"]) * delta)
-	elif value > 0.0:
-		value = maxf(value - float(Global.INSTABILITY["idle_decay"]) * delta, 0.0)
+			_immune_t = Global.INSTABILITY["immunity_time"]
+			destabilized_changed.emit(false)
+		changed.emit(value, maximum())
+		return
+	_immune_t = maxf(_immune_t - delta, 0.0)
+	_since_gain += delta
+	if value > 0.0 and _since_gain >= float(Global.INSTABILITY["decay_delay"]):
+		value = maxf(value - float(Global.INSTABILITY["decay"]) * delta, 0.0)
 		changed.emit(value, maximum())
 
 
-func _start_redline() -> void:
-	redline = true
-	_t = Global.INSTABILITY["redline_time"]
-	redline_changed.emit(true)
+func _start_destabilized() -> void:
+	destabilized = true
+	_t = Global.INSTABILITY["destabilized_time"]
+	destabilized_changed.emit(true)

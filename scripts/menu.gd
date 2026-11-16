@@ -68,7 +68,7 @@ func _build_help() -> void:
 		"Chuột trái  -  chém kiếm        E  -  bắn súng        R  -  nạp đạn",
 		"F  -  PARRY: đúng lúc thì phản đạn về người bắn, đòn kiếm làm địch choáng",
 		"Hai kiếm chạm nhau  -  CLASH: cả hai bị đẩy lùi",
-		"Chạy nhanh, đánh trúng, parry  -  đầy thanh Instability  -  REDLINE",
+		"Thua clash, parry hụt, bị parry  -  đầy thanh Instability  -  MẤT THẾ vài giây (không đánh/parry/dash)",
 		"Esc  -  tạm dừng",
 	]
 	for t in lines:

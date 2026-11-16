@@ -22,11 +22,11 @@ Chụp màn hình (cần Xvfb): `xvfb-run -s "-screen 0 1280x720x24" godot --pat
 2. Di chuyển nâng cao: slide, dash, wallrun, grapple (xong)
 3. Chiến đấu: kiếm, súng, parry/clash (xong)
 4. Bot AI + wave + điểm (xong)
-5. Menu, HUD, Instability/Redline, âm thanh, hiệu ứng (hiện tại)
+5. Menu, HUD, Instability "mất thế", âm thanh, hiệu ứng (hiện tại)
 
-## Cơ chế Instability / Redline
-Thanh Instability đầy dần khi chạy nhanh (> 14 m/s), đánh kiếm trúng và parry thành công; mất bớt khi bị đánh.
-Đầy thì vào **Redline** 6 giây: sát thương x1.5, dash hồi nhanh gấp đôi. Mọi số chỉnh trong `Global.INSTABILITY`.
+## Cơ chế Instability "mất thế"
+Thanh Instability tăng khi thua clash (kiếm chạm kiếm), parry hụt hoặc bị đối phương parry; bớt khi parry thành công hoặc đánh trúng, và tự giảm dần khi không bị cộng thêm.
+Đầy thì **Destabilized** 3 giây: không đánh, không parry, không bắn, stamina dash về 0. Áp dụng cho cả bot. Mọi số chỉnh trong `Global.INSTABILITY`.
 
 ## Xuất file chạy (Windows)
 Đã có sẵn `export_presets.cfg` (preset "Windows Desktop", xuất ra `build/Redliner.exe`).

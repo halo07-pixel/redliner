@@ -42,7 +42,6 @@ var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
 var _shake: float = 0.0
-var _redline: bool = false
 var _dash_anim_t: float = 0.0
 var body_view: Node3D
 
@@ -91,11 +90,13 @@ func _ready() -> void:
 	hurtbox.hurt.connect(func(h, _left): body_view.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": body_view.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))}))
 	combat.shot_fired.connect(func(_f, _t): body_view.play("shoot", float(Global.ANIM["shoot_time"])))
 	parry.parry_started.connect(viewmodel.raise)
-	# Instability: tích khi đánh trúng / parry, mất khi bị đánh; Redline tăng sát thương
-	melee.hit_landed.connect(func(_hb, landed): if landed: instability.add(Global.INSTABILITY["hit_gain"]))
-	parry.parried.connect(func(_h): instability.add(Global.INSTABILITY["parry_gain"]))
-	hurtbox.hurt.connect(func(_h, _left): instability.lose(Global.INSTABILITY["damage_loss"]))
-	instability.redline_changed.connect(_on_redline)
+	# Instability "mất thế": thua clash / parry hụt / bị parry thì tăng; parry thành công và đánh trúng thì giảm.
+	melee.clashed.connect(func(_d): instability.clash_penalty())
+	melee.got_parried.connect(func(): instability.add(Global.INSTABILITY["parried_loss"]))
+	parry.parry_missed.connect(func(): instability.add(Global.INSTABILITY["parry_miss_loss"]))
+	parry.parried.connect(func(_h): instability.lose(Global.INSTABILITY["parry_relief"]))
+	melee.hit_landed.connect(func(_hb, landed): if landed: instability.lose(Global.INSTABILITY["hit_relief"]))
+	instability.destabilized_changed.connect(_on_destabilized)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -165,11 +166,14 @@ func respawn(pos: Vector3) -> void:
 	viewmodel.reset()
 
 
-func _on_redline(active: bool) -> void:
-	_redline = active
-	var mult: float = float(Global.INSTABILITY["damage_mult"]) if active else 1.0
-	melee.damage_mult = mult
-	combat.damage_mult = mult
+## Destabilized: huỷ đòn đang đánh, khoá kiếm/parry/bắn, stamina dash về 0 (ngừng hồi trong lúc mất thế).
+func _on_destabilized(active: bool) -> void:
+	parry.locked = active
+	if active:
+		melee.stagger(float(Global.INSTABILITY["destabilized_time"]))
+		dash_charges = 0
+		dash_charges_changed.emit(dash_charges, Global.PLAYER["dash_max_charges"])
+		_shake = maxf(_shake, 0.1)
 
 
 func _on_died() -> void:
@@ -208,7 +212,7 @@ func _physics_process(delta: float) -> void:
 	_animate_body(delta)
 
 	if not dead:
-		instability.tick(delta, horizontal_speed())
+		instability.tick(delta)
 
 	var speed: float = horizontal_speed()
 	if absf(speed - _last_speed) > 0.05:
@@ -252,8 +256,8 @@ func _tick_timers(delta: float) -> void:
 	_wall_lockout = maxf(_wall_lockout - delta, 0.0)
 	_grapple_cd = maxf(_grapple_cd - delta, 0.0)
 	var max_c: int = Global.PLAYER["dash_max_charges"]
-	if dash_charges < max_c:
-		_dash_recharge_t -= delta * (float(Global.INSTABILITY["dash_recharge_mult"]) if _redline else 1.0)
+	if dash_charges < max_c and not instability.destabilized:
+		_dash_recharge_t -= delta
 		if _dash_recharge_t <= 0.0:
 			dash_charges += 1
 			_dash_recharge_t = Global.PLAYER["dash_recharge"]

@@ -22,7 +22,7 @@ func _ready() -> void:
 	_streams["wall"] = _noise_burst(0.22, 0.1, 0.25, 0.0, 0.0)
 	_streams["grapple"] = _sweep(0.25, 260.0, 900.0, 0.5)
 	_streams["wave"] = _arpeggio([440.0, 554.4, 659.3, 880.0], 0.13)
-	_streams["redline"] = _sweep(0.7, 110.0, 520.0, 0.6)
+	_streams["destabilized"] = _sweep(0.8, 420.0, 70.0, 0.7)
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		add_child(p)

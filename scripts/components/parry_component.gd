@@ -10,6 +10,7 @@ signal cooldown_progress(ratio: float) # 0 = vừa phạt, 1 = sẵn sàng
 var body: Node3D
 var active_t: float = 0.0
 var cooldown_t: float = 0.0
+var locked: bool = false # Destabilized: không parry được
 
 var _cd_total: float = 1.0
 var _was_cooling: bool = false
@@ -24,7 +25,7 @@ func is_active() -> bool:
 
 
 func can_press() -> bool:
-	return active_t <= 0.0 and cooldown_t <= 0.0
+	return not locked and active_t <= 0.0 and cooldown_t <= 0.0
 
 
 func press() -> bool:

@@ -16,6 +16,7 @@ const MannequinGltfScript = preload("res://scripts/mannequin_gltf.gd")
 const HurtboxScript = preload("res://scripts/components/hurtbox_component.gd")
 const ParryScript = preload("res://scripts/components/parry_component.gd")
 const MeleeScript = preload("res://scripts/components/melee_hitbox_component.gd")
+const InstabilityScript = preload("res://scripts/instability.gd")
 const BulletScript = preload("res://scripts/bullet.gd")
 
 const GRAVITY: float = 24.0
@@ -34,6 +35,7 @@ var max_health: float = 60.0
 var hurtbox: Area3D
 var parry: Node
 var melee: Node3D
+var instability: Node
 var mannequin: Node3D
 var target: Node3D
 var dead: bool = false
@@ -112,6 +114,14 @@ func _ready() -> void:
 	melee.staggered.connect(func(d): mannequin.play("stagger", d))
 	parry.parry_started.connect(func(): mannequin.play("parry", float(Global.ANIM["parry_time"])))
 	parry.parry_missed.connect(func(): mannequin.play("parry_miss", float(Global.ANIM["parry_miss_time"])))
+	# Mất thế (dùng chung cơ chế với người chơi): thua clash / parry hụt / bị parry -> Destabilized.
+	instability = InstabilityScript.new()
+	add_child(instability)
+	melee.clashed.connect(func(_d): instability.clash_penalty())
+	melee.got_parried.connect(func(): instability.add(Global.INSTABILITY["parried_loss"]))
+	parry.parry_missed.connect(func(): instability.add(Global.INSTABILITY["parry_miss_loss"]))
+	parry.parried.connect(func(_h): instability.lose(Global.INSTABILITY["parry_relief"]))
+	instability.destabilized_changed.connect(_on_destabilized)
 	var blade := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.07, 0.07, 0.9)
@@ -120,7 +130,17 @@ func _ready() -> void:
 	melee.add_child(blade)
 
 
+## Destabilized: huỷ đòn đang đánh, không tấn công/parry trong vài giây (chững lại, là cơ hội cho người chơi).
+func _on_destabilized(active: bool) -> void:
+	parry.locked = active
+	if active:
+		melee.stagger(float(Global.INSTABILITY["destabilized_time"]))
+		mannequin.flash()
+
+
 func _physics_process(delta: float) -> void:
+	if not dead:
+		instability.tick(delta)
 	if dead:
 		mannequin.animate(delta, 0.0, true, 0.0) # chạy nốt hoạt ảnh ngã
 		return

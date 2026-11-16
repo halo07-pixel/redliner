@@ -22,7 +22,9 @@ var _parry_ring: Control
 var _damage_tween: Tween
 var _marker_tween: Tween
 var _low_health: bool = false
-var _redline: bool = false
+var _destabilized: bool = false
+var _inst_ratio: float = 0.0
+var _inst_max_time: float = 1.0
 var _reloading: bool = false
 var _ammo_cur: int = 0
 var _ammo_max: int = 0
@@ -31,7 +33,7 @@ var _flash_tween: Tween
 
 func _ready() -> void:
 	_vignette_red = _make_vignette(Color(0.9, 0.05, 0.05))
-	_vignette_orange = _make_vignette(Color(1.0, 0.5, 0.05))
+	_vignette_orange = _make_vignette(Color(0.6, 0.35, 1.0))
 	add_child(_vignette_red)
 	add_child(_vignette_orange)
 
@@ -208,13 +210,23 @@ func _refresh_ammo() -> void:
 func set_instability(value: float, maximum: float) -> void:
 	_inst_bar.max_value = maximum
 	_inst_bar.value = value
-	_inst_label.text = "REDLINE!" if _redline else "INSTABILITY"
+	_inst_ratio = value / maximum
+	if _destabilized:
+		_inst_label.text = "MẤT THẾ  %.1fs" % (_inst_ratio * float(Global.INSTABILITY["destabilized_time"]))
+	else:
+		_inst_label.text = "INSTABILITY"
+		# vàng -> cam -> đỏ khi gần đầy
+		_inst_fill.bg_color = Color(0.95, 0.75, 0.1).lerp(Color(1.0, 0.2, 0.12), clampf((_inst_ratio - 0.4) / 0.6, 0.0, 1.0))
 
 
-func set_redline(on: bool) -> void:
-	_redline = on
-	_inst_fill.bg_color = Color(1.0, 0.25, 0.1) if on else Color(0.95, 0.7, 0.1)
-	_inst_label.text = "REDLINE!" if on else "INSTABILITY"
+## Destabilized: thanh cạn dần theo thời gian còn lại, viền cam, nhãn "MẤT THẾ".
+func set_destabilized(on: bool) -> void:
+	_destabilized = on
+	if on:
+		_inst_fill.bg_color = Color(0.55, 0.35, 0.9)
+		_inst_label.text = "MẤT THẾ"
+	else:
+		_inst_label.text = "INSTABILITY"
 	_refresh_vignettes()
 
 
@@ -245,7 +257,7 @@ func show_hit_indicator(angle: float) -> void:
 
 func _refresh_vignettes() -> void:
 	_vignette_red.modulate.a = 0.45 if _low_health else 0.0
-	_vignette_orange.modulate.a = 0.4 if _redline else 0.0
+	_vignette_orange.modulate.a = 0.4 if _destabilized else 0.0
 
 
 func _make_vignette(color: Color) -> TextureRect:

@@ -14,7 +14,6 @@ var want_reload: bool = false  # xung 1 lần
 
 var ammo: int = 0
 var reloading: bool = false
-var damage_mult: float = 1.0
 
 var _head: Node3D
 var _body: Node3D
@@ -91,7 +90,7 @@ func _shoot() -> void:
 		var c: Object = hit["collider"]
 		if c.has_method("take_hit"):
 			var landed: bool = c.take_hit({
-				"damage": float(Global.COMBAT["gun_damage"]) * damage_mult,
+				"damage": float(Global.COMBAT["gun_damage"]),
 				"kind": "hitscan",
 				"source": _body,
 				"direction": dir,

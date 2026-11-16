@@ -1,5 +1,5 @@
 extends SceneTree
-## Test headless mốc 5: Instability/Redline, lưu điểm cao, menu, tạm dừng, tổng kết.
+## Test headless mốc 5: Instability "mất thế", lưu điểm cao, menu, tạm dừng, tổng kết.
 ##   timeout 240 godot --headless --path . -s tools/tests/test_menu_instability.gd
 
 var failures: int = 0
@@ -37,33 +37,46 @@ func _run() -> void:
 	await process_frame
 	var I: Dictionary = Global.INSTABILITY
 
-	# ---------------- INSTABILITY (logic thuần)
+	# ---------------- INSTABILITY "mất thế" (logic thuần)
 	print("[instability]")
 	var ins = load("res://scripts/instability.gd").new()
 	root.add_child(ins)
-	var reds: Array = []
-	ins.redline_changed.connect(func(on): reds.append(on))
+	var dsb: Array = []
+	ins.destabilized_changed.connect(func(on): dsb.append(on))
 	ins.add(30.0)
-	_check(ins.value == 30.0 and not ins.redline, "đánh trúng cộng thanh (30)")
-	ins.tick(1.0, 5.0)
-	_check(is_equal_approx(ins.value, 30.0 - float(I["idle_decay"])), "chạy chậm thì thanh giảm dần (%.1f)" % ins.value)
-	var v0: float = ins.value
-	ins.tick(1.0, 20.0)
-	_check(is_equal_approx(ins.value, v0 + float(I["speed_gain"])), "chạy nhanh thì thanh tăng dần (%.1f)" % ins.value)
-	ins.lose(15.0)
-	_check(is_equal_approx(ins.value, v0 + float(I["speed_gain"]) - 15.0), "bị đánh thì mất thanh")
+	_check(ins.value == 30.0 and not ins.destabilized, "tăng thanh (30)")
+	ins.tick(1.0)
+	_check(ins.value == 30.0, "chưa hết decay_delay (1.5s) thì thanh chưa giảm")
+	ins.tick(1.0)
+	_check(ins.value < 30.0 and ins.value >= 30.0 - float(I["decay"]) - 0.01, "sau delay thanh giảm dần (%.1f)" % ins.value)
+	ins.lose(10.0)
+	_check(ins.value < 20.0, "lose() bớt thanh")
+	ins.reset()
+	ins.clash_penalty()
+	var c0: float = ins.value
+	_check(is_equal_approx(c0, float(I["clash_loss"]) * 0.6), "clash khi thanh rỗng chịu 60%% (%.1f)" % c0)
+	ins.reset()
+	ins.add(50.0)
+	var before_c: float = ins.value
+	ins.clash_penalty()
+	_check(is_equal_approx(ins.value - before_c, float(I["clash_loss"]) * (0.6 + 0.8 * 0.5)), "clash khi thanh 50%% chịu nhiều hơn (+%.1f)" % (ins.value - before_c))
 	ins.add(200.0)
-	_check(ins.redline and reds == [true], "thanh đầy -> vào REDLINE (phát signal)")
+	_check(ins.destabilized and dsb == [true], "thanh đầy -> Destabilized (phát signal)")
 	var before: float = ins.value
 	ins.add(10.0)
 	ins.lose(50.0)
-	_check(ins.value == before, "đang Redline: không tích thêm, không bị mất")
-	ins.tick(3.0, 0.0)
-	_check(is_equal_approx(ins.value, 50.0), "Redline cạn dần theo thời gian (%.1f)" % ins.value)
-	ins.tick(3.1, 0.0)
-	_check(not ins.redline and ins.value == 0.0 and reds == [true, false], "hết Redline -> thanh về 0")
+	_check(ins.value == before, "đang Destabilized: không cộng, không bớt")
+	ins.tick(1.5)
+	_check(is_equal_approx(ins.value, 50.0) and is_equal_approx(ins.time_left(), 1.5), "thanh cạn theo thời gian còn lại (%.1f)" % ins.value)
+	ins.tick(1.6)
+	_check(not ins.destabilized and ins.value == 0.0 and dsb == [true, false], "hết Destabilized -> thanh về 0")
+	ins.add(40.0)
+	_check(ins.value == 0.0 and ins.is_immune(), "miễn nhiễm ngắn: không cộng ngay sau khi hồi phục")
+	ins.tick(float(I["immunity_time"]) + 0.1)
+	ins.add(40.0)
+	_check(ins.value == 40.0, "hết miễn nhiễm thì cộng lại bình thường")
 
-	# ---------------- INSTABILITY trong game: kiếm, parry, bị đánh, Redline tăng sát thương
+	# ---------------- INSTABILITY trong game
 	print("[instability trong game]")
 	world = Node3D.new()
 	root.add_child(world)
@@ -86,36 +99,73 @@ func _run() -> void:
 	world.add_child(dummy)
 	await _frames(5)
 	dummy.hurtbox.setup(Global.TEAM_ENEMY, 1000.0, dummy.parry)
+	# parry hụt: +parry_miss_loss
+	player.combat.want_parry = true
+	await _frames(1)
+	await _frames(20) # cửa sổ parry 0.18s hết mà không có gì tới
+	_check(is_equal_approx(player.instability.value, float(I["parry_miss_loss"])), "parry hụt cộng %.0f (đọc %.1f)" % [float(I["parry_miss_loss"]), player.instability.value])
+	player.instability.reset()
+	await _frames(70) # hết cooldown phạt parry hụt
+	# đòn kiếm trúng: bớt mất thế
+	player.instability.add(30.0)
 	player.combat.want_attack = true
 	await _frames(1)
 	player.combat.want_attack = false
 	await _frames(40)
-	var decay_margin: float = float(I["idle_decay"]) * 1.0 # thanh tự giảm nhẹ trong lúc chờ 40 frame
-	_check(player.instability.value > float(I["hit_gain"]) - decay_margin and player.instability.value <= float(I["hit_gain"]), "kiếm trúng cộng ~%.0f Instability (đọc %.1f sau khi giảm tự nhiên)" % [float(I["hit_gain"]), player.instability.value])
-	player.hurtbox.take_hit({"damage": 10.0, "kind": "hitscan"})
-	_check(player.instability.value == 0.0, "bị đánh làm mất thanh (về %.1f)" % player.instability.value)
-	player.combat.want_parry = true
-	await _frames(1)
-	dummy.shoot_at(player.global_position + Vector3(0, 1.2, 0))
-	await _frames(40)
-	_check(player.instability.value > float(I["parry_gain"]) - decay_margin and player.instability.value <= float(I["parry_gain"]), "parry thành công cộng ~%.0f (đọc %.1f)" % [float(I["parry_gain"]), player.instability.value])
-	player.instability.add(500.0)
-	_check(player.instability.redline and is_equal_approx(player.melee.damage_mult, float(I["damage_mult"])), "Redline: kiếm tăng sát thương x%.1f" % float(I["damage_mult"]))
-	var hp: float = dummy.hurtbox.health
+	_check(player.instability.value <= 30.0 - float(I["hit_relief"]) + 0.01 and player.instability.value > 0.0, "đòn kiếm trúng bớt %.0f mất thế (đọc %.1f)" % [float(I["hit_relief"]), player.instability.value])
+	player.instability.reset()
+	# bị parry: +parried_loss
 	await _frames(30)
 	player.combat.want_attack = true
 	await _frames(1)
 	player.combat.want_attack = false
-	await _frames(40)
-	var dealt: float = hp - dummy.hurtbox.health
-	_check(is_equal_approx(dealt, float(Global.COMBAT["sword_damage"]) * float(I["damage_mult"])), "đòn kiếm trong Redline gây %.0f" % dealt)
-	# dash hồi nhanh hơn khi Redline
-	player.dash_charges = 0
-	player._dash_recharge_t = 1.5
-	await _frames(50) # 0.83s: hồi 1 lần nhanh gấp đôi (1.5/2 = 0.75s)
-	_check(player.dash_charges >= 1, "Redline: dash hồi nhanh hơn (%d charge sau 0.83s)" % player.dash_charges)
+	await _frames(4)
+	dummy.parry.press() # cửa sổ parry 0.18s phủ thời điểm đòn chạm
+	await _frames(30)
+	_check(is_equal_approx(player.instability.value, float(I["parried_loss"])), "đòn bị parry cộng %.0f (đọc %.1f)" % [float(I["parried_loss"]), player.instability.value])
 	player.instability.reset()
-	_check(not player.instability.redline and player.melee.damage_mult == 1.0, "reset: thoát Redline, sát thương về bình thường")
+	await _frames(70)
+	# parry thành công: bớt
+	player.instability.add(40.0)
+	player.combat.want_parry = true
+	await _frames(1)
+	dummy.shoot_at(player.global_position + Vector3(0, 1.2, 0))
+	await _frames(40)
+	_check(player.instability.value <= 40.0 - float(I["parry_relief"]) + 0.01 and player.instability.value > 0.0, "parry thành công bớt %.0f (đọc %.1f)" % [float(I["parry_relief"]), player.instability.value])
+	player.instability.reset()
+	await _frames(70)
+
+	# Destabilized: khoá kiếm / parry / dash
+	player.dash_charges = 2
+	player.instability.add(500.0)
+	await _frames(2)
+	_check(player.instability.destabilized, "thanh đầy -> người chơi Destabilized")
+	_check(player.melee.is_staggered(), "Destabilized: kiếm bị khoá")
+	_check(not player.parry.can_press(), "Destabilized: không parry được")
+	_check(player.dash_charges == 0, "Destabilized: stamina dash về 0")
+	player.combat.want_attack = true
+	player.combat.want_parry = true
+	await _frames(3)
+	player.combat.want_attack = false
+	_check(player.melee.phase == player.melee.Phase.IDLE and not player.parry.is_active(), "Destabilized: bấm đánh/parry không có tác dụng")
+	await _frames(100)
+	_check(player.dash_charges == 0, "Destabilized: dash không hồi")
+	await _frames(100) # tổng ~3.3s > destabilized_time
+	_check(not player.instability.destabilized and player.instability.value == 0.0, "hết 3s thì hồi phục, thanh về 0")
+	_check(not player.melee.is_staggered() and player.parry.can_press(), "hồi phục: đánh và parry lại được")
+	player.instability.reset()
+
+	# bot cũng bị mất thế
+	var bot = load("res://scripts/bot.gd").new()
+	bot.setup("swordsman", 1)
+	world.add_child(bot)
+	bot.global_position = Vector3(6, 0.1, 6)
+	await _frames(3)
+	bot.instability.add(500.0)
+	await _frames(2)
+	_check(bot.instability.destabilized and bot.melee.is_staggered() and bot.parry.locked, "bot Destabilized: bị khoá kiếm và parry")
+	_check(not bot.parry.can_press() and not bot.melee.can_swing(), "bot không thể tấn công/parry khi mất thế")
+	bot.queue_free()
 
 	# ---------------- COOLDOWN PARRY
 	print("[parry ring]")
