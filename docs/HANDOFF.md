@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `39af58e` (đến M10 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m11-maps` (M11 bản đồ).
+- `main` = `dcb2ddb` (đến M11 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m12-effects` (M12 vật thể và hiệu ứng).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -104,13 +104,22 @@
 - Test: `test_maps` (kiểm tra spawn không kẹt khối, bot đứng được ở mọi điểm sinh, chọn/lưu map, menu, rơi map). Ảnh: `docs/screenshots/m11_*.png`, `tools/screenshots/shoot_m11.gd`. Trong test `-s`, truy cập thuộc tính của Global qua `root.get_node("Global")` (viết `Global.x` cho biến không phải const sẽ lỗi biên dịch).
 - Chưa kiểm bằng người: bố cục có hay/cân bằng không, bot có kẹt ở dốc/khe hẻm không, tháp có dễ leo không, tầm nhìn bắn tỉa ở hẻm.
 
+## M12 (nhánh `feature/m12-effects`: vật thể và hiệu ứng)
+- `Global.FX`, `Global.PICKUPS`, `Global.BREAKABLES` (số cân bằng); `Global.reduced_fx` + `set_reduced_fx` + signal `fx_changed` (lưu savegame `graphics/reduced_fx`), nút "Hiệu ứng: Đầy đủ/Giảm" ở menu (`UIKit.fx_button`). Giảm hiệu ứng: không vệt kiếm, không sóng parry, hạt còn 1/3 (tối thiểu 4), rung camera x0.4.
+- `scripts/sword_trail.gd`: `SwordTrail.attach(melee)` (player + bot). Nghe `swing_started`, ghi cặp điểm quét ngang trong pha active, dải `ImmediateMesh` mờ dần 0.16 s; chém rộng có vệt cam, rộng hơn. Chạy ở `_process` (chỉ hình ảnh).
+- `Fx.ring()` sóng parry (torus nở rồi tan, null khi giảm hiệu ứng); `Fx.sparks` theo `reduced_fx`.
+- `scripts/pickup.gd` (health/ammo/stamina): `Pickup.spawn`, `pick_kind(roll)` theo trọng số, phát `collected(kind)`, hết hạn 12 s (nhấp nháy 3 s cuối). `main._on_pickup_collected` áp hiệu ứng (`hurtbox.heal`, `combat.refill`, `dash_stamina`). Bot chết rơi 25%.
+- `scripts/breakable.gd`: thùng nổ (`barrel`, 20 máu, nổ bằng `Rocket.explode`, dây chuyền, gây sát thương cả người chơi + bot + thùng khác, để vệt cháy) và thùng gỗ (`crate`, 40% rơi đồ). Signal `exploded`, `broken`; arena chuyển tiếp thành `explosion` / `prop_broken`; `maps.gd` có `barrels`/`crates` mỗi map (không đè điểm sinh).
+- Test: `test_effects` (43 kiểm tra). Ảnh: `docs/screenshots/m12_*.png`, `tools/screenshots/shoot_m12.gd` (GL dự phòng 6 fps nên script làm chậm thời gian để bắt vệt kiếm).
+- Chưa kiểm bằng người: độ rơi đồ, độ mạnh thùng nổ (50 sát thương, bán kính 5 m, hại cả người chơi), vệt kiếm nhìn từ góc thứ nhất có rõ/chói không, vị trí thùng. Bot chưa biết né/lợi dụng thùng nổ (M14).
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (15 bộ: test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (16 bộ: test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M12 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M13 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

@@ -43,6 +43,17 @@ static func center_box(parent: Node, separation: int = 14) -> VBoxContainer:
 	return box
 
 
+## Nút bật/tắt giảm hiệu ứng.
+static func fx_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Hiệu ứng: %s" % ("Giảm" if Global.reduced_fx else "Đầy đủ")
+	refresh.call()
+	b.pressed.connect(func():
+		Global.set_reduced_fx(not Global.reduced_fx)
+		refresh.call())
+	return b
+
+
 ## Nút xoay vòng đấu trường; chữ theo Global.selected_map.
 static func map_button() -> Button:
 	var b := button("")

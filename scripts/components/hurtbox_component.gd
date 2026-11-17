@@ -47,3 +47,13 @@ func revive() -> void:
 	health = max_health
 	collision_layer = Global.hurt_layer(team)
 	health_changed.emit(health, max_health)
+
+
+## Hồi máu (vật nhặt). Không hồi người đã chết. Trả về lượng máu thực sự hồi.
+func heal(amount: float) -> float:
+	if dead:
+		return 0.0
+	var before: float = health
+	health = minf(health + amount, max_health)
+	health_changed.emit(health, max_health)
+	return health - before

@@ -2,6 +2,7 @@ extends Node3D
 ## Điều phối: đặt người chơi vào đấu trường, NỐI SIGNAL giữa các hệ thống (HUD, âm thanh,
 ## hitstop, rung camera, hạt), tạm dừng, tổng kết khi chết, lưu điểm cao.
 
+const PickupScript = preload("res://scripts/pickup.gd")
 const PLAYER_SCENE: PackedScene = preload("res://scenes/player.tscn")
 const WaveScript = preload("res://scripts/wave_manager.gd")
 const ScoreScript = preload("res://scripts/score_manager.gd")
@@ -76,6 +77,8 @@ func _ready() -> void:
 	waves.wave_cleared.connect(_on_wave_cleared)
 	waves.bot_spawned.connect(func(bot): bot.sound.connect(Sfx.play))
 	waves.bot_killed.connect(_on_bot_killed)
+	arena.explosion.connect(_on_exploded)
+	arena.prop_broken.connect(_on_prop_broken)
 	score.score_changed.connect(hud.set_score)
 	score.bonus.connect(func(text): hud.flash(text, Color(1.0, 0.85, 0.3)))
 
@@ -184,6 +187,7 @@ func _on_parried(_hit: Dictionary) -> void:
 	Sfx.play("parry")
 	hud.flash("PARRY!", Color(0.4, 0.85, 1.0))
 	Fx.sparks(self, _front_point(), Color(0.5, 0.9, 1.0))
+	Fx.ring(self, _front_point(), Color(0.5, 0.9, 1.0, 0.9), -player.head.global_transform.basis.z)
 	player.shake(0.05)
 	Global.hitstop(0.08)
 
@@ -256,9 +260,38 @@ func _on_wave_cleared(n: int) -> void:
 	Global.submit_score(score.score)
 
 
-func _on_bot_killed(_bot: Node3D, info: Dictionary) -> void:
+func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	kills += 1
+	if randf() < float(Global.PICKUPS["drop_chance"]):
+		_drop_pickup(bot.global_position)
 	score.register_kill(info["score"], info)
+
+
+func _drop_pickup(pos: Vector3) -> void:
+	var p: Area3D = PickupScript.spawn(self, pos, PickupScript.pick_kind(randf()))
+	p.collected.connect(_on_pickup_collected)
+
+
+func _on_prop_broken(pos: Vector3, kind: String) -> void:
+	if kind == "crate":
+		Sfx.play("crate")
+		Fx.sparks(self, pos + Vector3(0.0, 0.5, 0.0), Color(0.75, 0.55, 0.3))
+		if randf() < float(Global.PICKUPS["crate_drop_chance"]):
+			_drop_pickup(pos)
+
+
+## Áp hiệu ứng vật nhặt lên người chơi (pickup chỉ phát signal).
+func _on_pickup_collected(kind: String) -> void:
+	var info: Dictionary = Global.PICKUPS["kinds"][kind]
+	match kind:
+		"health":
+			player.hurtbox.heal(float(info["heal"]))
+		"ammo":
+			player.combat.refill()
+		"stamina":
+			player.dash_stamina = float(Global.PLAYER["dash_stamina_max"])
+	Sfx.play("pickup")
+	hud.flash(String(info["label"]), info["color"])
 
 
 func _on_player_died() -> void:
