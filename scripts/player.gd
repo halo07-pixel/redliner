@@ -11,8 +11,10 @@ signal slammed(position: Vector3, radius: float)
 signal grapple_started(point: Vector3)
 signal grapple_ended
 signal died
+signal footstep(speed: float)
+signal ledge_climbed
 
-enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE, SLAM }
+enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE, SLAM, LEDGE }
 const SwordTrail = preload("res://scripts/sword_trail.gd")
 const BODY_LAYER: int = 2 # render layer 2 (bit thứ hai): thân người chơi
 
@@ -56,6 +58,18 @@ var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
 var _shake: float = 0.0
+var _coyote_t: float = 0.0
+var _jump_buf_t: float = 0.0
+var _prev_want_jump: bool = false
+var _step_dist: float = 0.0
+var _bob_phase: float = 0.0
+var _cam_base: Vector3 = Vector3.ZERO
+var _ledge_cd: float = 0.0
+var _ledge_t: float = 0.0
+var _ledge_phase: int = 0 # 0 = kéo lên, 1 = bước qua
+var _ledge_target: Vector3 = Vector3.ZERO
+var _ledge_dir: Vector3 = Vector3.ZERO
+var _ledge_speed: float = 0.0
 var _dash_anim_t: float = 0.0
 var body_view: Node3D
 
@@ -72,6 +86,7 @@ var body_view: Node3D
 
 
 func _ready() -> void:
+	_cam_base = camera.position
 	dash_charges = Global.PLAYER["dash_max_charges"]
 	# Signal của Player -> dây móc (con của Head). "Call down, signal up".
 	grapple_started.connect(rope.show_to)
@@ -113,34 +128,63 @@ func _ready() -> void:
 	melee.hit_landed.connect(func(_hb, landed): if landed: instability.lose(Global.INSTABILITY["hit_relief"]))
 	instability.destabilized_changed.connect(_on_destabilized)
 	combat.shot_fired.connect(_on_shot_recoil)
+	hurtbox.hurt.connect(func(_h, _l): cancel_ledge())
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = float(Global.PLAYER["mouse_sens"]) * (camera.fov / 90.0) # ngắm thì chậm tay lại
-		rotate_y(-event.relative.x * sens)
-		_pitch = clampf(_pitch - event.relative.y * sens, -PI * 0.49, PI * 0.49)
-		head.rotation.x = _pitch
+		var sens: float = float(Global.PLAYER["mouse_sens"]) * float(Global.settings["mouse_mult"]) * (camera.fov / 90.0) # ngắm thì chậm tay lại
+		apply_look(event.relative * sens)
 		viewmodel.add_look(event.relative)
+
+
+## Xoay nhìn theo (yaw, pitch) radian: dùng chung cho chuột và cần phải tay cầm.
+func apply_look(delta_rad: Vector2) -> void:
+	var inv: float = -1.0 if bool(Global.settings["invert_y"]) else 1.0
+	rotate_y(-delta_rad.x)
+	_pitch = clampf(_pitch - delta_rad.y * inv, -PI * 0.49, PI * 0.49)
+	head.rotation.x = _pitch
 
 
 func _process(delta: float) -> void:
 	# Chỉ là hiệu ứng camera (không ảnh hưởng vật lý): nghiêng khi bám tường, hạ thấp khi trượt.
+	if use_input and not dead:
+		var stick: Vector2 = Input.get_vector("look_left", "look_right", "look_up", "look_down")
+		if stick != Vector2.ZERO:
+			var k: float = float(Global.PLAYER["gamepad_look_speed"]) * float(Global.settings["pad_sens"]) * (camera.fov / 90.0)
+			apply_look(stick * k * delta)
+			viewmodel.add_look(stick * 12.0)
 	var roll: float = 0.0
 	if state == State.WALLRUN:
 		roll = -_wall_side * deg_to_rad(Global.PLAYER["wall_roll_deg"])
+	elif not Global.reduced_fx and is_on_floor():
+		roll = -move_input.x * deg_to_rad(Global.PLAYER["strafe_roll_deg"]) * clampf(horizontal_speed() / 9.0, 0.0, 1.0)
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
 	_shake = maxf(_shake - delta * 0.5, 0.0)
-	var target_fov: float = 90.0 + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
+	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
 	var zoom: float = combat.zoom_fov()
 	if zoom > 0.0:
 		target_fov = zoom
 	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, (14.0 if zoom > 0.0 else 6.0) * delta))
+	_update_bob(delta)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
 	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name())
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
 	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
+
+
+## Lắc đầu khi chạy trên sàn (chỉ hình ảnh); tắt khi giảm hiệu ứng hoặc đặt bob = 0.
+func _update_bob(delta: float) -> void:
+	var amp: float = float(Global.PLAYER["bob_amplitude"]) * float(Global.settings["bob"])
+	var moving: bool = state == State.NORMAL and is_on_floor() and horizontal_speed() > 1.0
+	if Global.reduced_fx or amp <= 0.0 or not moving:
+		camera.position = camera.position.lerp(_cam_base, minf(1.0, 12.0 * delta))
+		return
+	_bob_phase += horizontal_speed() * delta * float(Global.PLAYER["bob_frequency"]) * TAU
+	var k: float = clampf(horizontal_speed() / 9.0, 0.0, 1.5)
+	var target := _cam_base + Vector3(sin(_bob_phase * 0.5) * amp * 0.6, absf(sin(_bob_phase * 0.5)) * amp * k, 0.0)
+	camera.position = camera.position.lerp(target, minf(1.0, 18.0 * delta))
 
 
 func _read_input() -> void:
@@ -229,6 +273,9 @@ func _physics_process(delta: float) -> void:
 	if use_input:
 		_read_input()
 	_tick_timers(delta)
+	_tick_feel(delta)
+	if state == State.LEDGE and (want_dash or want_grapple or want_slam):
+		cancel_ledge()
 	_try_dash()
 	_try_start_grapple()
 	_try_slam()
@@ -244,8 +291,11 @@ func _physics_process(delta: float) -> void:
 			_move_grapple(delta)
 		State.SLAM:
 			_move_slam(delta)
+		State.LEDGE:
+			_move_ledge(delta)
 
 	move_and_slide()
+	_tick_footsteps(delta)
 	if state == State.SLAM and is_on_floor():
 		_land_slam()
 	_animate_body(delta)
@@ -342,9 +392,9 @@ func _move_normal(delta: float) -> void:
 		if want_slide and horizontal_speed() > float(cfg["slide_min_speed"]):
 			_enter_slide()
 			return
-		if want_jump:
+		if _jump_requested():
 			# Frame nhảy KHÔNG bị ma sát -> giữ động lượng khi nhảy liên tục (bunny hop).
-			velocity.y = cfg["jump_velocity"]
+			_do_jump()
 			_accelerate(wish_dir, cfg["walk_speed"], cfg["air_accel"], delta)
 		else:
 			_apply_friction(delta)
@@ -352,8 +402,127 @@ func _move_normal(delta: float) -> void:
 	else:
 		velocity.y -= float(cfg["gravity"]) * delta
 		_accelerate(wish_dir, cfg["walk_speed"], cfg["air_accel"], delta)
-		if _can_wallrun():
+		if _coyote_t > 0.0 and _jump_requested() and velocity.y <= 0.5:
+			_do_jump() # coyote: vừa rời mép sàn vẫn nhảy được
+		elif _try_ledge():
+			return
+		elif _can_wallrun():
 			_enter_wallrun()
+
+
+# ------------------------------------------------------------------ cảm giác: coyote, buffer, trèo gờ, bước chân
+
+func _tick_feel(delta: float) -> void:
+	var cfg: Dictionary = Global.PLAYER
+	if want_jump and not _prev_want_jump:
+		_jump_buf_t = float(cfg["jump_buffer"])
+	else:
+		_jump_buf_t = maxf(_jump_buf_t - delta, 0.0)
+	_prev_want_jump = want_jump
+	if is_on_floor():
+		_coyote_t = float(cfg["coyote_time"])
+	else:
+		_coyote_t = maxf(_coyote_t - delta, 0.0)
+	_ledge_cd = maxf(_ledge_cd - delta, 0.0)
+
+
+func _jump_requested() -> bool:
+	return want_jump or _jump_buf_t > 0.0
+
+
+func _do_jump() -> void:
+	velocity.y = Global.PLAYER["jump_velocity"]
+	_coyote_t = 0.0
+	_jump_buf_t = 0.0
+
+
+## Phát signal footstep theo quãng đường đi bộ trên sàn (không phát khi trượt/bay/chạy tường).
+func _tick_footsteps(delta: float) -> void:
+	if state != State.NORMAL or not is_on_floor() or horizontal_speed() < 1.0:
+		return
+	_step_dist += horizontal_speed() * delta
+	if _step_dist >= float(Global.PLAYER["step_stride"]):
+		_step_dist = 0.0
+		footstep.emit(horizontal_speed())
+
+
+## Dò bệ phía trước để trèo: tường ngang ngực, đỉnh bệ trống và đủ chỗ đứng. Chỉ khi đang giữ phím tiến,
+## đang rơi / gần đỉnh nhảy. Trả về true nếu bắt đầu trèo.
+func _try_ledge() -> bool:
+	var cfg: Dictionary = Global.PLAYER
+	if _ledge_cd > 0.0 or dead or move_input.y > -0.3 or velocity.y > float(cfg["ledge_max_rise_speed"]):
+		return false
+	var fwd: Vector3 = -global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var feet: Vector3 = global_position
+	var space := get_world_3d().direct_space_state
+	var reach: float = float(cfg["ledge_reach"])
+	var chest := PhysicsRayQueryParameters3D.create(feet + Vector3(0.0, 1.0, 0.0), feet + Vector3(0.0, 1.0, 0.0) + fwd * reach, Global.L_WORLD)
+	var wall: Dictionary = space.intersect_ray(chest)
+	if wall.is_empty() or absf((wall["normal"] as Vector3).y) > 0.3:
+		return false
+	var inset: Vector3 = (wall["position"] as Vector3) + fwd * 0.45
+	var top_from: Vector3 = Vector3(inset.x, feet.y + float(cfg["ledge_max_height"]) + 0.4, inset.z)
+	var down := PhysicsRayQueryParameters3D.create(top_from, top_from - Vector3(0.0, float(cfg["ledge_max_height"]) + 0.4 - float(cfg["ledge_min_height"]) + 0.5, 0.0), Global.L_WORLD)
+	var top: Dictionary = space.intersect_ray(down)
+	if top.is_empty() or (top["normal"] as Vector3).y < 0.7:
+		return false
+	var height: float = (top["position"] as Vector3).y - feet.y
+	if height < float(cfg["ledge_min_height"]) or height > float(cfg["ledge_max_height"]):
+		return false
+	# Đủ chỗ đứng trên bệ?
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.4
+	cap.height = STAND_HEIGHT - 0.2
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = cap
+	var stand: Vector3 = Vector3(inset.x, (top["position"] as Vector3).y + 0.05, inset.z)
+	q.transform = Transform3D(Basis.IDENTITY, stand + Vector3(0.0, cap.height * 0.5 + 0.1, 0.0))
+	q.collision_mask = Global.L_WORLD
+	if not space.intersect_shape(q, 1).is_empty():
+		return false
+	_begin_ledge(fwd, stand)
+	return true
+
+
+func _begin_ledge(fwd: Vector3, target: Vector3) -> void:
+	_ledge_dir = fwd
+	_ledge_target = target
+	_ledge_t = 0.0
+	_ledge_phase = 0
+	_ledge_speed = clampf(horizontal_speed(), 4.0, 12.0)
+	velocity = Vector3.ZERO
+	_set_state(State.LEDGE)
+
+
+## Hai pha: kéo thẳng lên dọc mép, rồi bước qua mặt bệ. Dùng vận tốc để va chạm vẫn đúng.
+func _move_ledge(delta: float) -> void:
+	var cfg: Dictionary = Global.PLAYER
+	_ledge_t += delta
+	var goal: Vector3 = Vector3(global_position.x, _ledge_target.y, global_position.z) if _ledge_phase == 0 else _ledge_target
+	var time_left: float = maxf(float(cfg["ledge_up_time"] if _ledge_phase == 0 else cfg["ledge_over_time"]) - (_ledge_t if _ledge_phase == 0 else _ledge_t), delta)
+	velocity = (goal - global_position) / time_left
+	var arrived: bool = global_position.distance_to(goal) < 0.08
+	if _ledge_phase == 0 and (arrived or _ledge_t >= float(cfg["ledge_up_time"])):
+		_ledge_phase = 1
+		_ledge_t = 0.0
+	elif _ledge_phase == 1 and (arrived or _ledge_t >= float(cfg["ledge_over_time"])):
+		_end_ledge(true)
+
+
+func _end_ledge(done: bool) -> void:
+	_ledge_cd = float(Global.PLAYER["ledge_cooldown"])
+	velocity = _ledge_dir * _ledge_speed if done else Vector3.ZERO
+	_set_state(State.NORMAL)
+	if done:
+		ledge_climbed.emit()
+
+
+## Huỷ trèo gờ (bị đánh, dash, móc, đập đất): rơi xuống tiếp.
+func cancel_ledge() -> void:
+	if state == State.LEDGE:
+		_end_ledge(false)
 
 
 ## Cộng tốc độ theo wish_dir chỉ tới khi thành phần dọc wish_dir đạt wish_speed:
@@ -421,8 +590,8 @@ func _move_slide(delta: float) -> void:
 			_exit_slide()
 		return
 
-	if want_jump and _can_stand():
-		velocity.y = cfg["jump_velocity"]
+	if _jump_requested() and _can_stand():
+		_do_jump()
 		# Slide hop: nhảy ngay khi đang trượt giữ trọn động lượng và được cộng thêm một chút.
 		if horizontal_speed() < float(cfg["slide_hop_max_speed"]):
 			var hop_dir := Vector3(velocity.x, 0.0, velocity.z).normalized()

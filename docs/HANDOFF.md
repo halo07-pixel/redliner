@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-16)
 
 ## Trạng thái
-- `main` = `dcb2ddb` (đến M11 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m12-effects` (M12 vật thể và hiệu ứng).
+- `main` = `a6f9a30` (đến M12 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m13-feel` (M13 cảm giác điều khiển).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -113,13 +113,21 @@
 - Test: `test_effects` (43 kiểm tra). Ảnh: `docs/screenshots/m12_*.png`, `tools/screenshots/shoot_m12.gd` (GL dự phòng 6 fps nên script làm chậm thời gian để bắt vệt kiếm).
 - Chưa kiểm bằng người: độ rơi đồ, độ mạnh thùng nổ (50 sát thương, bán kính 5 m, hại cả người chơi), vệt kiếm nhìn từ góc thứ nhất có rõ/chói không, vị trí thùng. Bot chưa biết né/lợi dụng thùng nổ (M14).
 
+## M13 (nhánh `feature/m13-feel`: cảm giác điều khiển)
+- `Global.PLAYER` thêm: coyote_time 0.1, jump_buffer 0.12, ledge_* (min 0.9 / max 2.3 m, reach 0.8, up 0.16 s, over 0.12 s, cooldown 0.4, max_rise_speed 4), step_stride 2.2, bob_amplitude/frequency, strafe_roll_deg, gamepad_look_speed.
+- `player.gd`: `State.LEDGE`; coyote (`_coyote_t`) + jump buffer (`_jump_buf_t`, `_jump_requested()`, `_do_jump()`) dùng cho nhảy thường, coyote và slide hop. Trèo gờ `_try_ledge` (ray ngực + ray xuống tìm mặt bệ + kiểm tra chỗ đứng bằng capsule; chỉ khi giữ phím tiến và vy <= 4) rồi `_move_ledge` hai pha (kéo lên, bước qua) bằng vận tốc; huỷ qua `cancel_ledge()` khi bị đánh, dash, móc, đập đất. Signal mới `footstep(speed)` (theo quãng đường, 2.2 m/bước, chỉ khi đi bộ trên sàn) và `ledge_climbed`. `apply_look(Vector2 rad)` dùng chung chuột + cần phải tay cầm. Camera: lắc đầu (`_update_bob`), nghiêng nhẹ khi đi ngang, FOV nền từ cài đặt; tắt khi `reduced_fx`.
+- `Global`: `settings` (mouse_mult, invert_y, fov, bob, pad_sens, pad_deadzone; kẹp giá trị, lưu mục `settings`), `set_setting/reset_settings`, signal `settings_changed`. Đổi phím: `REMAPPABLE`, `rebind(action, event)` (thay phím chính, giữ nút tay cầm, chặn trùng bằng `binding_conflict`), `binding_text`, `reset_bindings`, signal `bindings_changed`, lưu mục `bindings`. Tay cầm kiểu Xbox (`_setup_gamepad`): cần trái di chuyển, cần phải nhìn (action `look_*`), RT chém, LT móc, A nhảy, B trượt, X dash, Y chém rộng, RB bắn, LB parry, L3 đập đất, R3 ngắm, d-pad đổi súng/nạp, Start = ui_cancel.
+- `scripts/settings_menu.gd`: màn Cài đặt (thanh trượt, đảo Y, bảng đổi phím, Mặc định, Quay lại), mở từ menu chính và menu tạm dừng (Esc trong Cài đặt quay về tạm dừng). Dùng `set_anchors_and_offsets_preset` (nếu chỉ dùng `set_anchors_preset` thì Control tạo bằng code có kích thước 0).
+- Test: `test_feel` (70 kiểm tra). Trong test `-s`: `DisplayServer.keyboard_get_keycode_from_physical` không chạy headless nên dùng `InputEventKey.as_text_physical_keycode()`. Ảnh: `docs/screenshots/m13_*.png`, `tools/screenshots/shoot_m13.gd`.
+- Chưa kiểm bằng người: cảm giác coyote / buffer / trèo gờ (có thể "hút" khó chịu: chỉnh ledge_* ở Global), lắc đầu, và TOÀN BỘ phần tay cầm (không có tay cầm thật; chỉ test ánh xạ InputMap, chưa thử vùng chết hay độ nhạy cần phải trong game).
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (16 bộ: test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (17 bộ: test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M13 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M14 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

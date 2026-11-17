@@ -38,6 +38,7 @@ func _ready() -> void:
 	player.state_changed.connect(_on_state_changed)
 	player.stamina_changed.connect(hud.set_stamina)
 	player.slammed.connect(_on_slammed)
+	player.footstep.connect(func(_sp: float): Sfx.play("step"))
 	player.dash_charges_changed.connect(_on_dash_charges)
 
 	# --- Chiến đấu -> HUD / âm thanh / hiệu ứng

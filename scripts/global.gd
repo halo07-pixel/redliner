@@ -268,6 +268,21 @@ const PLAYER: Dictionary = {
 	"gravity": 24.0,         # m/s²
 	"jump_velocity": 9.0,    # m/s, nhảy cao ~1.7m
 	"mouse_sens": 0.0022,    # rad/pixel
+	# --- Cảm giác điều khiển (M13) ---
+	"coyote_time": 0.1,      # giây còn nhảy được sau khi rời mép sàn
+	"jump_buffer": 0.12,     # giây nhớ lệnh nhảy bấm sớm trước khi chạm đất
+	"ledge_min_height": 0.9, # m: bệ thấp hơn mức này (tính từ chân) thì khỏi trèo
+	"ledge_max_height": 2.3, # m: bệ cao hơn thì không với tới
+	"ledge_reach": 0.8,      # m: khoảng dò tường phía trước
+	"ledge_up_time": 0.16,   # giây kéo người lên dọc mép
+	"ledge_over_time": 0.12, # giây bước qua mặt bệ
+	"ledge_cooldown": 0.4,   # giây không trèo lại sau khi trèo xong
+	"ledge_max_rise_speed": 4.0, # chỉ trèo khi đang rơi / gần đỉnh nhảy (vận tốc đứng <= mức này)
+	"step_stride": 2.2,      # m mỗi bước chân
+	"bob_amplitude": 0.035,  # m, biên độ lắc đầu khi chạy
+	"bob_frequency": 1.15,   # chu kỳ lắc / m quãng đường
+	"strafe_roll_deg": 1.5,  # độ nghiêng camera khi di chuyển ngang
+	"gamepad_look_speed": 3.2, # rad/s ở độ nhạy 1.0
 	# --- Slide ---
 	"slide_min_speed": 6.0,  # phải chạy nhanh hơn mức này mới trượt được
 	"slide_boost": 4.0,      # cú đẩy khi bắt đầu trượt (m/s)
@@ -324,6 +339,22 @@ signal quality_changed(level: int)
 signal map_changed(id: String)
 
 signal fx_changed(reduced: bool)
+signal settings_changed
+signal bindings_changed
+
+## Cài đặt người chơi (lưu savegame mục "settings"). mouse_mult nhân với PLAYER.mouse_sens.
+const DEFAULT_SETTINGS: Dictionary = {
+	"mouse_mult": 1.0, "invert_y": false, "fov": 90.0, "bob": 1.0,
+	"pad_sens": 1.0, "pad_deadzone": 0.2,
+}
+## Các hành động đổi phím được: [action, tên hiển thị].
+const REMAPPABLE: Array = [
+	["move_forward", "Tiến"], ["move_back", "Lùi"], ["move_left", "Trái"], ["move_right", "Phải"],
+	["jump", "Nhảy"], ["slide", "Trượt"], ["dash", "Dash"], ["slam", "Đập đất"],
+	["attack", "Chém"], ["heavy", "Chém rộng"], ["shoot", "Bắn"], ["parry", "Parry"],
+	["grapple", "Móc"], ["reload", "Nạp đạn"], ["zoom", "Ngắm"],
+	["weapon_1", "Súng 1"], ["weapon_2", "Súng 2"], ["weapon_3", "Súng 3"], ["weapon_4", "Súng 4"],
+]
 
 const MAP_IDS: Array = ["yard", "alley", "tower"]
 const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
@@ -334,6 +365,8 @@ var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
 var selected_map: String = "yard"
 var reduced_fx: bool = false
+var settings: Dictionary = DEFAULT_SETTINGS.duplicate()
+var _default_bindings: Dictionary = {}
 
 
 func _ready() -> void:
@@ -346,6 +379,7 @@ func load_save() -> void:
 	quality = QUALITY_DEFAULT
 	selected_map = "yard"
 	reduced_fx = false
+	settings = DEFAULT_SETTINGS.duplicate()
 	if not FileAccess.file_exists(save_path):
 		return
 	var cf := ConfigFile.new()
@@ -355,6 +389,13 @@ func load_save() -> void:
 		var m: String = str(cf.get_value("game", "map", "yard"))
 		selected_map = m if m in MAP_IDS else "yard"
 		reduced_fx = bool(cf.get_value("graphics", "reduced_fx", false))
+		for k in DEFAULT_SETTINGS:
+			var v: Variant = cf.get_value("settings", k, DEFAULT_SETTINGS[k])
+			settings[k] = bool(v) if DEFAULT_SETTINGS[k] is bool else float(v)
+		_clamp_settings()
+		if cf.has_section("bindings"):
+			for action in cf.get_section_keys("bindings"):
+				_apply_binding_data(action, cf.get_value("bindings", action))
 
 
 func _write_save() -> void:
@@ -363,6 +404,10 @@ func _write_save() -> void:
 	cf.set_value("graphics", "quality", quality)
 	cf.set_value("game", "map", selected_map)
 	cf.set_value("graphics", "reduced_fx", reduced_fx)
+	for k in settings:
+		cf.set_value("settings", k, settings[k])
+	for r in REMAPPABLE:
+		cf.set_value("bindings", r[0], _binding_data(r[0]))
 	cf.save(save_path)
 
 
@@ -374,6 +419,138 @@ func set_quality(level: int) -> void:
 	quality = level
 	_write_save()
 	quality_changed.emit(quality)
+
+
+## Đổi một cài đặt (kẹp trong khoảng hợp lệ, lưu file, phát Signal).
+func set_setting(key: String, value: Variant) -> void:
+	if not settings.has(key):
+		return
+	settings[key] = bool(value) if DEFAULT_SETTINGS[key] is bool else float(value)
+	_clamp_settings()
+	_write_save()
+	settings_changed.emit()
+
+
+func reset_settings() -> void:
+	settings = DEFAULT_SETTINGS.duplicate()
+	_write_save()
+	settings_changed.emit()
+
+
+func _clamp_settings() -> void:
+	settings["mouse_mult"] = clampf(float(settings["mouse_mult"]), 0.2, 3.0)
+	settings["fov"] = clampf(float(settings["fov"]), 70.0, 110.0)
+	settings["bob"] = clampf(float(settings["bob"]), 0.0, 1.0)
+	settings["pad_sens"] = clampf(float(settings["pad_sens"]), 0.3, 3.0)
+	settings["pad_deadzone"] = clampf(float(settings["pad_deadzone"]), 0.05, 0.5)
+	_apply_deadzone()
+
+
+func _apply_deadzone() -> void:
+	for a in ["move_forward", "move_back", "move_left", "move_right", "look_up", "look_down", "look_left", "look_right"]:
+		if InputMap.has_action(a):
+			InputMap.action_set_deadzone(a, float(settings["pad_deadzone"]))
+
+
+# --- Đổi phím -------------------------------------------------------------
+
+## Dạng lưu được của một sự kiện bàn phím/chuột: ["k", keycode] hoặc ["m", nút]; [] nếu không hợp lệ.
+func _event_data(ev: InputEvent) -> Array:
+	if ev is InputEventKey:
+		return ["k", int((ev as InputEventKey).physical_keycode)]
+	if ev is InputEventMouseButton:
+		return ["m", int((ev as InputEventMouseButton).button_index)]
+	return []
+
+
+func _data_event(d: Array) -> InputEvent:
+	if d.size() != 2:
+		return null
+	if d[0] == "k":
+		var ev := InputEventKey.new()
+		ev.physical_keycode = int(d[1]) as Key
+		return ev
+	if d[0] == "m":
+		var ev := InputEventMouseButton.new()
+		ev.button_index = int(d[1]) as MouseButton
+		return ev
+	return null
+
+
+## Các phím/chuột (không tính tay cầm) đang gán cho action, dạng dữ liệu.
+func _binding_data(action: String) -> Array:
+	var out: Array = []
+	for ev in InputMap.action_get_events(action):
+		var d := _event_data(ev)
+		if not d.is_empty():
+			out.append(d)
+	return out
+
+
+func _apply_binding_data(action: String, data: Variant) -> void:
+	if not InputMap.has_action(action) or not (data is Array):
+		return
+	var events: Array = []
+	for d in data:
+		var ev := _data_event(d)
+		if ev != null:
+			events.append(ev)
+	if events.is_empty():
+		return
+	for old in InputMap.action_get_events(action):
+		if not _event_data(old).is_empty():
+			InputMap.action_erase_event(action, old)
+	for ev in events:
+		InputMap.action_add_event(action, ev)
+
+
+## Chuỗi hiển thị phím/chuột của action ("W / Mũi tên lên").
+func binding_text(action: String) -> String:
+	var parts: Array = []
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			parts.append((ev as InputEventKey).as_text_physical_keycode())
+		elif ev is InputEventMouseButton:
+			var names := {1: "Chuột trái", 2: "Chuột phải", 3: "Chuột giữa", 4: "Lăn lên", 5: "Lăn xuống"}
+			parts.append(names.get((ev as InputEventMouseButton).button_index, "Chuột %d" % (ev as InputEventMouseButton).button_index))
+	return " / ".join(parts) if not parts.is_empty() else "(chưa gán)"
+
+
+## Action khác đang dùng sự kiện này, "" nếu không trùng.
+func binding_conflict(action: String, ev: InputEvent) -> String:
+	var d := _event_data(ev)
+	if d.is_empty():
+		return ""
+	for r in REMAPPABLE:
+		if r[0] == action:
+			continue
+		if d in _binding_data(r[0]):
+			return r[0]
+	return ""
+
+
+## Gán phím/chuột mới thay cho phím chính (cái đầu tiên) của action; tay cầm giữ nguyên.
+## Trả về false nếu bị trùng với action khác hoặc sự kiện không hợp lệ.
+func rebind(action: String, ev: InputEvent) -> bool:
+	if _event_data(ev).is_empty() or binding_conflict(action, ev) != "":
+		return false
+	var current: Array = _binding_data(action)
+	if _event_data(ev) in current:
+		return true
+	var new_data: Array = [_event_data(ev)]
+	if current.size() > 1:
+		new_data.append_array(current.slice(1))
+	_apply_binding_data(action, new_data)
+	_write_save()
+	bindings_changed.emit()
+	return true
+
+
+func reset_bindings() -> void:
+	for action in _default_bindings:
+		_apply_binding_data(action, _default_bindings[action])
+	_write_save()
+	bindings_changed.emit()
 
 
 ## Công tắc giảm hiệu ứng (lưu file, phát Signal).
@@ -437,6 +614,53 @@ func _setup_input() -> void:
 	_add_key("shoot", KEY_E)
 	_add_key("parry", KEY_F)
 	_add_key("reload", KEY_R)
+	_setup_gamepad()
+	for r in REMAPPABLE:
+		_default_bindings[r[0]] = _binding_data(r[0])
+	_apply_deadzone()
+
+
+## Tay cầm (kiểu Xbox): cần trái di chuyển, cần phải nhìn, nút/trigger cho hành động.
+func _setup_gamepad() -> void:
+	_add_axis("move_left", JOY_AXIS_LEFT_X, -1.0)
+	_add_axis("move_right", JOY_AXIS_LEFT_X, 1.0)
+	_add_axis("move_forward", JOY_AXIS_LEFT_Y, -1.0)
+	_add_axis("move_back", JOY_AXIS_LEFT_Y, 1.0)
+	_add_axis("look_left", JOY_AXIS_RIGHT_X, -1.0)
+	_add_axis("look_right", JOY_AXIS_RIGHT_X, 1.0)
+	_add_axis("look_up", JOY_AXIS_RIGHT_Y, -1.0)
+	_add_axis("look_down", JOY_AXIS_RIGHT_Y, 1.0)
+	_add_axis("attack", JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	_add_axis("grapple", JOY_AXIS_TRIGGER_LEFT, 1.0)
+	_add_pad("jump", JOY_BUTTON_A)
+	_add_pad("slide", JOY_BUTTON_B)
+	_add_pad("dash", JOY_BUTTON_X)
+	_add_pad("heavy", JOY_BUTTON_Y)
+	_add_pad("shoot", JOY_BUTTON_RIGHT_SHOULDER)
+	_add_pad("parry", JOY_BUTTON_LEFT_SHOULDER)
+	_add_pad("slam", JOY_BUTTON_LEFT_STICK)
+	_add_pad("zoom", JOY_BUTTON_RIGHT_STICK)
+	_add_pad("reload", JOY_BUTTON_DPAD_LEFT)
+	_add_pad("weapon_next", JOY_BUTTON_DPAD_UP)
+	_add_pad("weapon_prev", JOY_BUTTON_DPAD_DOWN)
+	_add_pad("ui_cancel", JOY_BUTTON_START)
+
+
+func _add_axis(action: String, axis: JoyAxis, value: float) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var ev := InputEventJoypadMotion.new()
+	ev.axis = axis
+	ev.axis_value = value
+	InputMap.action_add_event(action, ev)
+
+
+func _add_pad(action: String, button: JoyButton) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	var ev := InputEventJoypadButton.new()
+	ev.button_index = button
+	InputMap.action_add_event(action, ev)
 
 
 func _add_key(action: String, keycode: Key) -> void:
