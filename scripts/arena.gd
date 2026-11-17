@@ -7,42 +7,49 @@ const DummyScript = preload("res://scripts/enemy_dummy.gd")
 const Materials = preload("res://scripts/materials.gd")
 const Quality = preload("res://scripts/quality.gd")
 
-const HALF: float = 30.0
-const WALL_H: float = 12.0
+const Maps = preload("res://scripts/maps.gd")
 
+signal map_loaded(map_id: String)
+
+var map_id: String = ""
+var half: Vector2 = Vector2(30.0, 30.0)
+var wall_h: float = 12.0
+var void_y: float = -30.0
 var spawn_point: Vector3 = Vector3(0.0, 0.1, 18.0)
 var dummies: Array = []
 var sun: DirectionalLight3D
 var world_env: Environment
-## Điểm sinh bot (rải quanh đấu trường, tránh cột/bục/dốc).
-var bot_spawns: Array = [
-	Vector3(-25.0, 0.1, -26.0), Vector3(25.0, 0.1, -26.0), Vector3(0.0, 0.1, -27.0),
-	Vector3(-27.0, 0.1, 20.0), Vector3(27.0, 0.1, 26.0), Vector3(-14.0, 0.1, -5.0),
-]
+## Điểm sinh bot (do map quy định, tránh cột/bục/dốc).
+var bot_spawns: Array = []
 
 
 func _ready() -> void:
+	if map_id == "":
+		map_id = Global.selected_map
 	_build_environment()
-	_box(Vector3(HALF * 2.0, 1.0, HALF * 2.0), Vector3(0.0, -0.5, 0.0), "floor")
-	# 4 tường bao quanh
-	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, -HALF - 0.5), "wall")
-	_box(Vector3(HALF * 2.0, WALL_H, 1.0), Vector3(0.0, WALL_H * 0.5, HALF + 0.5), "wall")
-	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(HALF + 0.5, WALL_H * 0.5, 0.0), "wall")
-	_box(Vector3(1.0, WALL_H, HALF * 2.0), Vector3(-HALF - 0.5, WALL_H * 0.5, 0.0), "wall")
-	# 4 cột đỏ
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			_box(Vector3(2.5, 10.0, 2.5), Vector3(14.0 * sx, 5.0, 14.0 * sz), "pillar")
-	# 2 bục liền nhau (cao 1.0 rồi 2.5): nhảy 2 nhịp là lên tới đỉnh
-	_box(Vector3(8.0, 1.0, 8.0), Vector3(8.0, 0.5, 10.0), "platform")
-	_box(Vector3(6.0, 2.5, 6.0), Vector3(14.5, 1.25, 10.0), "platform")
-	# Tường để chạy tường (dài 30m, cao 8m) + bục cao để móc lên
-	_box(Vector3(1.0, 8.0, 30.0), Vector3(-22.0, 4.0, -5.0), "runwall")
-	_box(Vector3(6.0, 0.5, 6.0), Vector3(0.0, 8.0, -22.0), "grapple")
-	# Dốc 20° để tập trượt (cao dần về phía -Z, trượt xuống phía +Z)
-	_box(Vector3(10.0, 1.0, 20.0), Vector3(22.0, 2.0, -10.0), "ramp", Vector3(20.0, 0.0, 0.0))
+	_build_map(map_id)
+
+
+## Dựng đấu trường từ dữ liệu Maps (sàn, 4 tường, các khối, bia tập). Phát map_loaded khi xong.
+func _build_map(id: String) -> void:
+	var m: Dictionary = Maps.get_map(id)
+	map_id = id
+	half = m["half"]
+	wall_h = float(m["wall_h"])
+	void_y = float(m["void_y"])
+	spawn_point = m["spawn"]
+	bot_spawns = m["bot_spawns"]
+	_box(Vector3(half.x * 2.0, 1.0, half.y * 2.0), Vector3(0.0, -0.5, 0.0), "floor")
+	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, -half.y - 0.5), "wall")
+	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, half.y + 0.5), "wall")
+	_box(Vector3(1.0, wall_h, half.y * 2.0), Vector3(half.x + 0.5, wall_h * 0.5, 0.0), "wall")
+	_box(Vector3(1.0, wall_h, half.y * 2.0), Vector3(-half.x - 0.5, wall_h * 0.5, 0.0), "wall")
+	for bx in m["boxes"]:
+		_box(bx["size"], bx["pos"], bx["role"], bx["rot"])
 	_build_trim()
-	_spawn_dummy(Vector3(0.0, 0.0, -12.0), Color(0.85, 0.2, 0.2)) # bia tập kiếm/súng
+	for dp in m["dummies"]:
+		_spawn_dummy(dp, Color(0.85, 0.2, 0.2))
+	map_loaded.emit(id)
 
 
 func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.ZERO) -> void:
@@ -69,10 +76,10 @@ func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.
 func _build_trim() -> void:
 	var t: float = 0.15
 	var specs: Array = [
-		[Vector3(HALF * 2.0, t, t), Vector3(0.0, t * 0.5, -HALF)],
-		[Vector3(HALF * 2.0, t, t), Vector3(0.0, t * 0.5, HALF)],
-		[Vector3(t, t, HALF * 2.0), Vector3(HALF, t * 0.5, 0.0)],
-		[Vector3(t, t, HALF * 2.0), Vector3(-HALF, t * 0.5, 0.0)],
+		[Vector3(half.x * 2.0, t, t), Vector3(0.0, t * 0.5, -half.y)],
+		[Vector3(half.x * 2.0, t, t), Vector3(0.0, t * 0.5, half.y)],
+		[Vector3(t, t, half.y * 2.0), Vector3(half.x, t * 0.5, 0.0)],
+		[Vector3(t, t, half.y * 2.0), Vector3(-half.x, t * 0.5, 0.0)],
 	]
 	for sp in specs:
 		var bm := BoxMesh.new()

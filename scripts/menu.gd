@@ -7,6 +7,7 @@ const GAME_SCENE := "res://scenes/main.tscn"
 var play_button: Button
 var help_button: Button
 var quality_button: Button
+var map_button: Button
 var quit_button: Button
 var help_panel: Control
 
@@ -35,9 +36,10 @@ func _ready() -> void:
 	box.add_child(spacer)
 	play_button = UIKit.button("Chơi")
 	help_button = UIKit.button("Hướng dẫn")
+	map_button = UIKit.map_button()
 	quality_button = UIKit.quality_button()
 	quit_button = UIKit.button("Thoát")
-	for b in [play_button, help_button, quality_button, quit_button]:
+	for b in [play_button, map_button, help_button, quality_button, quit_button]:
 		box.add_child(b)
 	box.add_child(UIKit.label("Điểm cao nhất: %d" % Global.high_score, 20))
 	play_button.pressed.connect(_on_play)
