@@ -13,6 +13,7 @@ signal grapple_ended
 signal died
 
 enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE, SLAM }
+const SwordTrail = preload("res://scripts/sword_trail.gd")
 const BODY_LAYER: int = 2 # render layer 2 (bit thứ hai): thân người chơi
 
 const STAND_HEIGHT: float = 1.8
@@ -92,6 +93,7 @@ func _ready() -> void:
 	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
 	melee.swing_started.connect(viewmodel.play_swing)
+	SwordTrail.attach(melee)
 	combat.shot_fired.connect(func(_f, _t): viewmodel.kick())
 	combat.reloading_changed.connect(viewmodel.set_reloading)
 	hurtbox.hurt.connect(func(h, _left): viewmodel.flinch(camera.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))))
@@ -183,7 +185,7 @@ func _read_input() -> void:
 
 ## Rung camera (gọi từ main khi có va chạm/đòn trúng).
 func shake(amount: float) -> void:
-	_shake = maxf(_shake, amount)
+	_shake = maxf(_shake, amount * (float(Global.FX["reduced_shake"]) if Global.reduced_fx else 1.0))
 
 
 func respawn(pos: Vector3) -> void:

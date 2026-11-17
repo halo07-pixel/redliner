@@ -235,6 +235,30 @@ const HEAVY_SLASH: Dictionary = {
 	"width_mult": 1.9, "reach_mult": 1.5, "damage_mult": 1.4,
 }
 
+## Hiệu ứng (M12). reduced_fx = true: tắt vệt kiếm + sóng parry, hạt còn 1/3, rung camera yếu đi.
+const FX: Dictionary = {
+	"trail_life": 0.16, "trail_max_points": 14, "trail_color": Color(0.75, 0.9, 1.0, 0.8),
+	"heavy_trail_color": Color(1.0, 0.7, 0.35, 0.85),
+	"ring_time": 0.3, "ring_radius": 2.2,
+	"reduced_particles": 0.33, "reduced_shake": 0.4,
+	"scorch_time": 8.0,
+}
+## Vật nhặt: rơi khi bot chết (drop_chance) hoặc thùng vỡ; weight = tỉ lệ chọn loại.
+const PICKUPS: Dictionary = {
+	"drop_chance": 0.25, "crate_drop_chance": 0.4, "lifetime": 12.0, "blink_time": 3.0,
+	"kinds": {
+		"health": {"weight": 3.0, "heal": 30.0, "color": Color(0.35, 0.95, 0.4), "label": "+30 MÁU"},
+		"ammo": {"weight": 3.0, "color": Color(1.0, 0.8, 0.25), "label": "ĐẠN ĐẦY"},
+		"stamina": {"weight": 2.0, "color": Color(0.4, 0.75, 1.0), "label": "STAMINA ĐẦY"},
+	},
+}
+## Vật thể phá được. Thùng nổ dùng cùng khoá với vụ nổ pháo (Rocket.explode).
+const BREAKABLES: Dictionary = {
+	"barrel": {"health": 20.0, "explosive": true, "damage": 50.0, "blast_radius": 5.0, "min_falloff": 0.3,
+		"knockback": 14.0, "self_damage_mult": 1.0, "stagger": 0.8},
+	"crate": {"health": 10.0, "explosive": false},
+}
+
 const PLAYER: Dictionary = {
 	"walk_speed": 9.0,       # m/s, tốc độ đích khi đi bộ
 	"ground_accel": 100.0,   # m/s² trên mặt đất (đủ lớn để đạt đúng walk_speed dù có ma sát)
@@ -299,6 +323,8 @@ const PLAYER: Dictionary = {
 signal quality_changed(level: int)
 signal map_changed(id: String)
 
+signal fx_changed(reduced: bool)
+
 const MAP_IDS: Array = ["yard", "alley", "tower"]
 const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
 
@@ -307,6 +333,7 @@ var save_path: String = "user://savegame.cfg"
 var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
 var selected_map: String = "yard"
+var reduced_fx: bool = false
 
 
 func _ready() -> void:
@@ -318,6 +345,7 @@ func load_save() -> void:
 	high_score = 0
 	quality = QUALITY_DEFAULT
 	selected_map = "yard"
+	reduced_fx = false
 	if not FileAccess.file_exists(save_path):
 		return
 	var cf := ConfigFile.new()
@@ -326,6 +354,7 @@ func load_save() -> void:
 		quality = clampi(int(cf.get_value("graphics", "quality", QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
 		var m: String = str(cf.get_value("game", "map", "yard"))
 		selected_map = m if m in MAP_IDS else "yard"
+		reduced_fx = bool(cf.get_value("graphics", "reduced_fx", false))
 
 
 func _write_save() -> void:
@@ -333,6 +362,7 @@ func _write_save() -> void:
 	cf.set_value("progress", "high_score", high_score)
 	cf.set_value("graphics", "quality", quality)
 	cf.set_value("game", "map", selected_map)
+	cf.set_value("graphics", "reduced_fx", reduced_fx)
 	cf.save(save_path)
 
 
@@ -344,6 +374,15 @@ func set_quality(level: int) -> void:
 	quality = level
 	_write_save()
 	quality_changed.emit(quality)
+
+
+## Công tắc giảm hiệu ứng (lưu file, phát Signal).
+func set_reduced_fx(on: bool) -> void:
+	if on == reduced_fx:
+		return
+	reduced_fx = on
+	_write_save()
+	fx_changed.emit(on)
 
 
 ## Chọn đấu trường cho lần chơi sau (lưu file, phát Signal).

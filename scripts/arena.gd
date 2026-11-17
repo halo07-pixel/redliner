@@ -8,8 +8,11 @@ const Materials = preload("res://scripts/materials.gd")
 const Quality = preload("res://scripts/quality.gd")
 
 const Maps = preload("res://scripts/maps.gd")
+const BreakableScript = preload("res://scripts/breakable.gd")
 
 signal map_loaded(map_id: String)
+signal explosion(position: Vector3, radius: float) # thùng nổ phát nổ
+signal prop_broken(position: Vector3, kind: String) # thùng/barrel vỡ (để rơi đồ)
 
 var map_id: String = ""
 var half: Vector2 = Vector2(30.0, 30.0)
@@ -21,6 +24,7 @@ var sun: DirectionalLight3D
 var world_env: Environment
 ## Điểm sinh bot (do map quy định, tránh cột/bục/dốc).
 var bot_spawns: Array = []
+var props: Array = []
 
 
 func _ready() -> void:
@@ -49,7 +53,21 @@ func _build_map(id: String) -> void:
 	_build_trim()
 	for dp in m["dummies"]:
 		_spawn_dummy(dp, Color(0.85, 0.2, 0.2))
+	for bp in m["barrels"]:
+		_spawn_prop(bp, "barrel")
+	for cp in m["crates"]:
+		_spawn_prop(cp, "crate")
 	map_loaded.emit(id)
+
+
+func _spawn_prop(pos: Vector3, kind: String) -> void:
+	var b: StaticBody3D = BreakableScript.new()
+	b.kind = kind
+	b.position = pos
+	add_child(b)
+	props.append(b)
+	b.exploded.connect(func(p: Vector3, r: float): explosion.emit(p, r))
+	b.broken.connect(func(p: Vector3, k: String): prop_broken.emit(p, k))
 
 
 func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.ZERO) -> void:

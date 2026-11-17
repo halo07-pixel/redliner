@@ -1,7 +1,7 @@
 extends RefCounted
 ## Dữ liệu 3 đấu trường (chỉ là dữ liệu, không tạo node nên test được không cần cảnh).
 ## Mỗi map: half (nửa kích thước sàn x,z), wall_h, boxes [{size,pos,role,rot}], spawn, bot_spawns,
-## dummies (bia tập), void_y (rơi dưới mức này thì hồi sinh). Arena đọc dữ liệu và dựng.
+## dummies (bia tập), barrels/crates (vật phá được), void_y (rơi dưới mức này thì hồi sinh). Arena đọc dữ liệu và dựng.
 ## Quy tắc: lối đi chính của bot là mặt sàn phẳng (bot chưa có navmesh, để M14).
 
 const IDS: Array = ["yard", "alley", "tower"]
@@ -42,6 +42,8 @@ static func _yard() -> Dictionary:
 			Vector3(-27.0, 0.1, 20.0), Vector3(27.0, 0.1, 26.0), Vector3(-14.0, 0.1, -5.0),
 		],
 		"dummies": [Vector3(0.0, 0.0, -12.0)],
+		"barrels": [Vector3(-8.0, 0.0, -4.0), Vector3(6.0, 0.0, -18.0), Vector3(-20.0, 0.0, 12.0)],
+		"crates": [Vector3(4.0, 0.0, 4.0), Vector3(-6.0, 0.0, 14.0), Vector3(20.0, 0.0, 20.0)],
 	}
 
 
@@ -70,6 +72,8 @@ static func _alley() -> Dictionary:
 			Vector3(-14.0, 0.1, 0.0), Vector3(14.0, 0.1, 0.0), Vector3(0.0, 0.1, -8.0),
 		],
 		"dummies": [Vector3(0.0, 0.0, 20.0)],
+		"barrels": [Vector3(-4.0, 0.0, -20.0), Vector3(4.0, 0.0, 8.0), Vector3(-14.0, 0.0, 14.0)],
+		"crates": [Vector3(-3.0, 0.0, 30.0), Vector3(14.0, 0.0, -10.0), Vector3(-14.0, 0.0, -30.0)],
 	}
 
 
@@ -98,4 +102,6 @@ static func _tower() -> Dictionary:
 			Vector3(-25.0, 0.1, 10.0), Vector3(25.0, 0.1, 10.0), Vector3(-12.0, 0.1, -18.0),
 		],
 		"dummies": [Vector3(-10.0, 0.0, 20.0)],
+		"barrels": [Vector3(-14.0, 0.0, 6.0), Vector3(14.0, 0.0, -6.0), Vector3(10.0, 0.0, 22.0)],
+		"crates": [Vector3(-16.0, 0.0, -10.0), Vector3(16.0, 0.0, 14.0), Vector3(6.0, 0.0, -22.0)],
 	}
