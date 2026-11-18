@@ -36,6 +36,8 @@ const WEAPONS: Dictionary = {
 	"swordsman": {"file": "res://assets/weapons/quaternius/Sword.fbx", "length": 1.0, "grip": 0.15, "melee": true, "hold_deg": -56.0},
 	"elite": {"file": "res://assets/weapons/quaternius/Axe_Double.fbx", "length": 0.85, "grip": 0.2, "melee": true, "hold_deg": -56.0},
 	"gunner": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.85, "grip": 0.45, "melee": false, "hold_deg": -90.0},
+	"rusher": {"file": "res://assets/weapons/quaternius/Dagger.fbx", "length": 0.6, "grip": 0.1, "melee": true, "hold_deg": -56.0},
+	"bomber": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.95, "grip": 0.45, "melee": false, "hold_deg": -90.0},
 }
 
 @export var color: Color = Color(0.85, 0.85, 0.9)
@@ -226,7 +228,7 @@ func reset_pose() -> void:
 		(n as Node3D).rotation = Vector3.ZERO
 	if weapon != null:
 		joints["elbow_r"].rotation_degrees = Vector3(-20.0, 0.0, 0.0)
-		if kind == "gunner":
+		if kind == "gunner" or kind == "bomber":
 			joints["shoulder_r"].rotation_degrees = Vector3(70.0, 0.0, 0.0)
 	_apply_pose()
 

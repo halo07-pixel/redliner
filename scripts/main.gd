@@ -76,7 +76,9 @@ func _ready() -> void:
 	waves.wave_started.connect(_on_wave_started)
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
 	waves.wave_cleared.connect(_on_wave_cleared)
-	waves.bot_spawned.connect(func(bot): bot.sound.connect(Sfx.play))
+	waves.bot_spawned.connect(func(bot):
+		bot.sound.connect(Sfx.play)
+		bot.exploded.connect(_on_exploded))
 	waves.bot_killed.connect(_on_bot_killed)
 	arena.explosion.connect(_on_exploded)
 	arena.prop_broken.connect(_on_prop_broken)

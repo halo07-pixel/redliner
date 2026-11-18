@@ -38,7 +38,7 @@ func _physics_process(delta: float) -> void:
 	velocity.y -= float(cfg["gravity"]) * delta
 	var from: Vector3 = global_position
 	var to: Vector3 = from + velocity * delta
-	var q := PhysicsRayQueryParameters3D.create(from, to, Global.L_WORLD | Global.L_ENEMY_HURT)
+	var q := PhysicsRayQueryParameters3D.create(from, to, int(cfg.get("hit_mask", Global.L_WORLD | Global.L_ENEMY_HURT)))
 	q.collide_with_areas = true
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
@@ -67,6 +67,8 @@ static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3
 		var hb: Object = r["collider"]
 		if hb in seen or not hb.has_method("take_hit"):
 			continue
+		if cfg.has("skip_team") and "team" in hb and hb.team == int(cfg["skip_team"]):
+			continue # đạn nổ của bot không hại phe bot
 		seen.append(hb)
 		var body: Node3D = hb.get_parent() as Node3D
 		var center: Vector3 = body.global_position + Vector3(0.0, 0.95, 0.0)
@@ -86,5 +88,7 @@ static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3
 		if landed:
 			if body.has_method("apply_knockback"):
 				body.apply_knockback(push)
+			elif body.has_method("apply_blast"):
+				body.apply_blast(push)
 			if "melee" in body and body.melee != null:
 				body.melee.stagger(float(cfg["stagger"]))

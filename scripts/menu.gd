@@ -8,6 +8,8 @@ var play_button: Button
 var help_button: Button
 var quality_button: Button
 var map_button: Button
+var difficulty_button: Button
+var best_label: Label
 var fx_button: Button
 var quit_button: Button
 var help_panel: Control
@@ -41,12 +43,15 @@ func _ready() -> void:
 	help_button = UIKit.button("Hướng dẫn")
 	settings_button = UIKit.button("Cài đặt")
 	map_button = UIKit.map_button()
+	difficulty_button = UIKit.difficulty_button()
 	quality_button = UIKit.quality_button()
 	fx_button = UIKit.fx_button()
 	quit_button = UIKit.button("Thoát")
-	for b in [play_button, map_button, help_button, settings_button, quality_button, fx_button, quit_button]:
+	for b in [play_button, map_button, difficulty_button, help_button, settings_button, quality_button, fx_button, quit_button]:
 		box.add_child(b)
-	box.add_child(UIKit.label("Điểm cao nhất: %d" % Global.high_score, 20))
+	best_label = UIKit.label("Điểm cao nhất: %d" % Global.high_score, 20)
+	box.add_child(best_label)
+	Global.difficulty_changed.connect(func(_l): best_label.text = "Điểm cao nhất: %d" % Global.high_score)
 	play_button.pressed.connect(_on_play)
 	help_button.pressed.connect(show_help)
 	settings_button.pressed.connect(func(): settings_panel.visible = true)

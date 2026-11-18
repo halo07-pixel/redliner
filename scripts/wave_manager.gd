@@ -35,13 +35,17 @@ func stop() -> void:
 	_running = false
 
 
-## Thành phần wave n: wave 1 toàn lính kiếm; từ wave 2 có xạ thủ; từ wave 3 có tinh nhuệ.
+## Thành phần wave n: wave 1 toàn lính kiếm; từ wave 2 có xạ thủ và lao nhanh; từ wave 3 có tinh nhuệ; từ wave 4 có pháo thủ.
 func composition(n: int) -> Array:
 	var count: int = mini(2 + n, MAX_BOTS_PER_WAVE)
 	var types: Array = []
 	for i in count:
 		if n >= 3 and i % 4 == 3:
 			types.append("elite")
+		elif n >= 4 and i % 5 == 4:
+			types.append("bomber")
+		elif n >= 2 and i % 5 == 1:
+			types.append("rusher")
 		elif n >= 2 and i % 3 == 2:
 			types.append("gunner")
 		else:

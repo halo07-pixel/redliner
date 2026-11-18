@@ -24,11 +24,52 @@ const BOTS: Dictionary = {
 		"shoots": true, "shoot_interval": 2.2, "keep_range": 13.0,
 		"reaction": 0.5, "parry": 0.15, "dodge": 0.4, "windup": 0.30, "attack_cd": 1.5, "score": 150,
 	},
+	"rusher": {
+		"color": Color(0.95, 0.85, 0.2), "health": 35.0, "speed": 11.5, "melee": true, "range": 1.8,
+		"shoots": false, "shoot_interval": 0.0, "keep_range": 0.0, "flank": true,
+		"reaction": 0.3, "parry": 0.05, "dodge": 0.35, "windup": 0.18, "attack_cd": 0.8, "score": 120,
+	},
+	"bomber": {
+		"color": Color(0.2, 0.75, 0.85), "health": 50.0, "speed": 4.5, "melee": false, "range": 0.0,
+		"shoots": false, "shoot_interval": 0.0, "keep_range": 16.0, "bombs": true,
+		"reaction": 0.5, "parry": 0.0, "dodge": 0.2, "windup": 0.3, "attack_cd": 1.5, "score": 200,
+	},
 	"elite": {
 		"color": Color(0.6, 0.25, 0.85), "health": 90.0, "speed": 8.5, "melee": true, "range": 2.0,
 		"shoots": true, "shoot_interval": 3.5, "keep_range": 0.0,
 		"reaction": 0.12, "parry": 0.5, "dodge": 0.5, "windup": 0.22, "attack_cd": 1.0, "score": 300,
 	},
+}
+
+## Đạn nổ vòng cung của pháo thủ (dùng Rocket; bay tới người chơi, không hại phe bot).
+const BOMB: Dictionary = {
+	"interval": 3.2, "min_range": 7.0, "max_range": 40.0,
+	"projectile_speed": 18.0, "gravity": 9.0, "life": 5.0,
+	"damage": 25.0, "blast_radius": 3.2, "min_falloff": 0.4, "knockback": 9.0,
+	"self_damage_mult": 0.0, "stagger": 0.4,
+}
+
+## Độ khó (M14). Chỉ số bot = chỉ số gốc (BOTS) x đường cong theo wave x hệ số mức chọn.
+## Mỗi wave: máu/tốc độ tăng, phản ứng nhanh hơn, parry/né nhiều hơn (đều có trần).
+const DIFFICULTY_LEVELS: Array = ["easy", "normal", "hard"]
+const DIFFICULTY_NAMES: Dictionary = {"easy": "Dễ", "normal": "Thường", "hard": "Khó"}
+const DIFFICULTY: Dictionary = {
+	"levels": {
+		"easy": {"health": 0.8, "speed": 0.9, "reaction": 1.3, "parry": 0.7, "dodge": 0.7, "score": 0.8},
+		"normal": {"health": 1.0, "speed": 1.0, "reaction": 1.0, "parry": 1.0, "dodge": 1.0, "score": 1.0},
+		"hard": {"health": 1.25, "speed": 1.1, "reaction": 0.75, "parry": 1.3, "dodge": 1.3, "score": 1.3},
+	},
+	"health_per_wave": 0.08, "health_max_mult": 4.0,
+	"speed_per_wave": 0.02, "speed_max_mult": 1.6,
+	"reaction_per_wave": 0.06, "reaction_min_mult": 0.5,
+	"parry_per_wave": 0.03, "parry_max": 0.8,
+	"dodge_per_wave": 0.02, "dodge_max": 0.7,
+	"chance_hard_cap": 0.95,
+	# Chiến thuật nhóm
+	"max_melee_attackers": 3, "ring_radius": 5.0,
+	# Khi người chơi Destabilized: bot cận chiến báo đòn nhanh hơn, xạ thủ bắn ngay
+	"punish_windup_mult": 0.6, "punish_speed_mult": 1.25, "punish_attack_cd": 0.2, "punish_shoot_delay": 0.4,
+	"retreat_time": 0.6, # lùi một nhịp sau khi bị parry / thua clash
 }
 
 ## Bảng màu theo vai trò (M6.2). Vật liệu trong `materials.gd` đọc từ đây.
@@ -95,6 +136,8 @@ const RIG: Dictionary = {
 	"swordsman": {"shoulder": 1.25, "bulk": 1.1, "armor": 1, "weapon": "sword", "glow": false, "style": "ronin"},
 	"gunner": {"shoulder": 0.85, "bulk": 0.8, "armor": 0, "weapon": "gun", "glow": false, "style": "ranger"},
 	"elite": {"shoulder": 1.4, "bulk": 1.3, "armor": 2, "weapon": "sword", "glow": true, "style": "guard"},
+	"rusher": {"shoulder": 0.9, "bulk": 0.85, "armor": 0, "weapon": "sword", "glow": true, "style": "ronin"},
+	"bomber": {"shoulder": 1.1, "bulk": 1.25, "armor": 1, "weapon": "gun", "glow": false, "style": "ranger"},
 }
 ## Màu da dùng chung cho đầu, cổ, bàn tay (thân/quần áo lấy màu theo loại bot).
 const SKIN_COLOR: Color = Color(0.84, 0.68, 0.57)
@@ -339,6 +382,7 @@ signal quality_changed(level: int)
 signal map_changed(id: String)
 
 signal fx_changed(reduced: bool)
+signal difficulty_changed(level: String)
 signal settings_changed
 signal bindings_changed
 
@@ -365,6 +409,8 @@ var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
 var selected_map: String = "yard"
 var reduced_fx: bool = false
+var difficulty: String = "normal"
+var _scores: Dictionary = {}
 var settings: Dictionary = DEFAULT_SETTINGS.duplicate()
 var _default_bindings: Dictionary = {}
 
@@ -379,12 +425,19 @@ func load_save() -> void:
 	quality = QUALITY_DEFAULT
 	selected_map = "yard"
 	reduced_fx = false
+	difficulty = "normal"
+	_scores = {}
 	settings = DEFAULT_SETTINGS.duplicate()
 	if not FileAccess.file_exists(save_path):
 		return
 	var cf := ConfigFile.new()
 	if cf.load(save_path) == OK:
-		high_score = int(cf.get_value("progress", "high_score", 0))
+		var legacy: int = int(cf.get_value("progress", "high_score", 0))
+		for lv in DIFFICULTY_LEVELS:
+			_scores[lv] = int(cf.get_value("progress", "high_score_" + lv, legacy if lv == "normal" else 0))
+		var dl: String = str(cf.get_value("game", "difficulty", "normal"))
+		difficulty = dl if dl in DIFFICULTY_LEVELS else "normal"
+		high_score = int(_scores.get(difficulty, 0))
 		quality = clampi(int(cf.get_value("graphics", "quality", QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
 		var m: String = str(cf.get_value("game", "map", "yard"))
 		selected_map = m if m in MAP_IDS else "yard"
@@ -400,7 +453,11 @@ func load_save() -> void:
 
 func _write_save() -> void:
 	var cf := ConfigFile.new()
-	cf.set_value("progress", "high_score", high_score)
+	_scores[difficulty] = high_score
+	for lv in DIFFICULTY_LEVELS:
+		cf.set_value("progress", "high_score_" + lv, int(_scores.get(lv, 0)))
+	cf.set_value("progress", "high_score", int(_scores.get("normal", 0)))
+	cf.set_value("game", "difficulty", difficulty)
 	cf.set_value("graphics", "quality", quality)
 	cf.set_value("game", "map", selected_map)
 	cf.set_value("graphics", "reduced_fx", reduced_fx)
@@ -551,6 +608,39 @@ func reset_bindings() -> void:
 		_apply_binding_data(action, _default_bindings[action])
 	_write_save()
 	bindings_changed.emit()
+
+
+## Chọn mức độ khó (điểm cao lưu riêng từng mức). Đổi giữa trận không ảnh hưởng bot đã sinh.
+func set_difficulty(level: String) -> void:
+	if level not in DIFFICULTY_LEVELS or level == difficulty:
+		return
+	_scores[difficulty] = high_score
+	difficulty = level
+	high_score = int(_scores.get(level, 0))
+	_write_save()
+	difficulty_changed.emit(level)
+
+
+func cycle_difficulty() -> void:
+	set_difficulty(DIFFICULTY_LEVELS[(DIFFICULTY_LEVELS.find(difficulty) + 1) % DIFFICULTY_LEVELS.size()])
+
+
+## Chỉ số bot ở wave n và mức `level`: {health, speed, reaction, parry, dodge, score_mult}.
+## Hàm thuần (không đụng trạng thái) để test được. Đơn điệu theo wave và có trần.
+func bot_stats(type_name: String, wave: int, level: String = "") -> Dictionary:
+	var c: Dictionary = BOTS[type_name]
+	var D: Dictionary = DIFFICULTY
+	var lv: Dictionary = D["levels"][level if level in DIFFICULTY_LEVELS else difficulty]
+	var w: float = float(maxi(wave - 1, 0))
+	var cap: float = float(D["chance_hard_cap"])
+	return {
+		"health": float(c["health"]) * minf(1.0 + float(D["health_per_wave"]) * w, float(D["health_max_mult"])) * float(lv["health"]),
+		"speed": float(c["speed"]) * minf(1.0 + float(D["speed_per_wave"]) * w, float(D["speed_max_mult"])) * float(lv["speed"]),
+		"reaction": float(c["reaction"]) * maxf(1.0 - float(D["reaction_per_wave"]) * w, float(D["reaction_min_mult"])) * float(lv["reaction"]),
+		"parry": minf(minf(float(c["parry"]) + float(D["parry_per_wave"]) * w, float(D["parry_max"])) * float(lv["parry"]), cap),
+		"dodge": minf(minf(float(c["dodge"]) + float(D["dodge_per_wave"]) * w, float(D["dodge_max"])) * float(lv["dodge"]), cap),
+		"score_mult": float(lv["score"]),
+	}
 
 
 ## Công tắc giảm hiệu ứng (lưu file, phát Signal).
