@@ -54,6 +54,17 @@ static func fx_button() -> Button:
 	return b
 
 
+## Nút xoay vòng mức độ khó; chữ theo Global.difficulty.
+static func difficulty_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Độ khó: %s" % Global.DIFFICULTY_NAMES[Global.difficulty]
+	refresh.call()
+	b.pressed.connect(func():
+		Global.cycle_difficulty()
+		refresh.call())
+	return b
+
+
 ## Nút xoay vòng đấu trường; chữ theo Global.selected_map.
 static func map_button() -> Button:
 	var b := button("")

@@ -119,7 +119,7 @@ func target_pose(st: String, p_phase: float, speed: float, vel_y: float, side: f
 func _hold_weapon_arm(pose: Dictionary, st: String) -> void:
 	if mannequin.weapon == null or st == "grapple":
 		return
-	if mannequin.kind == "gunner":
+	if mannequin.kind == "gunner" or mannequin.kind == "bomber":
 		pose["shoulder_r"] = Vector3(70.0, 0.0, 0.0)
 		pose["elbow_r"] = Vector3(10.0, 0.0, 0.0)
 	else:

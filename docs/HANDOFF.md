@@ -1,7 +1,7 @@
-# Bàn giao Redliner (cập nhật 2026-11-16)
+# Bàn giao Redliner (cập nhật 2026-11-18)
 
 ## Trạng thái
-- `main` = `a6f9a30` (đến M12 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m13-feel` (M13 cảm giác điều khiển).
+- `main` = `0db5935` (đến M13 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m14-smart-bots` (M14 bot thông minh).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -121,13 +121,21 @@
 - Test: `test_feel` (70 kiểm tra). Trong test `-s`: `DisplayServer.keyboard_get_keycode_from_physical` không chạy headless nên dùng `InputEventKey.as_text_physical_keycode()`. Ảnh: `docs/screenshots/m13_*.png`, `tools/screenshots/shoot_m13.gd`.
 - Chưa kiểm bằng người: cảm giác coyote / buffer / trèo gờ (có thể "hút" khó chịu: chỉnh ledge_* ở Global), lắc đầu, và TOÀN BỘ phần tay cầm (không có tay cầm thật; chỉ test ánh xạ InputMap, chưa thử vùng chết hay độ nhạy cần phải trong game).
 
+## M14 (nhánh `feature/m14-smart-bots`: bot thông minh)
+- `Global`: bot mới `rusher` (lao nhanh, bọc sườn) và `bomber` (pháo thủ đứng xa, ném đạn nổ vòng cung, `Global.BOMB`); độ khó Dễ/Thường/Khó (`DIFFICULTY_LEVELS`, `DIFFICULTY`, `set_difficulty`, `cycle_difficulty`, signal `difficulty_changed`), kỷ lục riêng từng mức (`progress/high_score_<mức>`), `bot_stats(type, wave, level)` là hàm thuần (máu/tốc độ/phản ứng/parry/né có trần theo wave + hệ số mức).
+- `arena.gd`: navmesh nướng từ collider tĩnh (`_build_nav`, `nav_path`); map chỉ đồng bộ sau ~10 physics frame nên `bot._navigate` dùng `_steer` thẳng tới khi `map_get_iteration_id > 0`.
+- `bot.gd`: đi theo đường navmesh (tính lại mỗi 0.3 s, chọn điểm đường > 0.4 m), giới hạn 3 bot cận chiến áp sát cùng lúc (`max_melee_attackers`, còn lại đứng vòng ngoài), lùi một nhịp sau khi bị parry, trừng phạt khi người chơi Destabilized (báo đòn ngắn, nhanh hơn, bắn ngay), `_throw_bomb`. `rocket.gd` hỗ trợ `hit_mask`/`skip_team` (đạn bot không hại bot).
+- `wave_manager.composition`: elite > bomber (wave >= 4) > rusher (wave >= 2) > gunner > swordsman. Menu có nút "Độ khó".
+- Test: `test_smart_bots` (62 kiểm tra, gồm chữ U, bệ không leo được, vòng vây, pháo thủ, lưu độ khó). 18 bộ đều xanh.
+- Chưa kiểm bằng người: cân bằng độ khó / số bot, cảm giác lùi + vòng vây, sát thương bom (25, bán kính 3.2). Navmesh tĩnh (không cập nhật khi thùng/vật vỡ). Bot chưa lợi dụng thùng nổ. Rusher/bomber dùng lại mô hình cũ, chỉ khác vũ khí. Không có Vulkan trên cloud nên chưa nhìn bằng mắt.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (17 bộ: test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (18 bộ: test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M14 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M15 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

@@ -25,6 +25,8 @@ var world_env: Environment
 ## Điểm sinh bot (do map quy định, tránh cột/bục/dốc).
 var bot_spawns: Array = []
 var props: Array = []
+var nav_region: NavigationRegion3D
+var bake_nav: bool = true # tắt được cho test cần dựng nhanh
 
 
 func _ready() -> void:
@@ -57,7 +59,35 @@ func _build_map(id: String) -> void:
 		_spawn_prop(bp, "barrel")
 	for cp in m["crates"]:
 		_spawn_prop(cp, "crate")
+	if bake_nav:
+		_build_nav()
 	map_loaded.emit(id)
+
+
+## Navmesh cho bot, bake từ collider tĩnh của map (tầng L_WORLD). Bệ cao hơn bước leo (0.5 m) không nằm
+## trong navmesh nên bot không kẹt dưới chân tường; dốc thoải thì đi được. Thùng/cột là chướng ngại.
+func _build_nav() -> void:
+	var nm := NavigationMesh.new()
+	nm.agent_radius = 0.5
+	nm.agent_height = 2.0
+	nm.agent_max_climb = 0.5
+	nm.agent_max_slope = 40.0
+	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nm.geometry_collision_mask = Global.L_WORLD
+	var src := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(nm, src, self)
+	NavigationServer3D.bake_from_source_geometry_data(nm, src)
+	nav_region = NavigationRegion3D.new()
+	nav_region.navigation_mesh = nm
+	add_child(nav_region)
+	NavigationServer3D.map_force_update(nav_region.get_navigation_map())
+
+
+## Đường đi (điểm ngoặt) trên navmesh từ a tới b; rỗng nếu chưa có navmesh.
+func nav_path(a: Vector3, b: Vector3) -> PackedVector3Array:
+	if nav_region == null:
+		return PackedVector3Array()
+	return NavigationServer3D.map_get_path(nav_region.get_navigation_map(), a, b, true)
 
 
 func _spawn_prop(pos: Vector3, kind: String) -> void:
