@@ -38,6 +38,9 @@ func _ready() -> void:
 	_add_slider(box, "bob", "Lắc đầu khi chạy", 0.0, 1.0, 0.05)
 	_add_slider(box, "pad_sens", "Độ nhạy tay cầm", 0.3, 3.0, 0.05)
 	_add_slider(box, "pad_deadzone", "Vùng chết cần analog", 0.05, 0.5, 0.01)
+	_add_slider(box, "vol_master", "Âm lượng tổng", 0.0, 1.0, 0.05)
+	_add_slider(box, "vol_sfx", "Âm lượng hiệu ứng", 0.0, 1.0, 0.05)
+	_add_slider(box, "vol_music", "Âm lượng nhạc", 0.0, 1.0, 0.05)
 	_invert = CheckButton.new()
 	_invert.text = "Đảo trục Y"
 	_invert.add_theme_font_size_override("font_size", 22)

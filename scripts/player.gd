@@ -13,6 +13,7 @@ signal grapple_ended
 signal died
 signal footstep(speed: float)
 signal ledge_climbed
+signal jumped
 
 enum State { NORMAL, SLIDE, WALLRUN, GRAPPLE, SLAM, LEDGE }
 const SwordTrail = preload("res://scripts/sword_trail.gd")
@@ -434,6 +435,7 @@ func _do_jump() -> void:
 	velocity.y = Global.PLAYER["jump_velocity"]
 	_coyote_t = 0.0
 	_jump_buf_t = 0.0
+	jumped.emit()
 
 
 ## Phát signal footstep theo quãng đường đi bộ trên sàn (không phát khi trượt/bay/chạy tường).

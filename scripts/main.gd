@@ -24,6 +24,9 @@ var kills: int = 0
 
 var _over: bool = false
 var _last_charges: int = 2
+var _enemies: int = 0
+var _hp_ratio: float = 1.0
+var _destab: bool = false
 
 
 func _ready() -> void:
@@ -38,17 +41,24 @@ func _ready() -> void:
 	player.state_changed.connect(_on_state_changed)
 	player.stamina_changed.connect(hud.set_stamina)
 	player.slammed.connect(_on_slammed)
-	player.footstep.connect(func(_sp: float): Sfx.play("step"))
+	player.footstep.connect(func(_sp: float): _play_footstep())
+	player.jumped.connect(func(): Sfx.play("jump"))
+	player.ledge_climbed.connect(func(): Sfx.play("ledge"))
 	player.dash_charges_changed.connect(_on_dash_charges)
 
 	# --- Chiến đấu -> HUD / âm thanh / hiệu ứng
 	player.hurtbox.health_changed.connect(hud.set_health)
+	player.hurtbox.health_changed.connect(_on_health_for_music)
 	player.hurtbox.hurt.connect(_on_player_hurt)
 	player.combat.ammo_changed.connect(hud.set_ammo)
 	player.combat.reloading_changed.connect(hud.set_reloading)
 	player.combat.shot_fired.connect(_on_shot_fired)
 	player.combat.weapon_changed.connect(hud.set_weapon)
 	player.combat.weapon_changed.connect(func(id, _n): player.viewmodel.set_weapon(id))
+	player.combat.weapon_changed.connect(func(_id, _n): Sfx.play("switch"))
+	player.combat.reloading_changed.connect(func(on: bool):
+		if on:
+			Sfx.play("reload"))
 	player.combat.exploded.connect(_on_exploded)
 	player.combat.hit_confirmed.connect(_on_hit_confirmed)
 	player.melee.swing_started.connect(func(_w, _a, _r): Sfx.play("slash"))
@@ -75,9 +85,10 @@ func _ready() -> void:
 	waves.setup(arena, arena.bot_spawns)
 	waves.wave_started.connect(_on_wave_started)
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
+	waves.enemies_left_changed.connect(_on_enemies_for_music)
 	waves.wave_cleared.connect(_on_wave_cleared)
 	waves.bot_spawned.connect(func(bot):
-		bot.sound.connect(Sfx.play)
+		bot.sound.connect(func(n: String): Sfx.play_at(n, bot.global_position))
 		bot.exploded.connect(_on_exploded))
 	waves.bot_killed.connect(_on_bot_killed)
 	arena.explosion.connect(_on_exploded)
@@ -95,7 +106,8 @@ func _ready() -> void:
 	game_over.restart_requested.connect(_restart)
 	game_over.menu_requested.connect(_go_menu)
 
-	Sfx.play_music()
+	Sfx.set_intensity(Sfx.compute_intensity(0, 1.0, false))
+	Sfx.play_music("battle")
 	if autostart_waves:
 		await get_tree().create_timer(2.0).timeout
 		waves.start()
@@ -145,6 +157,34 @@ func _on_state_changed(state_name: String) -> void:
 			Sfx.play("wall")
 		"GRAPPLE":
 			Sfx.play("grapple")
+
+
+## Âm bước chân theo chất liệu sàn (meta "surface" của collider dưới chân).
+func _play_footstep() -> void:
+	var from: Vector3 = player.global_position + Vector3(0.0, 0.3, 0.0)
+	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 1.5, Global.L_WORLD)
+	var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(q)
+	var surface: String = "stone"
+	if not hit.is_empty() and (hit["collider"] as Node).has_meta("surface"):
+		surface = String((hit["collider"] as Node).get_meta("surface"))
+	Sfx.play(Global.step_sound(surface))
+
+
+## Nhạc động: cường độ theo số bot còn lại, máu và trạng thái mất thế.
+func _on_enemies_for_music(left: int) -> void:
+	_enemies = left
+	_update_music()
+
+
+func _on_health_for_music(current: float, maximum: float) -> void:
+	_hp_ratio = current / maxf(maximum, 1.0)
+	_update_music()
+
+
+func _update_music() -> void:
+	if _over:
+		return
+	Sfx.set_intensity(Sfx.compute_intensity(_enemies, _hp_ratio, _destab))
 
 
 func _on_dash_charges(charges: int, _maximum: int) -> void:
@@ -214,6 +254,10 @@ func _on_slammed(pos: Vector3, _radius: float) -> void:
 
 func _on_destabilized(active: bool) -> void:
 	hud.set_destabilized(active)
+	_destab = active
+	_update_music()
+	if not active:
+		Sfx.play("recover")
 	if active:
 		Sfx.play("destabilized")
 		hud.flash("MẤT THẾ!", Color(0.7, 0.5, 1.0))
@@ -226,7 +270,7 @@ func _on_shot_fired(from: Vector3, to: Vector3) -> void:
 
 
 func _on_exploded(pos: Vector3, radius: float) -> void:
-	Sfx.play("explosion")
+	Sfx.play_at("explosion", pos)
 	Fx.sparks(self, pos, Color(1.0, 0.55, 0.15))
 	Fx.sparks(self, pos + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.4))
 	var near: float = clampf(1.0 - player.global_position.distance_to(pos) / (radius * 3.0), 0.0, 1.0)
@@ -265,6 +309,7 @@ func _on_wave_cleared(n: int) -> void:
 
 func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	kills += 1
+	Sfx.play_at("bot_die", bot.global_position)
 	if randf() < float(Global.PICKUPS["drop_chance"]):
 		_drop_pickup(bot.global_position)
 	score.register_kill(info["score"], info)
@@ -277,7 +322,7 @@ func _drop_pickup(pos: Vector3) -> void:
 
 func _on_prop_broken(pos: Vector3, kind: String) -> void:
 	if kind == "crate":
-		Sfx.play("crate")
+		Sfx.play_at("crate", pos)
 		Fx.sparks(self, pos + Vector3(0.0, 0.5, 0.0), Color(0.75, 0.55, 0.3))
 		if randf() < float(Global.PICKUPS["crate_drop_chance"]):
 			_drop_pickup(pos)
@@ -301,11 +346,13 @@ func _on_player_died() -> void:
 	_over = true
 	waves.stop()
 	hud.show_death(true)
+	Sfx.play("game_over")
+	Sfx.set_intensity(0.0)
+	Sfx.play_music("menu")
 	var prev_best: int = Global.high_score
 	var new_record: bool = Global.submit_score(score.score)
 	await get_tree().create_timer(1.2).timeout
 	hud.show_death(false)
-	Sfx.stop_music()
 	game_over.show_summary(waves.wave, score.score, kills, maxi(prev_best, score.score), new_record)
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

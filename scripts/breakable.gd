@@ -19,6 +19,7 @@ func _ready() -> void:
 	collision_layer = Global.L_WORLD
 	collision_mask = 0
 	var barrel: bool = kind == "barrel"
+	set_meta("surface", "metal" if barrel else "wood")
 	var cs := CollisionShape3D.new()
 	var mesh: Mesh
 	var color: Color

@@ -106,6 +106,7 @@ func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.
 	body.collision_mask = 0
 	body.position = pos
 	body.rotation_degrees = rot_deg
+	body.set_meta("surface", String(Global.SURFACES.get(role, "stone")))
 	var shape := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
 	bs.size = size
