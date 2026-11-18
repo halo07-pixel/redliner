@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-18)
 
 ## Trạng thái
-- `main` = `0db5935` (đến M13 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m14-smart-bots` (M14 bot thông minh).
+- `main` = `8dad36e` (đến M14 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m15-audio` (M15 âm thanh và nhạc).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -129,13 +129,21 @@
 - Test: `test_smart_bots` (62 kiểm tra, gồm chữ U, bệ không leo được, vòng vây, pháo thủ, lưu độ khó). 18 bộ đều xanh.
 - Chưa kiểm bằng người: cân bằng độ khó / số bot, cảm giác lùi + vòng vây, sát thương bom (25, bán kính 3.2). Navmesh tĩnh (không cập nhật khi thùng/vật vỡ). Bot chưa lợi dụng thùng nổ. Rusher/bomber dùng lại mô hình cũ, chỉ khác vũ khí. Không có Vulkan trên cloud nên chưa nhìn bằng mắt.
 
+## M15 (nhánh `feature/m15-audio`: âm thanh và nhạc)
+- `Global`: `SOUNDS` (bảng âm: vol_db, pitch_var, voices tối đa, bus), `AUDIO_BUSES`, `AUDIO` (số tiếng 2D/3D, unit_size, max_distance, music_fade, ngưỡng cường độ), `SURFACES`, `step_sound(surface)`; cài đặt mới `vol_master/vol_sfx/vol_music` (kẹp 0..1, lưu mục `settings`).
+- `sfx.gd` viết lại: bus Master/SFX/Music/UI (tự tạo; UI theo vol_sfx), `play(tên)` 2D, `play_at(tên, vị trí)` 3D (AudioStreamPlayer3D), pitch ngẫu nhiên, giới hạn tiếng theo âm + theo pool, `stop_all`, thống kê `plays`/`dropped`. Thêm âm: step_metal/wood, jump, ledge, reload, switch, recover, ui_click, bot_die, game_over.
+- Nhạc 3 lớp calm/base/intense (cùng độ dài, loop, bắt đầu cùng lúc), `play_music("menu"|"battle")`, `set_intensity`, trượt mức lớp trong `music_fade` giây. Hàm thuần `compute_intensity(bot còn lại, tỉ lệ máu, mất thế)` và `layer_levels`.
+- `main.gd` nối Signal -> âm (bot/vụ nổ/thùng/bot chết phát 3D; bước chân theo meta "surface" của collider dưới chân). Mới: `player.jumped`. Arena/breakable gắn meta "surface". Menu phát nhạc êm; mọi nút `UIKit.button` có tiếng click. Cài đặt có 3 thanh âm lượng.
+- Test: `test_audio` (86 kiểm tra). 19 bộ đều xanh.
+- Chưa kiểm bằng người: cloud KHÔNG có thiết bị âm thanh nên chưa nghe được gì; chỉ kiểm logic. Độ to nhỏ, độ chói, độ hay của âm tổng hợp và nhạc, tốc độ chuyển lớp nhạc, khoảng cách nghe 3D đều cần bạn nghe thử (chỉnh trong `Global.SOUNDS`/`AUDIO`). Âm làm bằng code khá đơn giản; muốn hay hơn cần file âm thanh thật.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (18 bộ: test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (19 bộ: test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M15 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M16 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

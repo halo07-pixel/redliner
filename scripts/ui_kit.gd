@@ -28,6 +28,7 @@ static func button(text: String) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(280.0, 54.0)
 	b.add_theme_font_size_override("font_size", 24)
+	b.pressed.connect(func(): Sfx.play("ui_click"))
 	return b
 
 
