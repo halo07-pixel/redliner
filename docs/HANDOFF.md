@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-18)
 
 ## Trạng thái
-- `main` = `8dad36e` (đến M14 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m15-audio` (M15 âm thanh và nhạc).
+- `main` = `7a4e528` (đến M15 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `fix/bots-review` (sửa lỗi bot).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -137,11 +137,20 @@
 - Test: `test_audio` (86 kiểm tra). 19 bộ đều xanh.
 - Chưa kiểm bằng người: cloud KHÔNG có thiết bị âm thanh nên chưa nghe được gì; chỉ kiểm logic. Độ to nhỏ, độ chói, độ hay của âm tổng hợp và nhạc, tốc độ chuyển lớp nhạc, khoảng cách nghe 3D đều cần bạn nghe thử (chỉnh trong `Global.SOUNDS`/`AUDIO`). Âm làm bằng code khá đơn giản; muốn hay hơn cần file âm thanh thật.
 
+## Sửa lỗi bot (nhánh `fix/bots-review`)
+Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
+- **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
+- **Bot kẹt trước bậc thấp** (chỗ nối dốc với bệ trên map Tháp; mép dốc): CharacterBody3D không tự leo bậc. `bot.gd` `_try_step_up()` (STEP_HEIGHT 0.75, khớp việc navmesh coi mép tới ~0.7 m là đi được); chỉ leo qua mép tĩnh dựng đứng, có kiểm tra trần, không leo lên đầu bot khác hay tường cao.
+- **Bot húc vào thùng thấp rồi đứng yên**: ray né tường chỉ ở độ cao 0.5 m nên không thấy thùng cao ~0.5 m. `_steer` quét ở 0.2/0.55/1.0 m, và giữ nhất quán bên đã chọn để lách (`_steer_hold`) vì trước đó nó lắc qua lắc lại ở mép vật cản. Thêm `_track_blocked`: muốn đi mà không nhúc nhích >0.4 s thì ép đi theo navmesh 1.5 s.
+- `main.gd` `_on_player_hurt`: kiểm tra `is_instance_valid` trước `is Node3D` (nguồn đạn đã bị giải phóng gây SCRIPT ERROR).
+- Test: `test_bot_fixes` (sinh bot, ngoài biên, leo bậc, thùng thấp, kẹt, nguồn đã giải phóng). 20 bộ đều xanh.
+- Còn lại / cần người chơi thử: bot xạ thủ và pháo thủ đứng yên ở tầm giữ khoảng cách là chủ ý, không phải lỗi. Bot hơi "nhảy" qua mép khi leo bậc (không có hoạt ảnh riêng). Bot chưa tránh thùng nổ. Mô phỏng không thay được chơi thật: chưa kiểm cảm giác bot bám đuổi, vây, né.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (19 bộ: test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (20 bộ: test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
