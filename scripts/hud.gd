@@ -12,6 +12,9 @@ var _flash_label: Label
 var _death_label: Label
 var _score_label: Label
 var _wave_label: Label
+var _objective_label: Label
+var _timer_label: Label
+var _types_label: Label
 var _inst_bar: ProgressBar
 var _inst_label: Label
 var _inst_fill: StyleBoxFlat
@@ -123,6 +126,37 @@ func _ready() -> void:
 	_wave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_outline(_wave_label, 22)
 	add_child(_wave_label)
+
+	_types_label = Label.new() # cơ cấu bot còn lại theo loại
+	_types_label.anchor_left = 0.5
+	_types_label.anchor_right = 0.5
+	_types_label.offset_left = -300.0
+	_types_label.offset_right = 300.0
+	_types_label.offset_top = 44.0
+	_types_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(_types_label, 16)
+	add_child(_types_label)
+
+	_objective_label = Label.new() # mục tiêu của chế độ chơi
+	_objective_label.anchor_left = 0.5
+	_objective_label.anchor_right = 0.5
+	_objective_label.offset_left = -300.0
+	_objective_label.offset_right = 300.0
+	_objective_label.offset_top = 70.0
+	_objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(_objective_label, 20)
+	add_child(_objective_label)
+
+	_timer_label = Label.new() # đồng hồ (chế độ thời gian)
+	_timer_label.anchor_left = 0.5
+	_timer_label.anchor_right = 0.5
+	_timer_label.offset_left = -150.0
+	_timer_label.offset_right = 150.0
+	_timer_label.offset_top = 98.0
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_outline(_timer_label, 44)
+	_timer_label.visible = false
+	add_child(_timer_label)
 
 	_inst_bar = ProgressBar.new()
 	_inst_bar.show_percentage = false
@@ -303,6 +337,35 @@ func set_score(score: int, combo: int, best: int) -> void:
 
 func set_wave(wave: int, left: int) -> void:
 	_wave_label.text = "WAVE %d  -  còn %d bot" % [wave, left] if wave > 0 else "Chuẩn bị..."
+
+
+## Mục tiêu của chế độ chơi (dòng dưới số wave).
+func set_objective(text: String) -> void:
+	_objective_label.text = text
+
+
+## Đồng hồ đếm ngược (chế độ thời gian). Dưới ngưỡng gấp thì đỏ và hiện số lẻ.
+func set_timer(left: float) -> void:
+	_timer_label.visible = true
+	var urgent: bool = left < float(Global.TIMED["urgent_below"])
+	_timer_label.text = "%.1f" % left if urgent else "%d:%02d" % [int(left) / 60, int(left) % 60]
+	_timer_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.2) if urgent else Color(1.0, 1.0, 1.0))
+
+
+## Bot còn lại theo loại: {"swordsman": 3, ...} -> "Lính kiếm 3  Xạ thủ 1".
+func set_enemy_types(counts: Dictionary) -> void:
+	var parts: Array = []
+	for id in Global.BOT_ORDER:
+		if int(counts.get(id, 0)) > 0:
+			parts.append("%s %d" % [Global.BOT_NAMES[id], int(counts[id])])
+	_types_label.text = "   ".join(parts)
+
+
+## Ẩn các phần chỉ dành cho chế độ có wave (tập luyện không có wave / điểm).
+func set_mode_layout(mode: String) -> void:
+	_wave_label.visible = mode != "training"
+	_score_label.visible = mode != "training"
+	_types_label.visible = mode != "training"
 
 
 func show_death(on: bool) -> void:

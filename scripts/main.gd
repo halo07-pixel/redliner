@@ -8,6 +8,8 @@ const WaveScript = preload("res://scripts/wave_manager.gd")
 const ScoreScript = preload("res://scripts/score_manager.gd")
 const PauseScript = preload("res://scripts/pause_menu.gd")
 const GameOverScript = preload("res://scripts/game_over.gd")
+const GameModeScript = preload("res://scripts/game_mode.gd")
+const RunStatsScript = preload("res://scripts/run_stats.gd")
 const Fx = preload("res://scripts/fx.gd")
 const MENU_SCENE := "res://scenes/menu.tscn"
 
@@ -21,6 +23,8 @@ var pause_menu: CanvasLayer
 var game_over: CanvasLayer
 var autostart_waves: bool = true # script chụp ảnh/test có thể tắt để tự điều khiển wave
 var kills: int = 0
+var mode: Node       # luật chế độ chơi (game_mode.gd)
+var stats            # thống kê ván (run_stats.gd)
 
 var _over: bool = false
 var _last_charges: int = 2
@@ -78,8 +82,11 @@ func _ready() -> void:
 	# --- Wave + điểm
 	score = ScoreScript.new()
 	add_child(score)
-	score.best = Global.high_score
+	score.best = Global.best_score()
 	hud.set_score(0, 0, score.best)
+	stats = RunStatsScript.new()
+	player.combat.shot_fired.connect(func(_f, _t): stats.record_shot())
+	player.combat.hit_confirmed.connect(func(landed: bool): stats.record_hit(landed))
 	waves = WaveScript.new()
 	add_child(waves)
 	waves.setup(arena, arena.bot_spawns)
@@ -87,6 +94,7 @@ func _ready() -> void:
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
 	waves.enemies_left_changed.connect(_on_enemies_for_music)
 	waves.wave_cleared.connect(_on_wave_cleared)
+	waves.enemies_left_changed.connect(func(_l): hud.set_enemy_types(waves.alive_types))
 	waves.bot_spawned.connect(func(bot):
 		bot.sound.connect(func(n: String): Sfx.play_at(n, bot.global_position))
 		bot.exploded.connect(_on_exploded))
@@ -106,11 +114,61 @@ func _ready() -> void:
 	game_over.restart_requested.connect(_restart)
 	game_over.menu_requested.connect(_go_menu)
 
+	# --- Chế độ chơi
+	mode = GameModeScript.new()
+	add_child(mode)
+	mode.setup(Global.game_mode)
+	mode.objective_changed.connect(hud.set_objective)
+	mode.time_changed.connect(hud.set_timer)
+	mode.finished.connect(_on_mode_finished)
+	waves.practice_bot_killed.connect(_on_practice_bot_killed)
+	hud.set_mode_layout(mode.mode)
+	hud.set_objective(mode.objective_text())
+	if mode.mode == "timed":
+		waves.break_time = float(Global.TIMED["break_time"])
+	if mode.mode == "training":
+		_setup_training()
+
 	Sfx.set_intensity(Sfx.compute_intensity(0, 1.0, false))
 	Sfx.play_music("battle")
 	if autostart_waves:
 		await get_tree().create_timer(2.0).timeout
+		_start_mode()
+
+
+## Bắt đầu luật chế độ: sinh tồn / thời gian chạy wave; tập luyện sinh bot tập.
+func _start_mode() -> void:
+	mode.start()
+	if mode.mode == "training":
+		_spawn_practice_bot()
+	else:
 		waves.start()
+
+
+## Tập luyện: bất tử (hồi đầy sau mỗi đòn), đạn vô hạn.
+func _setup_training() -> void:
+	player.hurtbox.hurt.connect(func(_h, _l): player.hurtbox.heal(player.hurtbox.max_health))
+	player.combat.shot_fired.connect(func(_f, _t):
+		player.combat.ammo = player.combat.max_ammo()
+		player.combat.ammo_changed.emit(player.combat.ammo, player.combat.max_ammo()))
+
+
+var _practice_i: int = 0
+
+
+func _spawn_practice_bot() -> void:
+	if _over:
+		return
+	var types: Array = Global.TRAINING["types"]
+	waves.spawn_practice(types[_practice_i % types.size()], int(Global.TRAINING["bot_wave"]))
+	_practice_i += 1
+
+
+func _on_practice_bot_killed(_bot: Node3D, _info: Dictionary) -> void:
+	stats.record_kill(String(_bot.type_name))
+	hud.flash("ĐÃ HẠ", Color(0.5, 1.0, 0.5))
+	await get_tree().create_timer(float(Global.TRAINING["respawn_time"])).timeout
+	_spawn_practice_bot()
 
 
 func _input(event: InputEvent) -> void:
@@ -123,8 +181,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		Global.submit_score(score.score)
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and mode != null:
+		Global.submit_mode_score(mode.result_score(score.score))
 
 
 func _set_paused(on: bool) -> void:
@@ -136,7 +194,7 @@ func _set_paused(on: bool) -> void:
 func _go_menu() -> void:
 	get_tree().paused = false
 	Engine.time_scale = 1.0
-	Global.submit_score(score.score)
+	Global.submit_mode_score(mode.result_score(score.score))
 	Sfx.stop_music()
 	get_tree().change_scene_to_file(MENU_SCENE)
 
@@ -236,9 +294,11 @@ func _on_parried(_hit: Dictionary) -> void:
 
 
 ## Lưới an toàn: rơi khỏi bản đồ thì mất 30 máu và quay về điểm xuất phát (không hồi máu).
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _over or player.dead:
 		return
+	if mode != null and mode.active:
+		stats.tick(delta)
 	if player.global_position.y < arena.void_y:
 		player.hurtbox.take_hit({"damage": 30.0, "kind": "void", "source": null, "direction": Vector3.ZERO})
 		if not player.dead:
@@ -304,15 +364,20 @@ func _on_wave_started(n: int, count: int) -> void:
 
 func _on_wave_cleared(n: int) -> void:
 	hud.flash("WAVE %d XONG!" % n, Color(0.5, 1.0, 0.5))
-	Global.submit_score(score.score)
+	if mode.mode == "survival":
+		Global.submit_score(score.score)
 
 
 func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	kills += 1
+	stats.record_kill(String(bot.type_name))
 	Sfx.play_at("bot_die", bot.global_position)
 	if randf() < float(Global.PICKUPS["drop_chance"]):
 		_drop_pickup(bot.global_position)
-	score.register_kill(info["score"], info)
+	score.register_kill(info["score"], info) # trước mode.on_kill: phát hạ cuối có thể kết thúc ván ngay
+	var gained: float = mode.on_kill()
+	if gained > 0.0:
+		hud.flash("+%d s" % roundi(gained), Color(0.5, 0.9, 1.0))
 
 
 func _drop_pickup(pos: Vector3) -> void:
@@ -343,16 +408,58 @@ func _on_pickup_collected(kind: String) -> void:
 
 
 func _on_player_died() -> void:
+	mode.stop()
+	_end_run("BẠN ĐÃ GỤC", false)
+
+
+## Chế độ thời gian tự kết thúc: thắng (đủ bot) hoặc hết giờ.
+func _on_mode_finished(won: bool, _info: Dictionary) -> void:
+	_end_run("CHIẾN THẮNG!" if won else "HẾT GIỜ", won)
+
+
+## Kết thúc ván: dừng wave, nộp điểm theo chế độ, hiện màn tổng kết đầy đủ.
+func _end_run(title: String, won: bool) -> void:
+	if _over:
+		return
 	_over = true
 	waves.stop()
-	hud.show_death(true)
-	Sfx.play("game_over")
+	var death: bool = player.dead
+	if death:
+		hud.show_death(true)
+		Sfx.play("game_over")
+	else:
+		Sfx.play("wave")
 	Sfx.set_intensity(0.0)
 	Sfx.play_music("menu")
-	var prev_best: int = Global.high_score
-	var new_record: bool = Global.submit_score(score.score)
-	await get_tree().create_timer(1.2).timeout
+	var prev_best: int = Global.best_score()
+	var final_score: int = mode.result_score(score.score, won)
+	var new_record: bool = Global.submit_mode_score(final_score)
+	await get_tree().create_timer(1.2 if death else 0.6).timeout
 	hud.show_death(false)
-	game_over.show_summary(waves.wave, score.score, kills, maxi(prev_best, score.score), new_record)
+	game_over.show_result(build_result(title, won, final_score, prev_best, new_record))
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Nội dung màn tổng kết (tách riêng để test được).
+func build_result(title: String, won: bool, final_score: int, prev_best: int, new_record: bool) -> Dictionary:
+	var lines: Array = ["Chế độ: %s   -   %s   -   %s" % [Global.MODE_NAMES[mode.mode], Global.MAP_NAMES[Global.selected_map], Global.DIFFICULTY_NAMES[Global.difficulty]]]
+	if mode.mode == "survival":
+		lines.append("Wave đạt được: %d" % waves.wave)
+	elif mode.mode == "timed":
+		lines.append("Mục tiêu: %d / %d bot      Còn lại: %s" % [mode.kills, mode.target, RunStatsScript.format_time(mode.time_left)])
+	lines.append("Điểm: %d" % final_score)
+	if mode.mode != "timed":
+		lines.append("Bot đã hạ: %d" % kills)
+	var by_type: String = stats.breakdown_text()
+	if by_type != "":
+		lines.append(by_type)
+	var acc: float = stats.accuracy()
+	lines.append("Độ chính xác súng: %s" % ("%d%%" % roundi(acc * 100.0) if acc >= 0.0 else "-"))
+	lines.append("Thời gian: %s" % RunStatsScript.format_time(stats.time_alive))
+	var best: int = maxi(prev_best, final_score)
+	if new_record:
+		lines.append("Kỷ lục cũ: %d" % prev_best)
+	else:
+		lines.append("Kỷ lục: %d (còn thiếu %d)" % [best, best - final_score])
+	return {"title": title, "won": won, "lines": lines, "record": "KỶ LỤC MỚI!" if new_record else ""}

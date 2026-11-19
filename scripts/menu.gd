@@ -9,7 +9,12 @@ var help_button: Button
 var quality_button: Button
 var map_button: Button
 var difficulty_button: Button
+var mode_button: Button
+var start_button: Button
+var setup_back_button: Button
 var best_label: Label
+var mode_desc_label: Label
+var setup_panel: Control
 var fx_button: Button
 var quit_button: Button
 var help_panel: Control
@@ -43,21 +48,17 @@ func _ready() -> void:
 	play_button = UIKit.button("Chơi")
 	help_button = UIKit.button("Hướng dẫn")
 	settings_button = UIKit.button("Cài đặt")
-	map_button = UIKit.map_button()
-	difficulty_button = UIKit.difficulty_button()
 	quality_button = UIKit.quality_button()
 	fx_button = UIKit.fx_button()
 	quit_button = UIKit.button("Thoát")
-	for b in [play_button, map_button, difficulty_button, help_button, settings_button, quality_button, fx_button, quit_button]:
+	for b in [play_button, help_button, settings_button, quality_button, fx_button, quit_button]:
 		box.add_child(b)
-	best_label = UIKit.label("Điểm cao nhất: %d" % Global.high_score, 20)
-	box.add_child(best_label)
-	Global.difficulty_changed.connect(func(_l): best_label.text = "Điểm cao nhất: %d" % Global.high_score)
-	play_button.pressed.connect(_on_play)
+	play_button.pressed.connect(func(): setup_panel.visible = true)
 	help_button.pressed.connect(show_help)
 	settings_button.pressed.connect(func(): settings_panel.visible = true)
 	quit_button.pressed.connect(func(): get_tree().quit())
 
+	_build_setup()
 	_build_help()
 	settings_panel = load("res://scripts/settings_menu.gd").new()
 	settings_panel.visible = false
@@ -65,35 +66,78 @@ func _ready() -> void:
 	settings_panel.closed.connect(func(): settings_panel.visible = false)
 
 
+## Màn "Chuẩn bị": chọn chế độ, bản đồ, độ khó rồi bắt đầu. Hiện kỷ lục của lựa chọn đang chọn.
+func _build_setup() -> void:
+	setup_panel = Control.new()
+	setup_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	setup_panel.visible = false
+	add_child(setup_panel)
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.05, 0.03, 0.04, 1.0)
+	setup_panel.add_child(dim)
+	var box := UIKit.center_box(setup_panel, 14)
+	box.add_child(UIKit.title("CHUẨN BỊ", 64))
+	mode_button = UIKit.mode_button()
+	map_button = UIKit.map_button()
+	difficulty_button = UIKit.difficulty_button()
+	mode_desc_label = UIKit.label("", 20)
+	mode_desc_label.custom_minimum_size = Vector2(640.0, 0.0)
+	mode_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	best_label = UIKit.label("", 22)
+	best_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	start_button = UIKit.button("Bắt đầu")
+	setup_back_button = UIKit.button("Quay lại")
+	for c in [mode_button, map_button, difficulty_button, mode_desc_label, best_label, start_button, setup_back_button]:
+		box.add_child(c)
+	Global.difficulty_changed.connect(func(_l): _refresh_setup())
+	Global.mode_changed.connect(func(_m): _refresh_setup())
+	start_button.pressed.connect(_on_play)
+	setup_back_button.pressed.connect(func(): setup_panel.visible = false)
+	_refresh_setup()
+
+
+## Mô tả chế độ + kỷ lục của (chế độ, độ khó) đang chọn.
+func _refresh_setup() -> void:
+	mode_desc_label.text = String(Global.MODE_DESCRIPTIONS[Global.game_mode])
+	if Global.game_mode == "training":
+		best_label.text = "Không tính điểm"
+	else:
+		best_label.text = "Kỷ lục (%s, %s): %d" % [Global.MODE_NAMES[Global.game_mode], Global.DIFFICULTY_NAMES[Global.difficulty], Global.best_score()]
+
+
 func _build_help() -> void:
 	help_panel = Control.new()
-	help_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	help_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	help_panel.visible = false
 	add_child(help_panel)
 	var dim := ColorRect.new()
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.color = Color(0.03, 0.02, 0.03, 1.0)
 	help_panel.add_child(dim)
 	var box := UIKit.center_box(help_panel, 8)
 	box.add_child(UIKit.title("HƯỚNG DẪN", 56))
+	var k := func(a: String) -> String: return Global.binding_text(a).split(" / ")[0] # phím chính (đủ gọn để đọc)
 	var lines: Array = [
-		"W A S D  -  di chuyển        Chuột  -  nhìn",
-		"Space  -  nhảy (nhảy liên tục giữ được tốc độ)",
-		"Ctrl  -  trượt (chạy nhanh + Ctrl; xuống dốc càng nhanh)",
-		"Shift  -  dash (2 lần, tự hồi)",
-		"Chạy sát tường khi đang trên không  -  bám tường (Space để bật ra)",
-		"Chuột phải  -  móc (grapple) vào bề mặt, giữ để kéo; nhả ra để bẻ hướng theo ống ngắm",
-		"C (trên không)  -  GROUND SLAM: lao xuống, chạm đất gây sốc và nảy lên;  bắn trên không đẩy lùi bạn",
-		"Chuột trái  -  chém kiếm        Q  -  CHÉM RỘNG (quét rộng, chậm, đau hơn)",
-		"E  -  bắn súng        R  -  nạp đạn        1-4 / cuộn chuột  -  đổi súng",
-		"1 Súng lục  2 Shotgun (gần, mạnh, đẩy lùi)  3 Pháo nổ (nổ lan, tự bắn nhảy được)  4 Bắn tỉa (Z ngắm, headshot x2)",
-		"F  -  PARRY: đúng lúc thì phản đạn về người bắn, đòn kiếm làm địch choáng",
+		"%s / %s / %s / %s  -  di chuyển        Chuột  -  nhìn" % [k.call("move_forward"), k.call("move_left"), k.call("move_back"), k.call("move_right")],
+		"%s  -  nhảy (nhảy liên tục giữ được tốc độ; sát gờ thấp thì tự trèo)" % k.call("jump"),
+		"%s  -  trượt (chạy nhanh + trượt; xuống dốc càng nhanh)" % k.call("slide"),
+		"%s  -  dash (2 lần, tự hồi)" % k.call("dash"),
+		"Chạy sát tường khi đang trên không  -  bám tường (%s để bật ra)" % k.call("jump"),
+		"%s  -  móc (grapple) vào bề mặt, giữ để kéo; nhả ra để bẻ hướng theo ống ngắm" % k.call("grapple"),
+		"%s (trên không)  -  GROUND SLAM: lao xuống, chạm đất gây sốc và nảy lên" % k.call("slam"),
+		"%s  -  chém kiếm        %s  -  CHÉM RỘNG (quét rộng, chậm, đau hơn)" % [k.call("attack"), k.call("heavy")],
+		"%s  -  bắn súng        %s  -  nạp đạn        %s / %s / %s / %s  -  đổi súng" % [k.call("shoot"), k.call("reload"), k.call("weapon_1"), k.call("weapon_2"), k.call("weapon_3"), k.call("weapon_4")],
+		"Súng 1 lục  2 Shotgun (gần, mạnh, đẩy lùi)  3 Pháo nổ (nổ lan, tự bắn nhảy được)  4 Bắn tỉa (%s ngắm, headshot x2)" % k.call("zoom"),
+		"%s  -  PARRY: đúng lúc thì phản đạn về người bắn, đòn kiếm làm địch choáng" % k.call("parry"),
 		"Hai kiếm chạm nhau  -  CLASH: cả hai bị đẩy lùi",
 		"Thua clash, parry hụt, bị parry  -  đầy thanh Instability  -  MẤT THẾ vài giây (không đánh/parry/dash)",
+		"Bot lao nhanh bọc sườn, pháo thủ ném bom nổ từ xa, tối đa 3 bot áp sát cùng lúc; bot đánh mạnh hơn khi bạn mất thế",
+		"Chế độ: Sinh tồn (wave vô hạn), Thử thách thời gian (hạ đủ bot trước khi hết giờ), Tập luyện (bất tử, đạn vô hạn)",
 		"Esc  -  tạm dừng",
 	]
 	for t in lines:
-		box.add_child(UIKit.label(t, 22))
+		box.add_child(UIKit.label(t, 20))
 	var back := UIKit.button("Quay lại")
 	back.pressed.connect(func(): help_panel.visible = false)
 	box.add_child(back)

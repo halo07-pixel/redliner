@@ -55,6 +55,17 @@ static func fx_button() -> Button:
 	return b
 
 
+## Nút xoay vòng chế độ chơi; chữ theo Global.game_mode.
+static func mode_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Chế độ: %s" % Global.MODE_NAMES[Global.game_mode]
+	refresh.call()
+	b.pressed.connect(func():
+		Global.cycle_mode()
+		refresh.call())
+	return b
+
+
 ## Nút xoay vòng mức độ khó; chữ theo Global.difficulty.
 static func difficulty_button() -> Button:
 	var b := button("")
