@@ -8,6 +8,7 @@ const UIKit = preload("res://scripts/ui_kit.gd")
 
 var restart_button: Button
 var menu_button: Button
+var title_label: Label
 var summary_label: Label
 var record_label: Label
 
@@ -21,7 +22,8 @@ func _ready() -> void:
 	dim.color = Color(0.1, 0.0, 0.0, 0.8)
 	add_child(dim)
 	var box := UIKit.center_box(dim, 14)
-	box.add_child(UIKit.title("BẠN ĐÃ GỤC", 72))
+	title_label = UIKit.title("BẠN ĐÃ GỤC", 72)
+	box.add_child(title_label)
 	summary_label = UIKit.label("", 28)
 	box.add_child(summary_label)
 	record_label = UIKit.label("", 26)
@@ -33,6 +35,15 @@ func _ready() -> void:
 	box.add_child(menu_button)
 	restart_button.pressed.connect(func(): restart_requested.emit())
 	menu_button.pressed.connect(func(): menu_requested.emit())
+
+
+## Tổng kết đầy đủ. d: title, won, lines (Array[String]), record (String, rỗng nếu không có).
+func show_result(d: Dictionary) -> void:
+	title_label.text = String(d.get("title", "KẾT THÚC"))
+	title_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4) if bool(d.get("won", false)) else Color(0.95, 0.2, 0.15))
+	summary_label.text = "\n".join(PackedStringArray(d.get("lines", [])))
+	record_label.text = String(d.get("record", ""))
+	visible = true
 
 
 func show_summary(wave: int, score: int, kills: int, best: int, new_record: bool) -> void:

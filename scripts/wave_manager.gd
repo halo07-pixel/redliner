@@ -7,6 +7,7 @@ signal wave_cleared(wave: int)
 signal enemies_left_changed(left: int)
 signal bot_spawned(bot: Node3D)
 signal bot_killed(bot: Node3D, info: Dictionary)
+signal practice_bot_killed(bot: Node3D, info: Dictionary)
 signal bot_relocated(bot: Node3D) # bot rơi/văng khỏi map, được đưa về điểm sinh
 
 const BotScript = preload("res://scripts/bot.gd")
@@ -14,6 +15,7 @@ const MAX_BOTS_PER_WAVE: int = 10
 
 var break_time: float = 4.0
 var wave: int = 0
+var alive_types: Dictionary = {}   # loại bot -> số còn sống (HUD hiện cơ cấu bot còn lại)
 
 var _alive: int = 0
 var _world: Node3D
@@ -62,10 +64,12 @@ func _next_wave() -> void:
 	_used_spots.clear()
 	var comp: Array = composition(wave)
 	_alive = comp.size()
+	alive_types.clear()
 	wave_started.emit(wave, comp.size())
 	enemies_left_changed.emit(_alive)
 	for t in comp:
 		_spawn(t)
+	enemies_left_changed.emit(_alive) # báo lại sau khi sinh xong để HUD thấy cơ cấu bot theo loại
 
 
 func _spawn(type_name: String) -> void:
@@ -75,7 +79,20 @@ func _spawn(type_name: String) -> void:
 	_used_spots.append(b.position)
 	_world.add_child(b)
 	b.died.connect(_on_bot_died)
+	alive_types[type_name] = int(alive_types.get(type_name, 0)) + 1
 	bot_spawned.emit(b)
+
+
+## Tập luyện: sinh một bot lẻ ở chỉ số wave `at_wave`, không tính vào wave và không kết thúc wave.
+func spawn_practice(type_name: String, at_wave: int = 1) -> Node3D:
+	var b: CharacterBody3D = BotScript.new()
+	b.setup(type_name, at_wave)
+	_used_spots.clear()
+	b.position = _free_spot(_pick_spawn())
+	_world.add_child(b)
+	b.died.connect(func(bot, info): practice_bot_killed.emit(bot, info))
+	bot_spawned.emit(b)
+	return b
 
 
 ## Chọn điểm sinh xa người chơi nhất trong 3 điểm ngẫu nhiên.
@@ -146,6 +163,8 @@ func _physics_process(_delta: float) -> void:
 
 
 func _on_bot_died(bot: Node3D, info: Dictionary) -> void:
+	var tn: String = String(bot.type_name)
+	alive_types[tn] = maxi(int(alive_types.get(tn, 0)) - 1, 0)
 	_alive -= 1
 	bot_killed.emit(bot, info)
 	enemies_left_changed.emit(_alive)

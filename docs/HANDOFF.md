@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-18)
 
 ## Trạng thái
-- `main` = `7a4e528` (đến M15 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `fix/bots-review` (sửa lỗi bot).
+- `main` = `cf72175` (đến M15 + sửa lỗi bot đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m16-modes` (M16 chế độ chơi và giao diện).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -137,7 +137,16 @@
 - Test: `test_audio` (86 kiểm tra). 19 bộ đều xanh.
 - Chưa kiểm bằng người: cloud KHÔNG có thiết bị âm thanh nên chưa nghe được gì; chỉ kiểm logic. Độ to nhỏ, độ chói, độ hay của âm tổng hợp và nhạc, tốc độ chuyển lớp nhạc, khoảng cách nghe 3D đều cần bạn nghe thử (chỉnh trong `Global.SOUNDS`/`AUDIO`). Âm làm bằng code khá đơn giản; muốn hay hơn cần file âm thanh thật.
 
-## Sửa lỗi bot (nhánh `fix/bots-review`)
+## M16 (nhánh `feature/m16-modes`: chế độ chơi và giao diện)
+- `Global`: `MODES` (survival/timed/training), `MODE_NAMES`, `MODE_DESCRIPTIONS`, `TIMED` (90 s đầu, +3 s mỗi bot, trần 150 s, mục tiêu 25 bot, thưởng thắng 10 điểm/giây còn lại), `TRAINING`, `BOT_ORDER/BOT_NAMES`; `game_mode`, `set_mode`/`cycle_mode`, signal `mode_changed`; `best_score(mode, level)` và `submit_mode_score(value, mode)` (sinh tồn vẫn dùng `high_score`/`submit_score` như cũ; thời gian lưu `progress/high_score_timed_<mức>`; tập luyện không có kỷ lục); lưu `game/mode`.
+- `game_mode.gd` (mới): luật từng chế độ, chỉ phát Signal (`objective_changed`, `time_changed` giới hạn 0.1 s, `finished(won, info)`); `on_kill()`, `result_score(base, won)`. `run_stats.gd` (mới, RefCounted): bot hạ theo loại, độ chính xác súng, thời gian ván, `format_time`.
+- `wave_manager.gd`: `alive_types` (bot còn lại theo loại), `spawn_practice` + signal `practice_bot_killed` (bot tập không tính vào wave).
+- `main.gd`: tạo `GameMode`, `_start_mode()`, `_setup_training()` (bất tử: hồi đầy sau mỗi đòn; đạn vô hạn), `_end_run(title, won)` chung cho gục/thắng/hết giờ, `build_result()` dựng nội dung tổng kết. Điểm bot được cộng TRƯỚC `mode.on_kill()` vì phát hạ cuối có thể kết thúc ván ngay.
+- `hud.gd`: `set_objective`, `set_timer` (đỏ + số lẻ dưới 10 s), `set_enemy_types`, `set_mode_layout`. `game_over.gd`: `show_result(dict)` (tiêu đề xanh khi thắng). `menu.gd`: bấm Chơi mở màn "Chuẩn bị" (chế độ / bản đồ / độ khó / mô tả / kỷ lục / Bắt đầu); hướng dẫn lấy tên phím từ `Global.binding_text` (phím chính) nên đổi phím là cập nhật.
+- Test: `test_modes` (113 kiểm tra). 21 bộ đều xanh. Ảnh: `docs/screenshots/m16_*.png` (`tools/screenshots/shoot_m16.gd`).
+- Chưa kiểm bằng người: CÂN BẰNG thử thách thời gian (90 s, +3 s/bot, 25 bot có thắng nổi không?) - chỉnh trong `Global.TIMED`; số/độ khó bot tập; bố cục menu ở màn hình nhỏ; độ dễ đọc của đồng hồ. Bot tập sinh lần lượt theo `TRAINING.types` (chưa có phím chọn loại bot). Tập luyện thoát bằng Esc > Về menu. Chưa có bảng xếp hạng online (không nằm trong M16).
+
+## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
 - **Bot kẹt trước bậc thấp** (chỗ nối dốc với bệ trên map Tháp; mép dốc): CharacterBody3D không tự leo bậc. `bot.gd` `_try_step_up()` (STEP_HEIGHT 0.75, khớp việc navmesh coi mép tới ~0.7 m là đi được); chỉ leo qua mép tĩnh dựng đứng, có kiểm tra trần, không leo lên đầu bot khác hay tường cao.
@@ -150,9 +159,9 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (20 bộ: test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (21 bộ: test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M16 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+M17 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.

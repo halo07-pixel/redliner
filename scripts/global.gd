@@ -13,6 +13,9 @@ const TEAM_PLAYER: int = 0
 const TEAM_ENEMY: int = 1
 
 ## Loại bot. reaction = độ trễ phản ứng (giây), parry/dodge = xác suất, windup = thời gian báo đòn kiếm.
+## Thứ tự và tên hiển thị các loại bot (HUD / tổng kết).
+const BOT_ORDER: Array = ["swordsman", "rusher", "gunner", "bomber", "elite"]
+const BOT_NAMES: Dictionary = {"swordsman": "Lính kiếm", "rusher": "Lao nhanh", "gunner": "Xạ thủ", "bomber": "Pháo thủ", "elite": "Tinh nhuệ"}
 const BOTS: Dictionary = {
 	"swordsman": {
 		"color": Color(0.85, 0.2, 0.2), "health": 60.0, "speed": 7.5, "melee": true, "range": 2.0,
@@ -383,6 +386,7 @@ signal map_changed(id: String)
 
 signal fx_changed(reduced: bool)
 signal difficulty_changed(level: String)
+signal mode_changed(mode: String)
 signal settings_changed
 signal bindings_changed
 
@@ -453,6 +457,22 @@ const REMAPPABLE: Array = [
 	["weapon_1", "Súng 1"], ["weapon_2", "Súng 2"], ["weapon_3", "Súng 3"], ["weapon_4", "Súng 4"],
 ]
 
+## Chế độ chơi (M16). Sinh tồn: wave vô hạn. Thời gian: hạ `target_kills` bot trước khi hết giờ, mỗi bot hạ
+## cộng `kill_bonus` giây (tối đa `max_time`); thắng được cộng `win_bonus_per_sec` điểm cho mỗi giây còn lại.
+## Tập luyện: bất tử, đạn vô hạn, bot tập sinh lần lượt, không tính điểm.
+const MODES: Array = ["survival", "timed", "training"]
+const MODE_NAMES: Dictionary = {"survival": "Sinh tồn", "timed": "Thử thách thời gian", "training": "Tập luyện"}
+const MODE_DESCRIPTIONS: Dictionary = {
+	"survival": "Chống lại các wave bot ngày càng mạnh cho tới khi gục. Điểm cao nhất được lưu.",
+	"timed": "Hạ đủ số bot trước khi hết giờ. Mỗi bot hạ được cộng thêm giây. Thắng càng sớm điểm càng cao.",
+	"training": "Bất tử, đạn vô hạn, có bot tập để thử vũ khí và di chuyển. Không tính điểm.",
+}
+const TIMED: Dictionary = {
+	"start_time": 90.0, "kill_bonus": 3.0, "max_time": 150.0, "target_kills": 25,
+	"win_bonus_per_sec": 10, "break_time": 1.5, "urgent_below": 10.0,
+}
+const TRAINING: Dictionary = {"respawn_time": 2.0, "bot_wave": 1, "types": ["swordsman", "gunner", "rusher", "elite", "bomber"]}
+
 const MAP_IDS: Array = ["yard", "alley", "tower"]
 const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
 
@@ -463,7 +483,9 @@ var quality: int = QUALITY_DEFAULT
 var selected_map: String = "yard"
 var reduced_fx: bool = false
 var difficulty: String = "normal"
+var game_mode: String = "survival"
 var _scores: Dictionary = {}
+var _mode_scores: Dictionary = {} # "<chế_độ>_<mức>" -> điểm (sinh tồn dùng _scores/high_score như cũ)
 var settings: Dictionary = DEFAULT_SETTINGS.duplicate()
 var _default_bindings: Dictionary = {}
 
@@ -479,7 +501,9 @@ func load_save() -> void:
 	selected_map = "yard"
 	reduced_fx = false
 	difficulty = "normal"
+	game_mode = "survival"
 	_scores = {}
+	_mode_scores = {}
 	settings = DEFAULT_SETTINGS.duplicate()
 	if not FileAccess.file_exists(save_path):
 		return
@@ -488,6 +512,13 @@ func load_save() -> void:
 		var legacy: int = int(cf.get_value("progress", "high_score", 0))
 		for lv in DIFFICULTY_LEVELS:
 			_scores[lv] = int(cf.get_value("progress", "high_score_" + lv, legacy if lv == "normal" else 0))
+		for md in MODES:
+			if md == "survival":
+				continue
+			for lv in DIFFICULTY_LEVELS:
+				_mode_scores[md + "_" + lv] = int(cf.get_value("progress", "high_score_%s_%s" % [md, lv], 0))
+		var gm: String = str(cf.get_value("game", "mode", "survival"))
+		game_mode = gm if gm in MODES else "survival"
 		var dl: String = str(cf.get_value("game", "difficulty", "normal"))
 		difficulty = dl if dl in DIFFICULTY_LEVELS else "normal"
 		high_score = int(_scores.get(difficulty, 0))
@@ -510,6 +541,9 @@ func _write_save() -> void:
 	for lv in DIFFICULTY_LEVELS:
 		cf.set_value("progress", "high_score_" + lv, int(_scores.get(lv, 0)))
 	cf.set_value("progress", "high_score", int(_scores.get("normal", 0)))
+	for k in _mode_scores:
+		cf.set_value("progress", "high_score_" + k, int(_mode_scores[k]))
+	cf.set_value("game", "mode", game_mode)
 	cf.set_value("game", "difficulty", difficulty)
 	cf.set_value("graphics", "quality", quality)
 	cf.set_value("game", "map", selected_map)
@@ -722,6 +756,47 @@ func cycle_map() -> void:
 
 func cycle_quality() -> void:
 	set_quality((quality + 1) % QUALITY.size())
+
+
+## Chọn chế độ chơi cho lần chơi sau (lưu file, phát Signal).
+func set_mode(mode: String) -> void:
+	if mode not in MODES or mode == game_mode:
+		return
+	game_mode = mode
+	_write_save()
+	mode_changed.emit(mode)
+
+
+func cycle_mode() -> void:
+	set_mode(MODES[(MODES.find(game_mode) + 1) % MODES.size()])
+
+
+## Kỷ lục của một chế độ + mức độ khó (mặc định: đang chọn). Tập luyện không có kỷ lục.
+func best_score(mode: String = "", level: String = "") -> int:
+	var m: String = mode if mode in MODES else game_mode
+	var lv: String = level if level in DIFFICULTY_LEVELS else difficulty
+	match m:
+		"survival":
+			return high_score if lv == difficulty else int(_scores.get(lv, 0))
+		"training":
+			return 0
+	return int(_mode_scores.get(m + "_" + lv, 0))
+
+
+## Nộp điểm cho chế độ (mặc định: đang chọn) ở mức độ khó hiện tại. true nếu phá kỷ lục.
+func submit_mode_score(value: int, mode: String = "") -> bool:
+	var m: String = mode if mode in MODES else game_mode
+	match m:
+		"survival":
+			return submit_score(value)
+		"training":
+			return false
+	var key: String = m + "_" + difficulty
+	if value <= int(_mode_scores.get(key, 0)):
+		return false
+	_mode_scores[key] = value
+	_write_save()
+	return true
 
 
 ## Trả về true nếu phá kỷ lục (và đã lưu).
