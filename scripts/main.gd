@@ -198,7 +198,7 @@ func _on_player_hurt(hit: Dictionary, _left: float) -> void:
 	player.shake(0.04)
 	hud.flash_damage()
 	var src: Variant = hit.get("source")
-	if src is Node3D and is_instance_valid(src):
+	if is_instance_valid(src) and src is Node3D:
 		var local: Vector3 = player.global_transform.affine_inverse() * (src as Node3D).global_position
 		hud.show_hit_indicator(atan2(local.x, -local.z))
 

@@ -7,6 +7,7 @@ signal wave_cleared(wave: int)
 signal enemies_left_changed(left: int)
 signal bot_spawned(bot: Node3D)
 signal bot_killed(bot: Node3D, info: Dictionary)
+signal bot_relocated(bot: Node3D) # bot rơi/văng khỏi map, được đưa về điểm sinh
 
 const BotScript = preload("res://scripts/bot.gd")
 const MAX_BOTS_PER_WAVE: int = 10
@@ -18,6 +19,9 @@ var _alive: int = 0
 var _world: Node3D
 var _spawns: Array = []
 var _running: bool = false
+var _used_spots: Array = []   # chỗ đã dùng ở wave hiện tại (tránh 2 bot đè lên nhau)
+
+const SPAWN_GAP: float = 1.3
 
 
 func setup(world: Node3D, spawn_points: Array) -> void:
@@ -55,6 +59,7 @@ func composition(n: int) -> Array:
 
 func _next_wave() -> void:
 	wave += 1
+	_used_spots.clear()
 	var comp: Array = composition(wave)
 	_alive = comp.size()
 	wave_started.emit(wave, comp.size())
@@ -66,7 +71,8 @@ func _next_wave() -> void:
 func _spawn(type_name: String) -> void:
 	var b: CharacterBody3D = BotScript.new()
 	b.setup(type_name, wave)
-	b.position = _pick_spawn()
+	b.position = _free_spot(_pick_spawn())
+	_used_spots.append(b.position)
 	_world.add_child(b)
 	b.died.connect(_on_bot_died)
 	bot_spawned.emit(b)
@@ -86,6 +92,57 @@ func _pick_spawn() -> Vector3:
 			best_d = d
 			best = p
 	return best
+
+
+## Tìm chỗ trống gần điểm sinh (xoắn ra từng vòng): không đè bot khác, không trong tường/người chơi.
+## Hai bot sinh trùng chỗ bị engine đẩy văng (lên cao / ra ngoài biên) nên phải tách ra.
+func _free_spot(base: Vector3) -> Vector3:
+	for ring in 6:
+		var n: int = 1 if ring == 0 else 6 * ring
+		for k in n:
+			var off := Vector3.ZERO
+			if ring > 0:
+				off = Vector3(cos(TAU * k / n), 0.0, sin(TAU * k / n)) * SPAWN_GAP * ring
+			if _spot_ok(base + off):
+				return base + off
+	return base
+
+
+func _spot_ok(c: Vector3) -> bool:
+	for u in _used_spots:
+		if Vector2(c.x - u.x, c.z - u.z).length() < SPAWN_GAP:
+			return false
+	var half: Variant = _world.get("half")
+	if half is Vector2 and (absf(c.x) > half.x - 1.0 or absf(c.z) > half.y - 1.0):
+		return false
+	var shape := CapsuleShape3D.new()
+	shape.radius = 0.45
+	shape.height = 1.8
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis.IDENTITY, c + Vector3(0.0, 0.95, 0.0))
+	q.collision_mask = Global.L_WORLD | Global.L_PLAYER | Global.L_ENEMY
+	return _world.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
+## Lưới an toàn: bot rơi khỏi map / văng ra ngoài biên thì đưa về một điểm sinh (không để wave kẹt).
+func _physics_process(_delta: float) -> void:
+	if _world == null or _spawns.is_empty():
+		return
+	var void_y: Variant = _world.get("void_y")
+	var half: Variant = _world.get("half")
+	for b in get_tree().get_nodes_in_group("bots"):
+		if b.dead:
+			continue
+		var p: Vector3 = b.global_position
+		var lost: bool = void_y is float and p.y < void_y
+		if half is Vector2 and (absf(p.x) > half.x + 1.5 or absf(p.z) > half.y + 1.5):
+			lost = true
+		if lost:
+			_used_spots.clear()
+			b.global_position = _free_spot(_pick_spawn())
+			b.velocity = Vector3.ZERO
+			bot_relocated.emit(b)
 
 
 func _on_bot_died(bot: Node3D, info: Dictionary) -> void:

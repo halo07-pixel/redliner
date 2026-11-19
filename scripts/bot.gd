@@ -25,6 +25,7 @@ const RocketScript = preload("res://scripts/rocket.gd")
 const GRAVITY: float = 24.0
 const DODGE_SPEED: float = 14.0
 const DODGE_TIME: float = 0.25
+const STEP_HEIGHT: float = 0.75 # leo được bậc thấp; navmesh coi mép cao tới ~0.7 m (agent_max_climb 0.5 + lượng tử ô) là đi được
 
 var type_name: String = "swordsman"
 var difficulty: int = 1
@@ -60,6 +61,10 @@ var _retreat_t: float = 0.0   # lùi một nhịp sau khi bị parry / thua clas
 var _punish: bool = false     # người chơi đang Destabilized
 var _path: PackedVector3Array = PackedVector3Array()
 var _path_t: float = 0.0
+var _blocked_t: float = 0.0   # thời gian muốn đi mà không nhúc nhích được (kẹt vật cản thấp...)
+var _force_nav_t: float = 0.0 # đang ép đi theo navmesh (bỏ đường thẳng) sau khi bị kẹt
+var _steer_hold: Vector3 = Vector3.ZERO # hướng lách đã chọn quanh vật cản (giữ nhất quán, không đổi bên liên tục)
+var _steer_clear_t: float = 0.0
 
 
 ## Gọi trước add_child. difficulty = số wave: bot khoẻ hơn, nhanh hơn, phản ứng nhanh hơn
@@ -208,8 +213,44 @@ func _physics_process(delta: float) -> void:
 	velocity.x = wish.x + _kb.x
 	velocity.z = wish.z + _kb.z
 	_kb = _kb.move_toward(Vector3.ZERO, 30.0 * delta)
+	_try_step_up()
 	move_and_slide()
+	_track_blocked(wish, delta)
 	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
+
+
+## Muốn đi mà gần như không nhúc nhích (vật cản thấp như thùng, góc tường) -> ép đi theo navmesh một lúc
+## thay vì cứ húc thẳng; hết kẹt thì quay lại đường thẳng.
+func _track_blocked(wish: Vector3, delta: float) -> void:
+	_force_nav_t = maxf(_force_nav_t - delta, 0.0)
+	var want: float = Vector2(wish.x, wish.z).length()
+	var moved: float = Vector2(get_position_delta().x, get_position_delta().z).length()
+	if want > 1.0 and moved < want * delta * 0.25:
+		_blocked_t += delta
+		if _blocked_t > 0.4:
+			_force_nav_t = 1.5
+			_blocked_t = 0.0
+	else:
+		_blocked_t = maxf(_blocked_t - delta, 0.0)
+
+
+## Leo bậc: đang đi trên sàn mà bị chặn bởi một mép tĩnh thấp hơn STEP_HEIGHT (chỗ nối dốc - bệ) thì
+## nhấc lên qua mép. CharacterBody3D không tự leo bậc nên bot sẽ đứng kẹt trước mép nếu thiếu bước này.
+func _try_step_up() -> void:
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	if flat.length() < 0.5 or not is_on_floor():
+		return
+	var motion: Vector3 = flat.normalized() * 0.4
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, motion, hit):
+		return
+	if not (hit.get_collider() is StaticBody3D) or absf(hit.get_normal().y) > 0.6:
+		return # chỉ leo qua mép tường tĩnh dựng đứng, không leo lên bot khác / dốc
+	var up := Vector3.UP * STEP_HEIGHT
+	if test_move(global_transform, up) or test_move(global_transform.translated(up), motion):
+		return # có trần chặn, hoặc là tường cao thật
+	global_position += up
+	velocity.y = 0.0
 
 
 # ------------------------------------------------------------------ quyết định
@@ -302,7 +343,7 @@ func _navigate(goal: Vector3, dir: Vector3, dist: float) -> Vector3:
 	var goal_dir: Vector3 = goal - global_position
 	goal_dir.y = 0.0
 	goal_dir = goal_dir.normalized() if goal_dir.length() > 0.01 else dir
-	if not ready or (level_diff < 0.8 and dist < 25.0 and _has_line_of_sight()):
+	if not ready or (_force_nav_t <= 0.0 and level_diff < 0.8 and dist < 25.0 and _has_line_of_sight()):
 		return _steer(goal_dir)
 	_path_t -= get_physics_process_delta_time()
 	if _path_t <= 0.0:
@@ -340,15 +381,40 @@ func _throw_bomb() -> void:
 
 ## Né vật cản: nếu phía trước (2 m) có tường thì trượt dọc theo tường.
 func _steer(dir: Vector3) -> Vector3:
-	var origin: Vector3 = global_position + Vector3(0.0, 0.5, 0.0)
-	var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * 2.0, Global.L_WORLD)
-	q.exclude = [get_rid()]
-	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
+	# Ray ở nhiều độ cao: vật cản thấp (thùng gỗ/thùng nổ cao ~0.5 m) nằm dưới ray ngang hông nên phải quét cả thấp.
+	var space := get_world_3d().direct_space_state
+	var hit: Dictionary = {}
+	var best: float = INF
+	for h in [0.2, 0.55, 1.0]:
+		var origin: Vector3 = global_position + Vector3(0.0, h, 0.0)
+		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * 2.0, Global.L_WORLD)
+		q.exclude = [get_rid()]
+		var r: Dictionary = space.intersect_ray(q)
+		if not r.is_empty():
+			var d: float = origin.distance_to(r["position"])
+			if d < best:
+				best = d
+				hit = r
+	var normal: Vector3 = Vector3(hit["normal"].x, 0.0, hit["normal"].z) if not hit.is_empty() else Vector3.ZERO
+	if normal.length() < 0.01:
+		# thoáng (hoặc chỉ là mặt dốc/sàn): nếu đã thoáng đủ lâu thì bỏ hướng lách đã chọn
+		_steer_clear_t += get_physics_process_delta_time()
+		if _steer_clear_t > 0.4:
+			_steer_hold = Vector3.ZERO
 		return dir
-	var tangent: Vector3 = hit["normal"].cross(Vector3.UP).normalized()
-	if tangent.dot(dir) < 0.0:
-		tangent = -tangent
+	_steer_clear_t = 0.0
+	var tangent: Vector3 = normal.normalized().cross(Vector3.UP).normalized()
+	if _steer_hold != Vector3.ZERO:
+		# Đã chọn một bên để lách: giữ bên đó (nếu không sẽ lắc qua lắc lại ở mép vật cản).
+		if tangent.dot(_steer_hold) < 0.0:
+			tangent = -tangent
+	else:
+		var side: float = tangent.dot(dir)
+		if absf(side) < 0.15:
+			tangent *= _strafe_dir # húc vuông góc: chọn một bên thay vì đứng yên
+		elif side < 0.0:
+			tangent = -tangent
+	_steer_hold = tangent
 	return tangent
 
 
