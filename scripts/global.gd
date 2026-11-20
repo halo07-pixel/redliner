@@ -180,8 +180,8 @@ const VIEWMODEL: Dictionary = {
 	"sword_pos": Vector3(0.34, -0.55, -0.6),
 	"gun_pos": Vector3(-0.3, -0.26, -0.5),
 	"bob_freq": 0.55,          # rad pha bước trên mỗi mét đi được
-	"bob_amp": 0.014,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
-	"bob_side": 0.009,
+	"bob_amp": 0.03,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
+	"bob_side": 0.02,
 	"bob_speed_ref": 10.0,
 	# Lò xo (đàn hồi, hồi về có nảy nhẹ): k = độ cứng, c = giảm chấn (c < 2*sqrt(k) thì có nảy).
 	"spring_k": 140.0,
@@ -191,6 +191,27 @@ const VIEWMODEL: Dictionary = {
 	"sway_impulse": 18.0,      # vận tốc xoay (độ/s) thêm vào mỗi pixel chuột
 	"sway_max": 7.0,           # giới hạn độ lệch xoay (độ)
 	"state_blend": 10.0,
+	# Tư thế kiếm/súng theo trạng thái (M18): vị trí cộng thêm (m) và góc xoay tuyệt đối (độ).
+	"strafe_roll": 9.0,        # nghiêng tay khi đi ngang (độ ở vận tốc ngang tối đa)
+	"idle_sway": 1.6,          # độ lắc thở khi đứng yên (độ)
+	"sprint_lean": 12.0,       # kiếm hạ về trước khi chạy nhanh (độ pitch)
+	"sword_pose_blend": 9.0,
+	"sword_pose": {
+		"slide": {"pos": Vector3(-0.06, 0.02, -0.02), "rot": Vector3(50.0, -14.0, -30.0)},
+		"dash": {"pos": Vector3(0.0, 0.1, 0.0), "rot": Vector3(52.0, 10.0, -16.0)},
+		"wallrun": {"pos": Vector3(0.0, 0.02, 0.0), "rot": Vector3(76.0, 0.0, -32.0)},
+		"grapple": {"pos": Vector3(0.0, 0.02, 0.0), "rot": Vector3(60.0, 0.0, -24.0)},
+	},
+	"gun_pose": {
+		"slide": {"pos": Vector3(0.03, -0.02, 0.03), "rot": Vector3(-12.0, 0.0, -18.0)},
+		"dash": {"pos": Vector3(0.0, 0.03, 0.06), "rot": Vector3(-8.0, 0.0, 0.0)},
+		"wallrun": {"pos": Vector3(0.0, 0.0, 0.0), "rot": Vector3(0.0, 0.0, 10.0)},
+	},
+	# Tư thế đỡ đòn: lưỡi kiếm nằm ngang chắn trước mặt (yaw ~80 độ quét lưỡi sang trái).
+	"guard_pos": Vector3(0.2, -0.2, -0.62),
+	"guard_rot": Vector3(12.0, 82.0, 8.0),
+	"guard_in": 0.06,
+	"flash_light": 3.0,
 	"land_impulse": 0.8,       # vận tốc nảy xuống khi tiếp đất (m/s)
 	"kick_back": 0.09,         # súng giật lùi (m)
 	"kick_pitch": 9.0,         # hất nòng (độ)
@@ -283,7 +304,7 @@ const HEAVY_SLASH: Dictionary = {
 
 ## Hiệu ứng (M12). reduced_fx = true: tắt vệt kiếm + sóng parry, hạt còn 1/3, rung camera yếu đi.
 const FX: Dictionary = {
-	"trail_life": 0.16, "trail_max_points": 14, "trail_color": Color(0.75, 0.9, 1.0, 0.8),
+	"trail_life": 0.26, "trail_max_points": 20, "trail_color": Color(0.8, 0.95, 1.0, 1.0),
 	"heavy_trail_color": Color(1.0, 0.7, 0.35, 0.85),
 	"ring_time": 0.3, "ring_radius": 2.2,
 	"reduced_particles": 0.33, "reduced_shake": 0.4,

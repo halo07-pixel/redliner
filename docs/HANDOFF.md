@@ -1,7 +1,7 @@
 # Bàn giao Redliner (cập nhật 2026-11-20)
 
 ## Trạng thái
-- `main` = `5deeb14` (đến M16 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m17-polish` (M17 hoàn thiện + sửa cách cầm kiếm). Đây là mốc CUỐI của lộ trình.
+- `main` = `b1ca383` (đến M17 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m18-clear-animation` (hoạt ảnh/hiệu ứng rõ ràng, yêu cầu thêm sau M17).
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -146,6 +146,18 @@
 - Test: `test_modes` (113 kiểm tra). 21 bộ đều xanh. Ảnh: `docs/screenshots/m16_*.png` (`tools/screenshots/shoot_m16.gd`).
 - Chưa kiểm bằng người: CÂN BẰNG thử thách thời gian (90 s, +3 s/bot, 25 bot có thắng nổi không?) - chỉnh trong `Global.TIMED`; số/độ khó bot tập; bố cục menu ở màn hình nhỏ; độ dễ đọc của đồng hồ. Bot tập sinh lần lượt theo `TRAINING.types` (chưa có phím chọn loại bot). Tập luyện thoát bằng Esc > Về menu. Chưa có bảng xếp hạng online (không nằm trong M16).
 
+## M18 (nhánh `feature/m18-clear-animation`: hoạt ảnh và hiệu ứng rõ ràng)
+Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ là hiển thị; vật lý/logic không đổi. Số chỉnh: `Global.VIEWMODEL`, `Global.FX`.
+- **Tư thế kiếm/súng theo trạng thái** (`viewmodel.gd` + `VIEWMODEL.sword_pose/gun_pose`): lướt (kiếm nghiêng thấp, súng nghiêng), dash (kiếm kéo ra sau), grapple, chạy tường. Chạy nhanh hạ kiếm về trước (`sprint_lean`), đứng yên thở nhẹ (`idle_sway`), đi ngang nghiêng tay (`strafe_roll`, `update(..., lateral)`). Nhún chạy tăng ~2x (`bob_amp/bob_side`). Cường độ nhân với `settings.bob` (0 = tắt hết tư thế phụ, ai say chuyển động dùng).
+- **Chém**: windup kéo kiếm ra sau, active lao tới quét chéo xuống, recovery về (cả vị trí lẫn góc). Vệt kiếm dài/sáng hơn (`FX.trail_life/trail_max_points/trail_color`).
+- **Đỡ kiếm (parry)**: `raise()` rút kiếm lên chắn ngang giữa màn hình (`guard_pos/guard_rot`) suốt cửa sổ parry; `parry_hit()` đẩy ra trước khi thành công, `parry_fail()` hất kiếm xuống rồi loạng choạng về. Nối từ `parry.parried` / `parry.parry_missed` trong `player.gd`.
+- **Súng**: chớp nòng xoay/co giãn ngẫu nhiên + đèn nháy (`flash_light`, tắt khi giảm hiệu ứng).
+- **Grapple**: `grapple_rope.gd` vẽ dây dạng dải rộng, phóng ra trong 0.12 s (lượn sóng rồi căng), có đầu móc phát sáng; tia lửa + vòng sóng ở điểm neo.
+- **Vệt tốc độ** (`speed_lines.gd`, shader viền màn hình, từ 12 m/s) và **bụi** (`Fx.dust`) khi lướt/dash. Parry có thêm tia lửa trắng.
+- Bot đã có tư thế parry/chém riêng từ M7.3 nên không đổi.
+- Test: `test_m18` (tư thế theo trạng thái, đỡ/parry hụt, chen ngang không kẹt, chớp nòng, dây móc, vệt tốc độ, bụi, giảm hiệu ứng). Ảnh: `tools/screenshots/shoot_m18.gd`.
+- Cần người chơi thử: mức "rõ" là cảm giác, hãy chỉnh `sword_pose`, `guard_*`, `bob_amp`. Tư thế đỡ là vệt chéo cắt qua giữa màn hình (có thể che tâm ngắm một chút khi đỡ). Chưa có hoạt ảnh tay riêng cho tay cầm súng khi grapple ngoài việc giơ lên.
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -181,7 +193,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (22 bộ: test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (23 bộ: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 

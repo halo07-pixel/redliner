@@ -44,6 +44,12 @@ func _ready() -> void:
 	player.speed_changed.connect(hud.set_speed)
 	player.state_changed.connect(hud.set_state)
 	player.state_changed.connect(_on_state_changed)
+	var speed_lines := CanvasLayer.new()
+	speed_lines.set_script(preload("res://scripts/speed_lines.gd"))
+	add_child(speed_lines)
+	player.speed_changed.connect(speed_lines.set_speed)
+	player.grapple_started.connect(func(pt): Fx.sparks(self, pt, Color(1.0, 0.55, 0.2)); Fx.ring(self, pt, Color(1.0, 0.6, 0.3, 0.8)))
+	player.dash_charges_changed.connect(func(c, _m): if c < _last_charges: Fx.dust(self, player.global_position, 10))
 	player.stamina_changed.connect(hud.set_stamina)
 	player.slammed.connect(_on_slammed)
 	player.footstep.connect(func(_sp: float): _play_footstep())
@@ -212,6 +218,7 @@ func _on_state_changed(state_name: String) -> void:
 	match state_name:
 		"SLIDE":
 			Sfx.play("slide")
+			Fx.dust(self, player.global_position, 12)
 		"WALLRUN":
 			Sfx.play("wall")
 		"GRAPPLE":
@@ -289,6 +296,7 @@ func _on_parried(_hit: Dictionary) -> void:
 	Sfx.play("parry")
 	hud.flash("PARRY!", Color(0.4, 0.85, 1.0))
 	Fx.sparks(self, _front_point(), Color(0.5, 0.9, 1.0))
+	Fx.sparks(self, _front_point() + Vector3(0.0, 0.15, 0.0), Color(1.0, 1.0, 1.0))
 	Fx.ring(self, _front_point(), Color(0.5, 0.9, 1.0, 0.9), -player.head.global_transform.basis.z)
 	player.shake(0.05)
 	Global.hitstop(0.08)
