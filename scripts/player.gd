@@ -121,6 +121,8 @@ func _ready() -> void:
 	hurtbox.hurt.connect(func(h, _left): body_view.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": body_view.global_transform.basis.inverse() * Vector3(h.get("direction", Vector3.ZERO))}))
 	combat.shot_fired.connect(func(_f, _t): body_view.play("shoot", float(Global.ANIM["shoot_time"])))
 	parry.parry_started.connect(viewmodel.raise)
+	parry.parried.connect(func(_h): viewmodel.parry_hit())
+	parry.parry_missed.connect(viewmodel.parry_fail)
 	# Instability "mất thế": thua clash / parry hụt / bị parry thì tăng; parry thành công và đánh trúng thì giảm.
 	melee.clashed.connect(func(_d): instability.clash_penalty())
 	melee.got_parried.connect(func(): instability.add(Global.INSTABILITY["parried_loss"]))
@@ -170,7 +172,7 @@ func _process(delta: float) -> void:
 	_update_bob(delta)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
-	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name())
+	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name(), move_input.x)
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
 	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
 

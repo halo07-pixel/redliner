@@ -37,6 +37,9 @@ var _was_grounded: bool = true
 var _sword_tween: Tween
 var _gun_tween: Tween
 var _sword_rest: Vector3 = Vector3(72.0, 0.0, -6.0)
+var _sword_rest_pos: Vector3
+var _t: float = 0.0
+var _flash_light: OmniLight3D
 var _gun_rest_pos: Vector3
 var _flash_t: float = 0.0
 
@@ -54,6 +57,7 @@ func _ready() -> void:
 	# ---- Kiếm (gốc = bàn tay cầm chuôi, lưỡi chỉ về -Z) ----
 	sword_pivot = _node("SwordPivot", self, V["sword_pos"])
 	sword_pivot.rotation_degrees = _sword_rest
+	_sword_rest_pos = sword_pivot.position
 	_part(sword_pivot, Vector3(0.036, 0.036, 0.2), Vector3(0.0, 0.0, 0.0), metal)             # chuôi
 	_part(sword_pivot, Vector3(0.042, 0.042, 0.03), Vector3(0.0, 0.0, 0.1), gold)           # đầu chuôi
 	_part(sword_pivot, Vector3(0.14, 0.03, 0.03), Vector3(0.0, 0.0, -0.115), gold)            # tsuba (chắn tay)
@@ -83,6 +87,12 @@ func _ready() -> void:
 	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	muzzle_flash = _part(gun_pivot, Vector3(0.09, 0.09, 0.1), Vector3(0.0, 0.048, -0.36), fm)
 	muzzle_flash.visible = false
+	_flash_light = OmniLight3D.new()
+	_flash_light.light_color = Color(1.0, 0.8, 0.4)
+	_flash_light.omni_range = 6.0
+	_flash_light.shadow_enabled = false
+	_flash_light.visible = false
+	muzzle_flash.add_child(_flash_light)
 
 	# ---- Các súng khác (cùng gốc = bàn tay cầm; chỉ hiện súng đang chọn) ----
 	_gun_models["pistol"] = pistol
@@ -200,7 +210,7 @@ func add_look(relative: Vector2) -> void:
 
 
 ## Gọi mỗi frame hiển thị. st: "" | "slide" | "dash" | "wallrun" | "grapple" (cùng quy ước hoạt ảnh thân).
-func update(delta: float, speed: float, grounded: bool, st: String = "") -> void:
+func update(delta: float, speed: float, grounded: bool, st: String = "", lateral: float = 0.0) -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	state_name = st
 	# Nhún theo bước chạy: biên độ tăng theo tốc độ, chỉ khi đứng đất.
@@ -223,6 +233,12 @@ func update(delta: float, speed: float, grounded: bool, st: String = "") -> void
 			tr = Vector3(-6.0, 0.0, 0.0)
 		"wallrun":
 			tr = Vector3(0.0, 0.0, 8.0)
+	var inten: float = clampf(float(Global.settings.get("bob", 1.0)), 0.0, 1.5)
+	tp *= inten
+	tr *= inten
+	# Đi ngang: nghiêng cả tay theo hướng bước.
+	tr.z += -clampf(lateral, -1.0, 1.0) * float(V["strafe_roll"]) * inten * (1.0 if grounded else 0.4)
+	_t += delta
 	_pos_spring.step(delta, tp, float(V["spring_k"]), float(V["spring_c"]))
 	_rot_spring.step(delta, tr, float(V["rot_spring_k"]), float(V["rot_spring_c"]))
 	var m: float = float(V["sway_max"])
@@ -230,32 +246,88 @@ func update(delta: float, speed: float, grounded: bool, st: String = "") -> void
 	_rot_spring.x.y = clampf(_rot_spring.x.y, tr.y - m, tr.y + m)
 	position = bob_offset + _pos_spring.x
 	rotation_degrees = _rot_spring.x
-	# Đu móc: tay trái (súng) giơ lên trừ khi đang nạp/bắn.
+	var f: float = minf(1.0, float(V["state_blend"]) * delta)
+	var pf: float = minf(1.0, float(V["sword_pose_blend"]) * delta)
+	# Kiếm: tư thế theo trạng thái khi không chém/đỡ (lò xo/tween chiến đấu có ưu tiên).
+	if _sword_tween == null or not _sword_tween.is_valid():
+		var pos_t: Vector3 = _sword_rest_pos
+		var rot_t: Vector3 = _sword_rest
+		var poses: Dictionary = V["sword_pose"]
+		if poses.has(st):
+			pos_t += Vector3(poses[st]["pos"]) * inten
+			rot_t = _sword_rest.lerp(Vector3(poses[st]["rot"]), inten)
+		else:
+			# Thở khi đứng yên, hạ kiếm về trước khi chạy nhanh.
+			var run_k: float = clampf(speed / float(V["bob_speed_ref"]), 0.0, 1.0) if grounded else 0.0
+			var sway: float = float(V["idle_sway"]) * inten * (1.0 - run_k)
+			rot_t += Vector3(sin(_t * 1.7) * sway - float(V["sprint_lean"]) * run_k * inten, 0.0, cos(_t * 1.1) * sway)
+			pos_t += Vector3(0.0, sin(_t * 1.7) * 0.006 * inten, 0.0)
+		sword_pivot.position = sword_pivot.position.lerp(pos_t, pf)
+		sword_pivot.rotation_degrees = sword_pivot.rotation_degrees.lerp(rot_t, pf)
+	# Súng: tư thế theo trạng thái (đu móc giơ lên) trừ khi đang nạp/bắn.
 	if not reloading and (_gun_tween == null or not _gun_tween.is_valid()):
-		var f: float = minf(1.0, float(V["state_blend"]) * delta)
-		var up: Vector3 = _gun_rest_pos + (Vector3(0.05, 0.22, -0.08) if st == "grapple" else Vector3.ZERO)
-		gun_pivot.position = gun_pivot.position.lerp(up, f)
+		var gpos: Vector3 = _gun_rest_pos
+		var grot: Vector3 = Vector3.ZERO
+		if st == "grapple":
+			gpos += Vector3(0.05, 0.22, -0.08)
+		elif V["gun_pose"].has(st):
+			gpos += Vector3(V["gun_pose"][st]["pos"]) * inten
+			grot = Vector3(V["gun_pose"][st]["rot"]) * inten
+		gun_pivot.position = gun_pivot.position.lerp(gpos, f)
+		gun_pivot.rotation_degrees = gun_pivot.rotation_degrees.lerp(grot, f)
 	# Chớp nòng tắt sau flash_time.
 	if _flash_t > 0.0:
 		_flash_t -= delta
 		if _flash_t <= 0.0:
 			muzzle_flash.visible = false
+			_flash_light.visible = false
 
 
 # ------------------------------------------------------------------ chiến đấu
 
 func play_swing(windup: float, active: float, recovery: float) -> void:
 	_sword_restart()
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(88.0, 35.0, -30.0), windup)
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(5.0, -45.0, -20.0), active)
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", _sword_rest, recovery)
+	# Windup: kéo kiếm ngược ra sau (hơi dừng ở đỉnh); active: quét xuống chéo kèm lao tới; recovery: về.
+	var back := _sword_rest_pos + Vector3(0.1, 0.06, 0.18)
+	var fwd := _sword_rest_pos + Vector3(-0.2, -0.04, -0.28)
+	_sword_tween.set_parallel(true)
+	_sword_tween.tween_property(sword_pivot, "position", back, windup).set_ease(Tween.EASE_OUT)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(88.0, 45.0, -35.0), windup).set_ease(Tween.EASE_OUT)
+	_sword_tween.chain().tween_property(sword_pivot, "position", fwd, active).set_ease(Tween.EASE_IN)
+	_sword_tween.parallel().tween_property(sword_pivot, "rotation_degrees", Vector3(0.0, -55.0, -22.0), active).set_ease(Tween.EASE_IN)
+	_sword_tween.chain().tween_property(sword_pivot, "position", _sword_rest_pos, recovery).set_ease(Tween.EASE_OUT)
+	_sword_tween.parallel().tween_property(sword_pivot, "rotation_degrees", _sword_rest, recovery).set_ease(Tween.EASE_OUT)
 
 
+## Parry: rút kiếm lên đỡ, lưỡi nằm ngang chắn giữa màn hình trong suốt cửa sổ parry, rồi hạ xuống.
 func raise() -> void:
 	_sword_restart()
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(40.0, 0.0, 0.0), 0.05)
-	_sword_tween.tween_interval(Global.COMBAT["parry_window"])
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", _sword_rest, 0.15)
+	var V: Dictionary = Global.VIEWMODEL
+	var tin: float = float(V["guard_in"])
+	_sword_tween.set_parallel(true)
+	_sword_tween.tween_property(sword_pivot, "position", Vector3(V["guard_pos"]), tin).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(V["guard_rot"]), tin).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var hold: float = tin + float(Global.COMBAT["parry_window"])
+	_sword_tween.chain().tween_interval(hold - tin)
+	_sword_tween.chain().tween_property(sword_pivot, "position", _sword_rest_pos, 0.18)
+	_sword_tween.parallel().tween_property(sword_pivot, "rotation_degrees", _sword_rest, 0.18)
+
+
+## Parry thành công: cú đẩy kiếm ra trước (phản lực) + giật nhẹ.
+func parry_hit() -> void:
+	_pos_spring.v += Vector3(0.0, 0.2, -1.8)
+	_rot_spring.v += Vector3(-60.0, 0.0, 0.0)
+
+
+## Parry hụt: kiếm bị hất xuống thấp rồi loạng choạng về lại.
+func parry_fail() -> void:
+	_sword_restart()
+	_sword_tween.set_parallel(true)
+	_sword_tween.tween_property(sword_pivot, "position", _sword_rest_pos + Vector3(-0.05, -0.2, 0.1), 0.1)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(25.0, 30.0, -35.0), 0.1)
+	_sword_tween.chain().tween_property(sword_pivot, "position", _sword_rest_pos, 0.35).set_trans(Tween.TRANS_ELASTIC)
+	_sword_tween.parallel().tween_property(sword_pivot, "rotation_degrees", _sword_rest, 0.35).set_trans(Tween.TRANS_ELASTIC)
+	_pos_spring.v += Vector3(0.0, -0.8, 0.5)
 
 
 func _sword_restart() -> void:
@@ -273,6 +345,10 @@ func kick() -> void:
 	gun_pivot.position = _gun_rest_pos + Vector3(0.0, 0.0, float(V["kick_back"]))
 	gun_pivot.rotation_degrees = Vector3(float(V["kick_pitch"]), 0.0, 0.0)
 	muzzle_flash.visible = true
+	muzzle_flash.rotation.z = randf() * TAU
+	muzzle_flash.scale = Vector3.ONE * randf_range(1.0, 1.7)
+	_flash_light.visible = not Global.reduced_fx
+	_flash_light.light_energy = float(V["flash_light"])
 	_flash_t = float(V["flash_time"])
 	var t: float = float(V["kick_time"])
 	_gun_tween.set_parallel(true)
@@ -326,6 +402,8 @@ func reset() -> void:
 	_pos_spring = Spring.new()
 	_rot_spring = Spring.new()
 	sword_pivot.rotation_degrees = _sword_rest
+	sword_pivot.position = _sword_rest_pos
 	gun_pivot.position = _gun_rest_pos
 	gun_pivot.rotation_degrees = Vector3.ZERO
 	muzzle_flash.visible = false
+	_flash_light.visible = false
