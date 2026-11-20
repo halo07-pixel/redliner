@@ -36,7 +36,7 @@ var _rot_spring := Spring.new()          # độ lệch xoay (độ: pitch, yaw,
 var _was_grounded: bool = true
 var _sword_tween: Tween
 var _gun_tween: Tween
-var _sword_rest: Vector3 = Vector3(-15.0, 10.0, -25.0)
+var _sword_rest: Vector3 = Vector3(72.0, 0.0, -6.0)
 var _gun_rest_pos: Vector3
 var _flash_t: float = 0.0
 
@@ -61,7 +61,7 @@ func _ready() -> void:
 	_part(sword_pivot, Vector3(0.022, 0.014, 0.82), Vector3(0.0, 0.032, -0.56), steel_dark)   # sống lưỡi
 	_part(sword_pivot, Vector3(0.016, 0.058, 0.06), Vector3(0.0, 0.0, -1.03), steel, Vector3(0.0, 0.0, 0.0)) # mũi
 	_hand(sword_pivot, Vector3(0.0, 0.0, 0.0), glove, true)
-	_arm(sword_pivot, Vector3(0.12, -0.52, 0.42), Vector3(0.0, -0.02, 0.09), sleeve)
+	_arm(sword_pivot, Basis.from_euler(sword_pivot.rotation).inverse() * Vector3(0.22, -0.5, 0.45), Vector3(0.0, -0.02, 0.09), sleeve)
 
 	# ---- Súng lục (gốc = bàn tay cầm báng, nòng chỉ về -Z) ----
 	gun_pivot = _node("GunPivot", self, V["gun_pos"])
@@ -246,14 +246,14 @@ func update(delta: float, speed: float, grounded: bool, st: String = "") -> void
 
 func play_swing(windup: float, active: float, recovery: float) -> void:
 	_sword_restart()
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(-70.0, 40.0, -25.0), windup)
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(20.0, -60.0, -25.0), active)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(88.0, 35.0, -30.0), windup)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(5.0, -45.0, -20.0), active)
 	_sword_tween.tween_property(sword_pivot, "rotation_degrees", _sword_rest, recovery)
 
 
 func raise() -> void:
 	_sword_restart()
-	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(-85.0, 0.0, 0.0), 0.05)
+	_sword_tween.tween_property(sword_pivot, "rotation_degrees", Vector3(40.0, 0.0, 0.0), 0.05)
 	_sword_tween.tween_interval(Global.COMBAT["parry_window"])
 	_sword_tween.tween_property(sword_pivot, "rotation_degrees", _sword_rest, 0.15)
 

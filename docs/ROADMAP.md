@@ -23,7 +23,7 @@ Quy trình: đề xuất → duyệt → nhánh `feature/mX-Y-ten` → push → 
 - **M14 Bot thông minh:** navmesh, loại bot mới, bot dùng Instability, đường cong độ khó.
 
 ## Giai đoạn 5: Hoàn thiện
-- **M15 Âm thanh và nhạc**, **M16 Giao diện và chế độ chơi**, **M17 Tối ưu và đóng gói** (Windows export cần Export Templates 4.7).
+- **M15 Âm thanh và nhạc**, **M16 Giao diện và chế độ chơi**, **M17 Hoàn thiện** (xong; người dùng tự đóng gói).
 
 ## Quy tắc chung
 Vật lý trong `_physics_process`; UI/âm thanh/hiệu ứng nghe Signal ("call down, signal up"); số cân bằng ở `Global`; asset dựng bằng code; chỉ học nguyên tắc cơ chế REDLINER, tên/hình dáng tự đặt.

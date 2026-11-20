@@ -177,7 +177,7 @@ const ANIM: Dictionary = {
 
 ## Tay + vũ khí góc nhìn thứ nhất (M7.4). Chỉ là hiển thị, không ảnh hưởng vật lý. Vị trí tính theo mét, góc theo độ.
 const VIEWMODEL: Dictionary = {
-	"sword_pos": Vector3(0.34, -0.27, -0.5),
+	"sword_pos": Vector3(0.34, -0.55, -0.6),
 	"gun_pos": Vector3(-0.3, -0.26, -0.5),
 	"bob_freq": 0.55,          # rad pha bước trên mỗi mét đi được
 	"bob_amp": 0.014,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
@@ -473,6 +473,7 @@ const TIMED: Dictionary = {
 }
 const TRAINING: Dictionary = {"respawn_time": 2.0, "bot_wave": 1, "types": ["swordsman", "gunner", "rusher", "elite", "bomber"]}
 
+const VERSION: String = "1.0.0"
 const MAP_IDS: Array = ["yard", "alley", "tower"]
 const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
 
@@ -495,6 +496,20 @@ func _ready() -> void:
 	load_save()
 
 
+## Giá trị trong file save có thể bị sửa/hỏng: chỉ nhận số/chuỗi/bool, còn lại về mặc định.
+static func _num(v: Variant, fallback: float) -> float:
+	if v is int or v is float:
+		var f: float = float(v)
+		return f if is_finite(f) else fallback
+	if v is String and (v as String).is_valid_float():
+		return (v as String).to_float()
+	return fallback
+
+
+static func _flag(v: Variant, fallback: bool) -> bool:
+	return bool(v) if v is bool or v is int else fallback
+
+
 func load_save() -> void:
 	high_score = 0
 	quality = QUALITY_DEFAULT
@@ -509,26 +524,26 @@ func load_save() -> void:
 		return
 	var cf := ConfigFile.new()
 	if cf.load(save_path) == OK:
-		var legacy: int = int(cf.get_value("progress", "high_score", 0))
+		var legacy: int = maxi(int(_num(cf.get_value("progress", "high_score", 0), 0.0)), 0)
 		for lv in DIFFICULTY_LEVELS:
-			_scores[lv] = int(cf.get_value("progress", "high_score_" + lv, legacy if lv == "normal" else 0))
+			_scores[lv] = maxi(int(_num(cf.get_value("progress", "high_score_" + lv, legacy if lv == "normal" else 0), 0.0)), 0)
 		for md in MODES:
 			if md == "survival":
 				continue
 			for lv in DIFFICULTY_LEVELS:
-				_mode_scores[md + "_" + lv] = int(cf.get_value("progress", "high_score_%s_%s" % [md, lv], 0))
+				_mode_scores[md + "_" + lv] = maxi(int(_num(cf.get_value("progress", "high_score_%s_%s" % [md, lv], 0), 0.0)), 0)
 		var gm: String = str(cf.get_value("game", "mode", "survival"))
 		game_mode = gm if gm in MODES else "survival"
 		var dl: String = str(cf.get_value("game", "difficulty", "normal"))
 		difficulty = dl if dl in DIFFICULTY_LEVELS else "normal"
 		high_score = int(_scores.get(difficulty, 0))
-		quality = clampi(int(cf.get_value("graphics", "quality", QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
+		quality = clampi(int(_num(cf.get_value("graphics", "quality", QUALITY_DEFAULT), QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
 		var m: String = str(cf.get_value("game", "map", "yard"))
 		selected_map = m if m in MAP_IDS else "yard"
-		reduced_fx = bool(cf.get_value("graphics", "reduced_fx", false))
+		reduced_fx = _flag(cf.get_value("graphics", "reduced_fx", false), false)
 		for k in DEFAULT_SETTINGS:
 			var v: Variant = cf.get_value("settings", k, DEFAULT_SETTINGS[k])
-			settings[k] = bool(v) if DEFAULT_SETTINGS[k] is bool else float(v)
+			settings[k] = _flag(v, DEFAULT_SETTINGS[k]) if DEFAULT_SETTINGS[k] is bool else _num(v, float(DEFAULT_SETTINGS[k]))
 		_clamp_settings()
 		if cf.has_section("bindings"):
 			for action in cf.get_section_keys("bindings"):
