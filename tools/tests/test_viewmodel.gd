@@ -157,12 +157,13 @@ func _run() -> void:
 	await process_frame
 	sw.play_swing(0.1, 0.1, 0.1)
 	await create_timer(0.12).timeout
-	_check(sw.sword_pivot.rotation_degrees.x < -40.0, "chém: sau windup kiếm giơ cao")
+	_check(sw.sword_pivot.rotation_degrees.y > 15.0, "chém: sau windup kiếm giơ cao")
 	await create_timer(0.35).timeout
-	_check(sw.sword_pivot.rotation_degrees.distance_to(Vector3(-15.0, 10.0, -25.0)) < 1.0, "chém: kiếm về tư thế nghỉ sau recovery")
+	_check(sw.sword_pivot.rotation_degrees.distance_to(Vector3(72.0, 0.0, -6.0)) < 1.0, "chém: kiếm về tư thế nghỉ sau recovery")
+	_check(sw.sword_pivot.rotation_degrees.x > 60.0 and sw.sword_pivot.rotation_degrees.x < 90.0, "kiếm cầm thẳng: lưỡi hướng lên khi nghỉ")
 	sw.raise()
 	await create_timer(0.1).timeout
-	_check(sw.sword_pivot.rotation_degrees.x < -70.0, "parry: kiếm chắn")
+	_check(sw.sword_pivot.rotation_degrees.x < 55.0, "parry: kiếm chắn")
 
 	# Giật khi bị đánh: đẩy lùi theo hướng đòn rồi lò xo kéo về
 	var fl: Node3D = _fresh()
@@ -190,7 +191,7 @@ func _run() -> void:
 	_check(p.viewmodel.reloading, "người chơi: reloading_changed -> nạp đạn")
 	p.melee.swing_started.emit(0.2, 0.1, 0.2)
 	await create_timer(0.22).timeout
-	_check(p.viewmodel.sword_pivot.rotation_degrees.x < -40.0, "người chơi: swing_started -> kiếm chém")
+	_check(p.viewmodel.sword_pivot.rotation_degrees.y > 15.0, "người chơi: swing_started -> kiếm chém")
 	p.respawn(Vector3.ZERO)
 	_check(not p.viewmodel.reloading and not p.viewmodel.muzzle_flash.visible, "người chơi: hồi sinh -> viewmodel về nghỉ")
 	print("---- ", "TẤT CẢ ĐẠT" if failures == 0 else "%d LỖI" % failures)

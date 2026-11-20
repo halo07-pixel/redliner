@@ -1,7 +1,7 @@
-# Bàn giao Redliner (cập nhật 2026-11-18)
+# Bàn giao Redliner (cập nhật 2026-11-20)
 
 ## Trạng thái
-- `main` = `cf72175` (đến M15 + sửa lỗi bot đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m16-modes` (M16 chế độ chơi và giao diện).
+- `main` = `5deeb14` (đến M16 đã gộp; nhánh chibi M7.6 bị từ chối, không gộp). Nhánh chờ duyệt: `feature/m17-polish` (M17 hoàn thiện + sửa cách cầm kiếm). Đây là mốc CUỐI của lộ trình.
 - Lộ trình: xem `docs/ROADMAP.md`. Quyết định: Forward+, Instability "Destabilized" (M8), làm cả M9 và M10.
 
 ## M6.1 (nhánh này)
@@ -32,14 +32,14 @@
 - Bot: `bot.gd` gọi `mannequin.animate` sau `move_and_slide`. Chưa có hoạt ảnh chém/bắn/choáng/chết (M7.3).
 - Người chơi: `player.gd` thêm `body_view` (hình nhân kind swordsman) ở render layer `BODY_LAYER`=2; camera cull_mask loại layer này nên không thấy thân mình nhưng vẫn có bóng. `_animate_body()` đẩy trạng thái xuống (slide/wallrun/grapple/dash qua `_dash_anim_t`). Quy ước `side`: +1 tường bên phải (= `_wall_side`).
 - Quy ước góc khớp: +x = vung về phía trước (-Z); +z của vai phải = dang ra ngoài.
-- Test: `tools/tests/test_animation.gd` (9 bộ test tổng cộng đều xanh). Ảnh: `docs/screenshots/m7_2_cac_tu_the.png`, script `tools/screenshots/shoot_poses.gd`.
+- Test: `tools/tests/test_animation.gd` (9 bộ test tổng cộng đều xanh). Bench: `tools/bench/bench.gd`. Ảnh: `docs/screenshots/m7_2_cac_tu_the.png`, script `tools/screenshots/shoot_poses.gd`.
 - Chưa kiểm bằng người: độ mượt khi chạy thật, tần số bước chân, biên độ; thân người chơi chỉ thấy qua bóng. Chỉnh ở `Global.ANIM`.
 
 ## M7.3 (nhánh này)
 - Overlay chiến đấu trong `rig_animator.gd`: `play(name, dur, data)`, `clear_overlay()`, `overlay_pose()` (hàm thuần), `overlay_weight()` (vào 0.06s, ra 0.12s, riêng `die` giữ tư thế nằm). Overlay: `swing` (3 pha theo windup/active/recovery lấy từ Signal `swing_started`), `shoot`, `parry`, `parry_miss`, `hurt` (theo hướng đòn), `stagger`, `die`. Chỉ điều khiển tay/thân (chân giữ nhịp chạy); ưu tiên die > stagger > còn lại (ưu tiên thấp không ngắt cao). `Mannequin.play()`/`clear_overlay()`.
 - Nối Signal: bot nối `melee.swing_started/staggered`, `parry.parry_started/parry_missed`, `hurtbox.hurt`, bắn trong `shoot_at`, chết trong `_on_died` (thay hiệu ứng ép dẹt bằng ngã ngửa; bot chết vẫn gọi `animate` để chạy nốt). Người chơi nối tương tự (kèm `combat.shot_fired`), `respawn` xóa overlay.
 - Thời lượng/tham số trong `Global.ANIM` (`shoot_time`, `hurt_time`, `parry_time`, `parry_miss_time`, `die_time`, `overlay_in/out`). Biên độ tư thế nằm trong `overlay_pose()`.
-- Test: `tools/tests/test_combat_animation.gd` (10 bộ test đều xanh). Ảnh: `docs/screenshots/m7_3_tu_the_chien_dau.png`, script `tools/screenshots/shoot_combat_poses.gd`.
+- Test: `tools/tests/test_combat_animation.gd` (10 bộ test đều xanh). Bench: `tools/bench/bench.gd`. Ảnh: `docs/screenshots/m7_3_tu_the_chien_dau.png`, script `tools/screenshots/shoot_combat_poses.gd`.
 - Chưa kiểm bằng người: độ "nặng đòn", khả năng đọc đòn của bot để parry (hoạt ảnh chém bám đúng thời lượng báo đòn 0.3s), độ mượt thật.
 
 ## M7.4 (nhánh này)
@@ -48,14 +48,14 @@
 - Nhánh A (chỉnh lại theo phản hồi "chưa hài lòng"): súng lục dựng nhiều khối (khung, thân trượt, nòng, đầu ruồi, báng, bao cò), kiếm có chuôi, đầu chuôi, tsuba, lưỡi + sống lưỡi, bàn tay có ngón và ngón cái (màu da), tay áo xanh. Nhún/lắc/tiếp đất/giật đi qua LÒ XO (`Spring`: `spring_k/c`, `rot_spring_k/c`, `sway_impulse`, `land_impulse`, `flinch_impulse` trong `Global.VIEWMODEL`) nên có quán tính và nảy nhẹ; tư thế trạng thái cũng do lò xo làm mượt.
 - Giới hạn: vẫn là khối cơ bản; cẳng tay chủ yếu ngoài khung hình nên chỉ thấy bàn tay. Cần người chơi thử để chỉnh độ cứng lò xo, kích thước, vị trí.
 - Kế hoạch đã duyệt: A (nhánh này, chỉnh M7.4) → B `feature/m7-5-character-polish` (làm đẹp bằng code: hình dáng chi tiết, chu kỳ chạy tốt, thở/đổi chân/quay đầu, quán tính, chém có anticipation) → C `feature/m7-6-external-assets` (asset ngoài CC0, adapter giữ API Mannequin; mạng cloud chỉ tới npm/pip/GitHub, có thể cần người dùng đính kèm file; chốt phong cách, mặc định low-poly). Mỗi nhánh một lần duyệt gộp riêng; M8 lùi sau.
-- Test: `tools/tests/test_viewmodel.gd` (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_4_*.png` (đứng, chém, bắn, nạp), script `tools/screenshots/shoot_viewmodel.gd`.
+- Test: `tools/tests/test_viewmodel.gd` (11 bộ test đều xanh). Bench: `tools/bench/bench.gd`. Ảnh: `docs/screenshots/m7_4_*.png` (đứng, chém, bắn, nạp), script `tools/screenshots/shoot_viewmodel.gd`.
 - Chưa kiểm bằng người: độ mượt của nhún/lắc/giật, độ "đã tay".
 
 ## M7.5 (nhánh B, làm đẹp nhân vật bằng code)
 - `mannequin.gd` dựng chi tiết hơn: ngực/bụng/đai/cổ, đầu da + mắt, khớp tròn vai/khuỷu/gối, bàn tay có ngón, bốt có cổ. Khớp mới: `hand_l`, `ankle_l`, `ankle_r` (thêm vào `JOINT_NAMES`; mọi khớp cũ và API cũ giữ nguyên). Màu da `Global.SKIN_COLOR`; thân/quần/giáp theo màu loại bot.
 - Chi tiết riêng theo `Global.RIG[kind]["style"]`: `ronin` (băng đầu, dây đeo chéo, tà áo, giáp vai), `ranger` (mũ trùm, kính phát sáng, dây đạn, túi đạn), `guard` (mũ giáp có mào + khe nhìn phát sáng, giáp ống chân và cẳng tay, giáp ngực, vạch sáng). Hình bóng ba loại khác nhau rõ.
 - `rig_animator.gd`: mỗi khớp đi qua lò xo (`Global.ANIM.joint_k/joint_c`) nên chuyển tư thế có quán tính; chạy: hông nhún (`hip_bob`), hông xoay/vai xoay ngược (`hip_twist`, `spine_twist`), đầu bù xoay giữ hướng nhìn, bàn chân gót chạm/đẩy mũi, khuỷu gập theo nhịp; đứng yên: thở, đổi trọng tâm, thỉnh thoảng quay đầu (`idle_look`). Overlay có khóa cộng thêm (`"+tên_khớp"`): chém hạ người dồn lực (`anticip_drop`) rồi lao tới (`lunge`, qua `hips_z`) mà chân vẫn chạy; bị đánh khuỵu gối; choáng đung đưa; ngã nảy nhẹ khi chạm đất.
-- Test: `test_mannequin` và `test_animation` thêm kiểm khớp/chi tiết/hình bóng/nhún hông/lò xo; `test_combat_animation` thêm kiểm hạ người và lao tới (11 bộ test đều xanh). Ảnh: `docs/screenshots/m7_5_*.png`.
+- Test: `test_mannequin` và `test_animation` thêm kiểm khớp/chi tiết/hình bóng/nhún hông/lò xo; `test_combat_animation` thêm kiểm hạ người và lao tới (11 bộ test đều xanh). Bench: `tools/bench/bench.gd`. Ảnh: `docs/screenshots/m7_5_*.png`.
 - Chưa kiểm bằng người: độ mượt thật, độ tự nhiên của chu kỳ chạy. Vẫn là khối cơ bản (nhánh C sẽ thay bằng asset ngoài). Chỉnh ở `Global.ANIM`, `Global.RIG`, `overlay_pose()`.
 
 ## M7.7 (nhánh `feature/m7-7-stickman-weapons`: người que + vũ khí thật)
@@ -155,13 +155,35 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 - Test: `test_bot_fixes` (sinh bot, ngoài biên, leo bậc, thùng thấp, kẹt, nguồn đã giải phóng). 20 bộ đều xanh.
 - Còn lại / cần người chơi thử: bot xạ thủ và pháo thủ đứng yên ở tầm giữ khoảng cách là chủ ý, không phải lỗi. Bot hơi "nhảy" qua mép khi leo bậc (không có hoạt ảnh riêng). Bot chưa tránh thùng nổ. Mô phỏng không thay được chơi thật: chưa kiểm cảm giác bot bám đuổi, vây, né.
 
+## M17 (nhánh `feature/m17-polish`: hoàn thiện)
+- **Cầm kiếm**: góc nhìn thứ nhất giờ cầm lưỡi kiếm thẳng lên (`_sword_rest` pitch 72°, `sword_pos` hạ thấp để thấy cả lưỡi). Vì Euler YXZ bị kẹp pitch ±90°, nên windup là pitch 88° + xoay yaw/roll, chém là quét xuống chéo, parry là ngả lưỡi 40°. Tay áo tính ngược từ `Basis.from_euler(rest).inverse()` để vẫn nối đúng vai. Bot (góc nhìn thứ ba) đã cầm lưỡi hướng lên nên không đổi.
+- **Phiên bản**: `Global.VERSION` ("1.0.0"), hiện ở menu chính cùng gợi ý phím F3.
+- **Bảng FPS**: `scripts/perf_overlay.gd`, phím F3 (mặc định tắt): FPS, ms/khung, số node.
+- **Save hỏng**: `Global._num/_flag` — giá trị sai kiểu, âm, NaN, ngoài khoảng về mặc định thay vì lỗi; file không phải ConfigFile thì bỏ qua.
+- **Công cụ đo**: `godot --headless --path . -s tools/bench/bench.gd -- [wave=4] [map,map]` (headless chỉ đo chi phí script, KHÔNG đo GPU). Kết quả wave 1-3, mức Khó, 6 bot: process trung bình ~2 ms, physics ~3-4 ms; đỉnh >20 ms chỉ ở vài khung đầu (nạp map, bake navmesh, tổng hợp âm thanh) chứ không ở lúc đánh nhau; sau khi thoát ván không thừa node. Vì không có điểm nóng trong lúc chơi nên KHÔNG tối ưu thêm (không đoán mò); bỏ qua pooling hiệu ứng. Việc cần máy thật: đo FPS GPU 3 mức đồ họa (Thấp/Vừa/Cao).
+- **Sửa lỗi tìm được khi soak**: `rocket.gd` truyền người bắn đã bị giải phóng vào `Rocket.explode` gây SCRIPT ERROR; giờ truyền null nếu không còn hợp lệ.
+- Test: `test_polish` (save hỏng, VERSION, F3, vào/thoát ván 4 lần, 5 wave: số node tĩnh giữ nguyên 380). `test_viewmodel` cập nhật cho tư thế mới. 22 bộ test.
+- Soak: 5 wave mức Khó trên 3 map không còn lỗi script/bot kẹt sau các bản sửa. Chưa soak 3 map × 3 mức × 3 chế độ đủ dài (mất nhiều giờ); cần người chơi thử thật.
+
+### Bảng số cần chỉnh sau khi chơi thử (tất cả trong `scripts/global.gd`)
+| Cảm giác | Nơi chỉnh |
+| --- | --- |
+| Bot quá yếu / mạnh | `DIFFICULTY.levels` (health, speed, reaction, parry, dodge), `BOTS[loại]` (health, speed, windup, attack_cd, shoot_interval) |
+| Wave quá dễ / dày | `DIFFICULTY` (cỡ wave, tăng theo wave), `TIMED` (start_time, kill_bonus, target_kills) |
+| Kiếm đánh nặng / nhẹ | `COMBAT` (sword_damage, sword_windup/active/recovery, sword_reach, parry_window) |
+| Di chuyển nặng / trôi | `PLAYER` (ground_accel, ground_friction, air_accel, gravity, jump_velocity, coyote_time) |
+| Instability quá nhanh / chậm | `INSTABILITY` |
+| Cầm kiếm / súng trong tay | `VIEWMODEL` (sword_pos...), `viewmodel.gd` (`_sword_rest`, tư thế chém) |
+| Âm lượng, nhạc | `AUDIO`, `SOUNDS`, mục Cài đặt |
+| Mức đồ họa | `QUALITY` |
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (21 bộ: test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh).
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (22 bộ: test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
 ## Việc kế tiếp
-M17 (xem ROADMAP). Mỗi việc phải đề xuất + chờ duyệt.
+Hết lộ trình M6-M17. Người dùng tự đóng gói Windows (không làm export trong dự án này). Việc mới: chơi thử rồi chỉnh theo bảng số ở trên; mỗi việc phải đề xuất + chờ duyệt.

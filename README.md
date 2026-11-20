@@ -4,7 +4,7 @@ Game FPS 3D tốc độ cao (lấy cảm hứng từ REDLINER trên Roblox) làm
 Chế độ: một người chơi đấu với bot (PvE). Asset tạm: hình nhân 3D dựng bằng khối cơ bản.
 
 ## Chạy
-Mở thư mục bằng Godot 4.7 rồi nhấn F5. Điều khiển: `WASD` di chuyển, `Space` nhảy, `Ctrl` trượt, `Shift` dash, chuột phải móc (grapple), chuột trái chém kiếm, `E` bắn súng, `1-4`/cuộn chuột đổi súng (súng lục, shotgun, pháo nổ, bắn tỉa), `Q` chém rộng, `Z` ngắm (bắn tỉa), `C` đập đất, `F` parry, `R` nạp đạn, `Esc` tạm dừng, chuột nhìn, `Esc` nhả chuột. Chạy sát tường khi đang trên không để bám tường.
+Mở thư mục bằng Godot 4.7 rồi nhấn F5. Điều khiển: `WASD` di chuyển, `Space` nhảy, `Ctrl` trượt, `Shift` dash, chuột phải móc (grapple), chuột trái chém kiếm, `E` bắn súng, `1-4`/cuộn chuột đổi súng (súng lục, shotgun, pháo nổ, bắn tỉa), `Q` chém rộng, `Z` ngắm (bắn tỉa), `C` đập đất, `F` parry, `R` nạp đạn, `F3` bảng FPS, `Esc` tạm dừng, chuột nhìn, `Esc` nhả chuột. Chạy sát tường khi đang trên không để bám tường.
 
 ## Test headless
 ```
@@ -13,7 +13,9 @@ godot --headless --path . -s tools/tests/test_advanced_movement.gd
 godot --headless --path . -s tools/tests/test_combat.gd
 godot --headless --path . -s tools/tests/test_bots.gd
 godot --headless --path . -s tools/tests/test_menu_instability.gd
+godot --headless --path . -s tools/tests/test_polish.gd
 ```
+(Có 22 bộ trong `tools/tests/`.) Đo hiệu năng script: `godot --headless --path . -s tools/bench/bench.gd -- 4`. Bàn giao và bảng số cần chỉnh: `docs/HANDOFF.md`.
 
 Chụp màn hình (cần Xvfb): `xvfb-run -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -s tools/screenshots/shoot.gd -- docs/screenshots`
 
@@ -22,7 +24,8 @@ Chụp màn hình (cần Xvfb): `xvfb-run -s "-screen 0 1280x720x24" godot --pat
 2. Di chuyển nâng cao: slide, dash, wallrun, grapple (xong)
 3. Chiến đấu: kiếm, súng, parry/clash (xong)
 4. Bot AI + wave + điểm (xong)
-5. Menu, HUD, Instability "mất thế", âm thanh, hiệu ứng (hiện tại)
+5. Menu, HUD, Instability "mất thế", âm thanh, hiệu ứng (xong)
+6. M6-M17: đồ họa, nhân vật, vũ khí, bản đồ, bot thông minh, âm thanh, chế độ chơi, hoàn thiện (xong, v1.0.0)
 
 ## Cơ chế Instability "mất thế"
 Thanh Instability tăng khi thua clash (kiếm chạm kiếm), parry hụt hoặc bị đối phương parry; bớt khi parry thành công hoặc đánh trúng, và tự giảm dần khi không bị cộng thêm.

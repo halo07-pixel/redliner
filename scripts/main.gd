@@ -38,6 +38,7 @@ func _ready() -> void:
 	player = PLAYER_SCENE.instantiate()
 	add_child(player)
 	player.global_position = arena.spawn_point
+	add_child(preload("res://scripts/perf_overlay.gd").new())
 
 	# --- Di chuyển -> HUD / âm thanh
 	player.speed_changed.connect(hud.set_speed)

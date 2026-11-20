@@ -45,7 +45,7 @@ func _physics_process(delta: float) -> void:
 		global_position = to
 		return
 	var pos: Vector3 = hit["position"]
-	explode(get_world_3d(), pos, cfg, source)
+	explode(get_world_3d(), pos, cfg, source if is_instance_valid(source) else null)
 	exploded.emit(pos, float(cfg["blast_radius"]))
 	queue_free()
 
