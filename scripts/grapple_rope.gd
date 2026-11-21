@@ -14,6 +14,7 @@ var _mi := MeshInstance3D.new()
 var _hook := MeshInstance3D.new()
 var _age: float = 0.0
 var progress: float = 0.0 # 0..1 độ dài dây đã phóng ra
+var tension: float = 0.0  # 0..1 độ căng (dây dày + sáng hơn)
 
 
 func _ready() -> void:
@@ -44,6 +45,7 @@ func show_to(point: Vector3) -> void:
 	_target = point
 	_age = 0.0
 	progress = 0.0
+	tension = 0.0
 	_mi.visible = true
 	_hook.visible = false
 	set_process(true)
@@ -54,6 +56,10 @@ func hide_rope() -> void:
 	_hook.visible = false
 	_mesh.clear_surfaces()
 	set_process(false)
+
+
+func set_tension(t: float) -> void:
+	tension = clampf(t, 0.0, 1.0)
 
 
 func is_attached() -> bool:
@@ -76,7 +82,7 @@ func _process(delta: float) -> void:
 		_mesh.clear_surfaces()
 		return
 	var view: Vector3 = (cam.global_position - start) if cam != null else Vector3.UP
-	var side: Vector3 = dir.cross(view).normalized() * WIDTH * 0.5
+	var side: Vector3 = dir.cross(view).normalized() * WIDTH * (0.5 + 0.6 * tension)
 	var up: Vector3 = side.cross(dir).normalized()
 	# Biên độ sóng giảm dần theo thời gian (dây căng dần) và tắt hẳn khi giảm hiệu ứng.
 	var wave: float = 0.0 if Global.reduced_fx else 0.35 * maxf(0.0, 1.0 - _age * 3.0) * minf(len * 0.1, 1.0)

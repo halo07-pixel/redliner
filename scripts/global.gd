@@ -420,13 +420,16 @@ const PLAYER: Dictionary = {
 	"wall_jump_push": 9.0,   # lực bật ra khỏi tường (m/s)
 	"wall_roll_deg": 12.0,   # độ nghiêng camera
 	# --- Grapple ---
-	"grapple_range": 60.0,
+	"grapple_range": 90.0,
 	"grapple_pull_start": 40.0,  # m/s² lúc mới móc
 	"grapple_pull_max": 130.0,   # m/s² sau khi kéo đủ lâu (lực tăng dần)
 	"grapple_ramp": 0.8,         # giây để lực kéo đạt mức tối đa
 	"grapple_max_speed": 45.0,   # tốc độ kéo tối đa về phía điểm móc
-	"grapple_stop_dist": 2.5,    # tới gần điểm móc thì thả
-	"grapple_max_time": 3.0,
+	"grapple_stop_dist": 2.5,    # tới gần điểm móc thì ngừng kéo (vẫn bám nếu còn giữ chuột)
+	"grapple_max_time": 6.0,
+	"grapple_assist_deg": 6.0,   # hỗ trợ ngắm: nón (độ) quanh tâm ngắm để tìm điểm móc khi tia chính không trúng
+	"grapple_swing": 1.0,        # 1 = dây căng thì đu như con lắc (không bị kéo xa hơn độ dài dây), 0 = tắt
+	"grapple_release_snap": 4.0, # + m/s khi nhả lúc dây đang căng (bắn ra theo hướng nhìn)
 	"grapple_cooldown": 0.5,
 	"grapple_redirect_blend": 0.7, # nhả móc: tỉ lệ vận tốc được xoay theo hướng nhìn (giữ nguyên độ lớn)
 	"grapple_release_boost": 3.0,  # + m/s dọc hướng nhìn khi nhả móc (redirect)

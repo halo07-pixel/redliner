@@ -49,6 +49,7 @@ func _ready() -> void:
 	speed_lines.set_script(preload("res://scripts/speed_lines.gd"))
 	add_child(speed_lines)
 	player.speed_changed.connect(speed_lines.set_speed)
+	player.grapple_target_changed.connect(hud.set_grapple_ready)
 	player.grapple_started.connect(func(pt): Fx.sparks(self, pt, Color(1.0, 0.55, 0.2)); Fx.ring(self, pt, Color(1.0, 0.6, 0.3, 0.8)))
 	player.dash_charges_changed.connect(func(c, _m): if c < _last_charges: Fx.dust(self, player.global_position, 10))
 	player.stamina_changed.connect(hud.set_stamina)
