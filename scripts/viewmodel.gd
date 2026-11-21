@@ -282,7 +282,7 @@ func set_weapon(id: String, animate: bool = true) -> void:
 		_gn.rot.x = Vector3(-35.0, 0.0, 0.0)
 		_gn.pos.v = Vector3.ZERO
 		_gn.rot.v = Vector3.ZERO
-		_gn.start("draw", [{"d": up, "base": true, "ease": "out", "k": float(Global.VIEWMODEL["draw_k"])}], 0.0)
+		_gn.start("draw", [{"d": up, "base": true, "ease": "out", "k": float(Global.tv("draw_k"))}], 0.0)
 		_apply()
 
 
@@ -394,7 +394,7 @@ func arm_error(which: String) -> float:
 ## Chuột xoay: vũ khí bị "hất" lệch rồi lò xo kéo về (có nảy nhẹ). relative = Vector2 pixel.
 func add_look(relative: Vector2) -> void:
 	var V: Dictionary = Global.VIEWMODEL
-	var imp: float = float(V["sway_impulse"])
+	var imp: float = float(Global.tv("sway_impulse"))
 	_rot_spring.v.x += relative.y * imp
 	_rot_spring.v.y += relative.x * imp
 
@@ -403,8 +403,8 @@ func add_look(relative: Vector2) -> void:
 func footstep(_speed: float = 0.0) -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	var inten: float = clampf(float(Global.settings.get("bob", 1.0)), 0.0, 1.5)
-	_pos_spring.v.y -= float(V["step_impulse"]) * inten
-	_rot_spring.v.z += _step_side * float(V["step_roll"]) * inten * 10.0
+	_pos_spring.v.y -= float(Global.tv("step_impulse")) * inten
+	_rot_spring.v.z += _step_side * float(Global.tv("step_roll")) * inten * 10.0
 	_step_side = -_step_side
 
 
@@ -456,10 +456,10 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	bob_offset = Vector3(cos(_bob_phase * 0.5) * float(V["bob_side"]) * amp, absf(sin(_bob_phase * 0.5)) * float(V["bob_amp"]) * amp * -1.0, 0.0)
 	# Tiếp đất: đẩy một xung xuống, lò xo nảy lại.
 	if grounded and not _was_grounded:
-		_pos_spring.v.y -= float(V["land_impulse"])
+		_pos_spring.v.y -= float(Global.tv("land_impulse"))
 	_was_grounded = grounded
 	# Trọng số trạng thái trượt mượt về 1 (trạng thái hiện tại) / 0 (còn lại): đổi trạng thái là cross-fade.
-	var fade: float = maxf(float(V["state_fade"]), 0.01)
+	var fade: float = maxf(float(Global.tv("state_fade")), 0.01)
 	for s in _w:
 		_w[s] = move_toward(float(_w[s]), 1.0 if s == st else 0.0, delta / fade)
 	var inten: float = clampf(float(Global.settings.get("bob", 1.0)), 0.0, 1.5)
@@ -469,8 +469,8 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	# Đi ngang: nghiêng cả tay theo hướng bước.
 	tr.z += -clampf(lateral, -1.0, 1.0) * float(V["strafe_roll"]) * inten * (1.0 if grounded else 0.4)
 	_t += delta
-	_pos_spring.step(delta, tp, float(V["spring_k"]), float(V["spring_c"]))
-	_rot_spring.step(delta, tr, float(V["rot_spring_k"]), float(V["rot_spring_c"]))
+	_pos_spring.step(delta, tp, float(Global.tv("spring_k")), float(Global.tv("spring_c")))
+	_rot_spring.step(delta, tr, float(Global.tv("rot_spring_k")), float(Global.tv("rot_spring_c")))
 	var m: float = float(V["sway_max"])
 	_rot_spring.x.x = clampf(_rot_spring.x.x, tr.x - m, tr.x + m)
 	_rot_spring.x.y = clampf(_rot_spring.x.y, tr.y - m, tr.y + m)
@@ -480,7 +480,7 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	var sw_done: bool = _sw.step(delta, base[0], base[1])
 	_gn.step(delta, base[2], base[3])
 	var kk: float = pow(4.0 / maxf(float(V["kick_time"]), 0.02), 2.0)
-	_kick_spring.step(delta, Vector3.ZERO, kk, 2.0 * sqrt(kk) * float(V["kick_zeta"]))
+	_kick_spring.step(delta, Vector3.ZERO, kk, 2.0 * sqrt(kk) * float(Global.tv("kick_zeta")))
 	if sw_done or not _sw.active():
 		_run_queued()
 	elif _sw.queued.is_valid() and _sw.t >= _sw.cancel_from:
@@ -488,6 +488,12 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	_apply()
 	if Global.anim_debug:
 		Global.anim_debug_text = debug_info()
+		var smp: PackedFloat32Array = Global.anim_debug_samples
+		smp.append(sword_pivot.position.distance_to(_sword_rest_pos))
+		smp.append(sword_pivot.rotation_degrees.distance_to(_sword_rest) / 90.0)
+		if smp.size() > 480:
+			smp = smp.slice(smp.size() - 480)
+		Global.anim_debug_samples = smp
 	# Chớp nòng tắt sau flash_time.
 	if _flash_t > 0.0:
 		_flash_t -= delta
@@ -546,13 +552,13 @@ func _start_swing(windup: float, active: float, recovery: float) -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	var back: Vector3 = _sword_rest_pos + Vector3(0.1, 0.06, 0.18)
 	var fwd: Vector3 = _sword_rest_pos + Vector3(-0.2, -0.04, -0.28)
-	var kw: float = float(V["swing_windup_k"])
+	var kw: float = float(Global.tv("swing_windup_k"))
 	var keys: Array = [
 		{"d": windup * 0.8, "pos": back, "rot": Vector3(88.0, 45.0, -35.0), "ease": "out", "k": kw},
 		{"d": windup * 0.2, "pos": back + Vector3(0.012, 0.008, 0.025), "rot": Vector3(90.0, 47.0, -36.0), "ease": "lin", "k": kw},
-		{"d": active, "pos": fwd, "rot": Vector3(0.0, -55.0, -22.0), "ease": "in", "k": float(V["swing_active_k"])},
-		{"d": recovery * 0.3, "pos": fwd + Vector3(-0.03, -0.015, -0.05), "rot": Vector3(-6.0, -62.0, -24.0), "ease": "out", "k": float(V["swing_follow_k"])},
-		{"d": recovery * 0.7, "base": true, "ease": "io", "k": float(V["swing_recover_k"])},
+		{"d": active, "pos": fwd, "rot": Vector3(0.0, -55.0, -22.0), "ease": "in", "k": float(Global.tv("swing_active_k"))},
+		{"d": recovery * 0.3, "pos": fwd + Vector3(-0.03, -0.015, -0.05), "rot": Vector3(-6.0, -62.0, -24.0), "ease": "out", "k": float(Global.tv("swing_follow_k"))},
+		{"d": recovery * 0.7, "base": true, "ease": "io", "k": float(Global.tv("swing_recover_k"))},
 	]
 	_sw.start("swing", keys, windup + active)
 
@@ -568,17 +574,42 @@ func _start_raise() -> void:
 	var gp: Vector3 = Vector3(V["guard_pos"])
 	var gr: Vector3 = Vector3(V["guard_rot"])
 	var keys: Array = [
-		{"d": tin, "pos": gp, "rot": gr, "ease": "out", "k": float(V["guard_k"])},
-		{"d": float(Global.COMBAT["parry_window"]), "pos": gp + Vector3(0.0, 0.006, 0.012), "rot": gr + Vector3(-1.5, 1.0, 0.0), "ease": "lin", "k": float(V["guard_hold_k"])},
-		{"d": 0.18, "base": true, "ease": "io", "k": float(V["swing_recover_k"])},
+		{"d": tin, "pos": gp, "rot": gr, "ease": "out", "k": float(Global.tv("guard_k"))},
+		{"d": float(Global.COMBAT["parry_window"]), "pos": gp + Vector3(0.0, 0.006, 0.012), "rot": gr + Vector3(-1.5, 1.0, 0.0), "ease": "lin", "k": float(Global.tv("guard_hold_k"))},
+		{"d": 0.18, "base": true, "ease": "io", "k": float(Global.tv("swing_recover_k"))},
 	]
 	_sw.start("parry", keys, tin + 0.04)
 
 
-## Parry thành công: cú đẩy kiếm ra trước (phản lực) + giật nhẹ.
+## Parry thành công: cú đẩy kiếm ra trước (phản lực) + giật nhẹ; kiếm bật ra ngoài rồi thu về (clip, ngắt ngay).
 func parry_hit() -> void:
 	_pos_spring.v += Vector3(0.0, 0.2, -1.8)
 	_rot_spring.v += Vector3(-60.0, 0.0, 0.0)
+	_sword_command("parry_hit", func(): _start_deflect(), true)
+
+
+func _start_deflect() -> void:
+	var V: Dictionary = Global.VIEWMODEL
+	var gp: Vector3 = Vector3(V["guard_pos"])
+	var gr: Vector3 = Vector3(V["guard_rot"])
+	var keys: Array = [
+		{"d": 0.07, "pos": gp + Vector3(0.06, 0.04, -0.16), "rot": gr + Vector3(-10.0, 16.0, -10.0), "ease": "out", "k": float(Global.tv("guard_k"))},
+		{"d": 0.28, "base": true, "ease": "io", "k": float(Global.tv("swing_recover_k"))},
+	]
+	_sw.start("parry_hit", keys, 0.12)
+
+
+## Hai kiếm chạm nhau (clash): kiếm bị hất lên/ra, cả viewmodel bị đẩy lùi theo hướng đẩy (direction theo hệ camera, hướng AWAY khỏi đối thủ).
+func clash(direction: Vector3) -> void:
+	var V: Dictionary = Global.VIEWMODEL
+	var f: float = float(Global.tv("clash_impulse"))
+	_pos_spring.v += Vector3(clampf(direction.x, -1.0, 1.0) * f * 0.6, f * 0.15, absf(direction.z) * f + f * 0.4)
+	_rot_spring.v += Vector3(-40.0, clampf(direction.x, -1.0, 1.0) * 40.0, 0.0)
+	var keys: Array = [
+		{"d": 0.06, "pos": _sword_rest_pos + Vector3(-0.1, 0.12, 0.12), "rot": Vector3(104.0, 30.0, -32.0), "ease": "out", "k": float(Global.tv("guard_k"))},
+		{"d": 0.4, "base": true, "ease": "elastic", "k": float(Global.tv("parry_fail_k"))},
+	]
+	_sword_command("clash", func(): _sw.start("clash", keys, 0.15), true)
 
 
 ## Parry hụt: kiếm bị hất xuống thấp rồi loạng choạng nảy đàn hồi về lại. Luôn ngắt được clip hiện tại.
@@ -589,8 +620,8 @@ func parry_fail() -> void:
 func _start_parry_fail() -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	var keys: Array = [
-		{"d": 0.08, "pos": _sword_rest_pos + Vector3(-0.05, -0.2, 0.1), "rot": Vector3(25.0, 30.0, -35.0), "ease": "out", "k": float(V["guard_k"])},
-		{"d": 0.45, "base": true, "ease": "elastic", "k": float(V["parry_fail_k"])},
+		{"d": 0.08, "pos": _sword_rest_pos + Vector3(-0.05, -0.2, 0.1), "rot": Vector3(25.0, 30.0, -35.0), "ease": "out", "k": float(Global.tv("guard_k"))},
+		{"d": 0.45, "base": true, "ease": "elastic", "k": float(Global.tv("parry_fail_k"))},
 	]
 	_sw.start("parry_fail", keys, 0.3)
 	_pos_spring.v += Vector3(0.0, -0.8, 0.5)
@@ -601,8 +632,8 @@ func kick() -> void:
 	if reloading:
 		return
 	var V: Dictionary = Global.VIEWMODEL
-	var back: float = float(V["kick_back"])
-	var pitch: float = float(V["kick_pitch"])
+	var back: float = float(Global.tv("kick_back"))
+	var pitch: float = float(Global.tv("kick_pitch"))
 	_kick_spring.x = Vector3(minf(_kick_spring.x.x + pitch, pitch * 1.6), 0.0, minf(_kick_spring.x.z + back, back * 1.6))
 	_kick_spring.v = Vector3.ZERO
 	muzzle_flash.visible = true
@@ -624,7 +655,7 @@ func set_reloading(on: bool) -> void:
 		var up: float = float(V["reload_up_time"])
 		var hold: float = maxf(total - down - up, 0.0)
 		var low: Vector3 = _gun_rest_pos + Vector3(0.0, -0.35, 0.1)
-		var rk: float = float(V["reload_k"])
+		var rk: float = float(Global.tv("reload_k"))
 		var keys: Array = [
 			{"d": down, "pos": low, "rot": Vector3(-40.0, 0.0, 25.0), "ease": "io", "k": rk},
 			{"d": hold * 0.35, "pos": low + Vector3(0.0, 0.02, 0.0), "rot": Vector3(-40.0, 0.0, 10.0), "ease": "io", "k": rk},
@@ -635,12 +666,12 @@ func set_reloading(on: bool) -> void:
 		_gn.start("reload", keys, 0.0)
 	else:
 		reloading = false
-		_gn.start("reload_cancel", [{"d": 0.12, "base": true, "ease": "out", "k": float(V["reload_k"]) * 3.0}], 0.0)
+		_gn.start("reload_cancel", [{"d": 0.12, "base": true, "ease": "out", "k": float(Global.tv("reload_k")) * 3.0}], 0.0)
 
 
 ## Bị đánh: cả viewmodel bị đẩy lùi theo hướng đòn (direction theo hệ tọa độ camera), lò xo kéo về.
 func flinch(direction: Vector3) -> void:
-	var f: float = float(Global.VIEWMODEL["flinch_impulse"])
+	var f: float = float(Global.tv("flinch_impulse"))
 	_pos_spring.v += Vector3(clampf(direction.x, -1.0, 1.0) * f * 0.7, -f * 0.35, f)
 
 

@@ -42,6 +42,8 @@ const WEAPONS: Dictionary = {
 
 @export var color: Color = Color(0.85, 0.85, 0.9)
 var kind: String = "swordsman"
+## Bám chân xuống mặt đất bằng IK (cùng API với mannequin.gd).
+var ik_feet: bool = true
 var joints: Dictionary = {}
 var weapon: Node3D
 var animator: RefCounted
@@ -70,6 +72,7 @@ func _ready() -> void:
 	skeleton = model.find_children("*", "Skeleton3D", true, false)[0]
 	_fit_height()
 	_prepare_skeleton()
+	_fit_proxy_lengths()
 	_prepare_materials()
 	_attach_weapon()
 	animator = AnimatorScript.new()
@@ -111,6 +114,27 @@ func _prepare_skeleton() -> void:
 	# bàn tay đi theo cẳng tay
 	_bone_fix["hand_l"] = _bone_fix["elbow_l"]
 	_bone_fix["hand_r"] = _bone_fix["elbow_r"]
+
+
+## Đặt vị trí khớp proxy theo xương thật (M20) để IK (rig_ik.gd) giải đúng độ dài xương: cặp khớp trên/dưới của tay chân thẳng
+## xuống ở tư thế gốc nên đoạn dưới = (0, -độ dài, 0); các khớp còn lại lấy hiệu vị trí xương. Góc xoay proxy vẫn là thứ duy nhất
+## đi vào `_apply_pose`, nên FK không đổi.
+func _fit_proxy_lengths() -> void:
+	var wp: Dictionary = {}
+	for jn in JOINT_NAMES:
+		wp[jn] = to_local(skeleton.global_transform * skeleton.get_bone_global_rest(int(_bone_idx[jn])).origin)
+	const LOWER: Array = ["elbow_l", "elbow_r", "hand_l", "hand_r", "knee_l", "knee_r", "ankle_l", "ankle_r"]
+	for jn in JOINT_NAMES:
+		var parent_name: String = JOINT_TREE[jn][0]
+		if parent_name == "":
+			continue
+		var j: Node3D = joints[jn]
+		if jn in LOWER:
+			j.position = Vector3(0.0, -(wp[jn] as Vector3).distance_to(wp[parent_name]), 0.0)
+		else:
+			j.position = (wp[jn] as Vector3) - (wp[parent_name] as Vector3)
+	_hips_base_y = (wp["hips"] as Vector3).y
+	(joints["hips"] as Node3D).position = Vector3(0.0, _hips_base_y, 0.0)
 
 
 ## Mỗi nhân vật có bản sao vật liệu riêng (tô màu, nháy, mờ).
@@ -207,6 +231,17 @@ func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_nam
 
 func play(overlay_name: String, duration: float, data: Dictionary = {}) -> void:
 	animator.play(overlay_name, duration, data)
+
+
+## Mục tiêu nhìn (vị trí thế giới) hoặc null. Chỉ hiển thị (IK đầu/thân).
+func set_look_target(p: Variant) -> void:
+	animator.set_look_target(p)
+
+
+## Điểm tay trái cần chạm để đỡ báng súng (thế giới): phía trước bàn tay phải theo hướng ngắm.
+func support_grip() -> Vector3:
+	var hr: Node3D = joints["hand_r"]
+	return hr.global_position + global_transform.basis * Vector3(0.0, 0.03, -0.42)
 
 
 func clear_overlay() -> void:

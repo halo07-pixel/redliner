@@ -78,6 +78,7 @@ func _physics_process(delta: float) -> void:
 			"source": shooter,
 			"direction": velocity.normalized(),
 			"bullet": self,
+			"point": hit["position"],
 		})
 		if _reflect_frame == Engine.get_physics_frames():
 			global_position = hit["position"]

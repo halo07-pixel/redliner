@@ -195,7 +195,7 @@ func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 			head = (hit["position"] as Vector3).y - base_y > float(c["headshot_height"])
 			if head:
 				d *= float(c["headshot_mult"])
-		if _hit(col, d, dir, {"headshot": head}):
+		if _hit(col, d, dir, {"headshot": head, "point": hit["position"]}):
 			any_landed = true
 		exclude.append(col.get_rid())
 		damage *= float(c.get("pierce_mult", 1.0))

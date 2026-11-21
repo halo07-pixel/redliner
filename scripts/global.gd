@@ -181,6 +181,15 @@ const ANIM: Dictionary = {
 	"cam_fx_k": 160.0,       # độ cứng/giảm chấn lò xo camera (c < 2*sqrt(k) thì nảy nhẹ)
 	"cam_fx_c": 16.0,
 	"slide_tilt_deg": 2.5,   # camera nghiêng khi lướt (độ)
+	# Bot (M20): IK + tiếp xúc.
+	"look_max_yaw": 60.0,    # giới hạn quay đầu/thân nhìn mục tiêu (độ)
+	"look_max_pitch": 30.0,
+	"look_rate": 8.0,        # tốc độ bám mục tiêu nhìn (1/s)
+	"support_hand": 0.9,     # trọng số IK tay trái đỡ báng súng của xạ thủ
+	"clash_time": 0.5,       # trùng clash_stagger
+	"parry_hit_time": 0.3,
+	"head_zone": 1.45,       # trúng cao hơn mức này (m so với chân) = đầu
+	"leg_zone": 0.85,        # thấp hơn mức này = chân
 }
 
 ## Tay + vũ khí góc nhìn thứ nhất (M7.4). Chỉ là hiển thị, không ảnh hưởng vật lý. Vị trí tính theo mét, góc theo độ.
@@ -229,6 +238,7 @@ const VIEWMODEL: Dictionary = {
 	"draw_k": 160.0,
 	"reload_k": 220.0,
 	# Độ cứng lò xo theo pha clip (k lớn = bám đích sát/nhanh; k nhỏ = trễ, mềm).
+	"clash_impulse": 1.4,      # xung đẩy lùi viewmodel khi hai kiếm chạm nhau (m/s)
 	"swing_windup_k": 520.0,
 	"swing_active_k": 1500.0,  # chém: bám sát đích để "tăng tốc mạnh rồi dừng đột ngột"
 	"swing_follow_k": 700.0,
@@ -540,6 +550,9 @@ var selected_map: String = "yard"
 var reduced_fx: bool = false
 ## Bật để lớp phủ F3 hiện pha/clip hoạt ảnh viewmodel (gỡ lỗi hoạt ảnh).
 var anim_debug: bool = false
+var anim_debug_samples: PackedFloat32Array = PackedFloat32Array()   # đường cong kiếm (độ lệch vị trí, góc) cho bộ chỉnh hoạt ảnh
+## Giá trị chỉnh lúc chơi ghi đè hằng số hoạt ảnh (khoá "v.<tên>" cho VIEWMODEL, "a.<tên>" cho ANIM). Xem anim_tuner.gd.
+var tune: Dictionary = {}
 var anim_debug_text: String = ""   # viewmodel ghi mỗi frame khi anim_debug bật
 var difficulty: String = "normal"
 var game_mode: String = "survival"
@@ -974,6 +987,24 @@ func _add_mouse(action: String, button: MouseButton) -> void:
 
 
 ## Layer hurtbox của một phe.
+## Giá trị hoạt ảnh có thể chỉnh lúc chơi: ưu tiên `tune`, rồi tới hằng số.
+func tv(key: String) -> Variant:
+	if tune.is_empty():
+		return VIEWMODEL[key]
+	return tune.get("v." + key, VIEWMODEL[key])
+
+
+func ta(key: String) -> Variant:
+	if tune.is_empty():
+		return ANIM[key]
+	return tune.get("a." + key, ANIM[key])
+
+
+## Các khoá hoạt ảnh cho phép chỉnh trong bộ chỉnh (anim_tuner.gd).
+const TUNABLE_VM: Array = ["spring_k", "spring_c", "rot_spring_k", "rot_spring_c", "sway_impulse", "state_fade", "step_impulse", "step_roll", "kick_zeta", "draw_k", "reload_k", "swing_windup_k", "swing_active_k", "swing_follow_k", "swing_recover_k", "guard_k", "guard_hold_k", "parry_fail_k", "clash_impulse", "land_impulse", "flinch_impulse", "kick_back", "kick_pitch"]
+const TUNABLE_ANIM: Array = ["cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
+
+
 func hurt_layer(team: int) -> int:
 	return L_PLAYER_HURT if team == TEAM_PLAYER else L_ENEMY_HURT
 

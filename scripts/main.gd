@@ -39,6 +39,7 @@ func _ready() -> void:
 	add_child(player)
 	player.global_position = arena.spawn_point
 	add_child(preload("res://scripts/perf_overlay.gd").new())
+	add_child(preload("res://scripts/anim_tuner.gd").new())
 
 	# --- Di chuyển -> HUD / âm thanh
 	player.speed_changed.connect(hud.set_speed)
@@ -183,7 +184,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("ui_cancel") and not get_tree().paused:
 		_set_paused(true)
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not Global.anim_debug:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
