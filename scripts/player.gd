@@ -10,6 +10,7 @@ signal stamina_changed(value: float, maximum: float)
 signal slammed(position: Vector3, radius: float)
 signal grapple_started(point: Vector3)
 signal grapple_ended
+signal grapple_target_changed(valid: bool) # tâm ngắm đang có điểm móc được (HUD hiện chấm)
 signal died
 signal footstep(speed: float)
 signal ledge_climbed
@@ -58,6 +59,10 @@ var _grapple_point: Vector3 = Vector3.ZERO
 var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
+var _grapple_len: float = 0.0       # độ dài dây hiện tại (chỉ ngắn lại)
+var _grapple_taut: bool = false     # dây đang căng ở khung gần nhất
+var _target_valid: bool = false
+var _target_timer: float = 0.0
 var _shake: float = 0.0
 var _coyote_t: float = 0.0
 var _jump_buf_t: float = 0.0
@@ -323,6 +328,7 @@ func _physics_process(delta: float) -> void:
 		cancel_ledge()
 	_try_dash()
 	_try_start_grapple()
+	_update_grapple_target(delta)
 	_try_slam()
 
 	match state:
@@ -728,23 +734,67 @@ func _move_wallrun(delta: float) -> void:
 
 # ------------------------------------------------------------------ GRAPPLE
 
+## Tìm điểm móc: tia chính giữa tâm ngắm; trượt thì thử các tia trong nón `grapple_assist_deg` (chọn lệch tâm ít nhất).
+## Trả về {} nếu không có.
+func _find_grapple_point() -> Dictionary:
+	var space := get_world_3d().direct_space_state
+	var from: Vector3 = head.global_position
+	var fwd: Vector3 = -head.global_transform.basis.z
+	var rng: float = float(Global.PLAYER["grapple_range"])
+	var q := PhysicsRayQueryParameters3D.create(from, from + fwd * rng, Global.L_WORLD)
+	q.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(q)
+	if not hit.is_empty():
+		return hit
+	var cone: float = deg_to_rad(float(Global.PLAYER["grapple_assist_deg"]))
+	if cone <= 0.0:
+		return {}
+	var right: Vector3 = head.global_transform.basis.x
+	var up: Vector3 = head.global_transform.basis.y
+	for ring in [0.5, 1.0]:   # vòng trong rồi vòng ngoài: ưu tiên lệch ít
+		var best: Dictionary = {}
+		var best_d: float = INF
+		for k in 8:
+			var a: float = TAU * float(k) / 8.0
+			var dir: Vector3 = (fwd + (right * cos(a) + up * sin(a)) * tan(cone * ring)).normalized()
+			q = PhysicsRayQueryParameters3D.create(from, from + dir * rng, Global.L_WORLD)
+			q.exclude = [get_rid()]
+			var h: Dictionary = space.intersect_ray(q)
+			if not h.is_empty() and (h["normal"] as Vector3).y < 0.7:   # bỏ qua mặt sàn: móc xuống đất vô ích
+				var d: float = (h["position"] as Vector3).distance_to(from)
+				if d < best_d:
+					best_d = d
+					best = h
+		if not best.is_empty():
+			return best
+	return {}
+
+
+func _update_grapple_target(delta: float) -> void:
+	_target_timer -= delta
+	if _target_timer > 0.0:
+		return
+	_target_timer = 0.1
+	var ok: bool = state != State.GRAPPLE and not dead and not _find_grapple_point().is_empty()
+	if ok != _target_valid:
+		_target_valid = ok
+		grapple_target_changed.emit(ok)
+
+
 func _try_start_grapple() -> void:
 	var pressed: bool = want_grapple and not _prev_grapple
 	_prev_grapple = want_grapple
 	if not pressed or _grapple_cd > 0.0 or state == State.GRAPPLE:
 		return
-	var space := get_world_3d().direct_space_state
-	var from: Vector3 = head.global_position
-	var to: Vector3 = from - head.global_transform.basis.z * float(Global.PLAYER["grapple_range"])
-	var q := PhysicsRayQueryParameters3D.create(from, to, Global.L_WORLD)
-	q.exclude = [get_rid()]
-	var hit: Dictionary = space.intersect_ray(q)
+	var hit: Dictionary = _find_grapple_point()
 	if hit.is_empty():
 		return
 	if state == State.SLIDE:
 		_exit_slide()
 	_grapple_point = hit["position"]
 	_grapple_time = 0.0
+	_grapple_len = head.global_position.distance_to(_grapple_point)
+	_grapple_taut = false
 	_set_state(State.GRAPPLE)
 	grapple_started.emit(_grapple_point)
 
@@ -764,15 +814,26 @@ func _move_grapple(delta: float) -> void:
 		_release_redirect() # tự nhả: xoay vận tốc theo hướng nhìn thay vì giữ nguyên hướng kéo
 		_end_grapple()
 		return
-	if dist < float(cfg["grapple_stop_dist"]) or _grapple_time > float(cfg["grapple_max_time"]):
+	if _grapple_time > float(cfg["grapple_max_time"]) or dist < 0.05:
 		_end_grapple() # thả ra: giữ nguyên quán tính hiện tại
 		return
 	var dir: Vector3 = to / dist
-	# Lực kéo tăng dần theo thời gian giữ.
+	# Lực kéo tăng dần theo đường cong mượt (smoothstep) rồi dừng kéo khi tới gần điểm móc (vẫn bám).
 	var t: float = clampf(_grapple_time / float(cfg["grapple_ramp"]), 0.0, 1.0)
+	t = t * t * (3.0 - 2.0 * t)
 	var pull: float = lerpf(float(cfg["grapple_pull_start"]), float(cfg["grapple_pull_max"]), t)
-	if velocity.dot(dir) < float(cfg["grapple_max_speed"]):
+	var reeling: bool = dist >= float(cfg["grapple_stop_dist"])
+	if reeling and velocity.dot(dir) < float(cfg["grapple_max_speed"]):
 		velocity += dir * pull * delta
+	# Dây căng: dây chỉ ngắn lại; vượt độ dài dây thì bỏ phần vận tốc hướng ra xa (đu như con lắc).
+	_grapple_len = minf(_grapple_len, dist)
+	_grapple_taut = false
+	if float(cfg["grapple_swing"]) > 0.5 and dist >= _grapple_len - 0.05:
+		var out: float = -velocity.dot(dir)
+		if out > 0.0:
+			velocity += dir * out
+			_grapple_taut = true
+	rope.set_tension(pull / float(cfg["grapple_pull_max"]) if reeling else 0.3)
 	velocity.y -= float(cfg["gravity"]) * 0.4 * delta
 	_accelerate(_wish_dir(), cfg["walk_speed"], cfg["air_accel"], delta)
 
@@ -784,6 +845,8 @@ func _release_redirect() -> void:
 	if speed < 8.0:
 		return
 	var look: Vector3 = -head.global_transform.basis.z
+	if _grapple_taut: # nhả lúc dây căng: bắn ra thêm theo hướng nhìn
+		speed += float(cfg["grapple_release_snap"])
 	var blended: Vector3 = velocity.lerp(look * speed, float(cfg["grapple_redirect_blend"]))
 	velocity = blended.normalized() * speed + look * float(cfg["grapple_release_boost"])
 

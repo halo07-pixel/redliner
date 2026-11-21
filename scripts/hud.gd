@@ -16,6 +16,7 @@ var _objective_label: Label
 var _timer_label: Label
 var _types_label: Label
 var _compass_label: Label
+var _grapple_dot: Label
 var _inst_bar: ProgressBar
 var _inst_label: Label
 var _inst_fill: StyleBoxFlat
@@ -370,6 +371,22 @@ func set_compass(on: bool, angle: float, dist: float) -> void:
 	var arrows: Array = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
 	var idx: int = int(roundf(wrapf(angle, 0.0, TAU) / (TAU / 8.0))) % 8
 	_compass_label.text = "%s  %d m" % [arrows[idx], int(dist)]
+
+
+## Chấm vàng cạnh tâm ngắm: đang có điểm móc được.
+func set_grapple_ready(on: bool) -> void:
+	if _grapple_dot == null:
+		_grapple_dot = Label.new()
+		_grapple_dot.text = "◆"
+		_grapple_dot.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_grapple_dot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_grapple_dot.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_grapple_dot.position.y = 26.0
+		_grapple_dot.modulate = Color(1.0, 0.8, 0.2)
+		_grapple_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_outline(_grapple_dot, 14)
+		add_child(_grapple_dot)
+	_grapple_dot.visible = on
 
 
 func set_enemy_types(counts: Dictionary) -> void:

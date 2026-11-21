@@ -162,8 +162,10 @@ func _run() -> void:
 	await _frames(40)
 	_check(player.global_position.z < z0 - 8.0, "bị kéo về phía điểm móc (%.1f m)" % (z0 - player.global_position.z))
 	await _frames(120)
-	_check(player.state == player.State.NORMAL, "tới gần điểm móc thì tự thả")
+	_check(player.state == player.State.GRAPPLE and player.global_position.z < -76.0, "tới gần điểm móc: ngừng kéo nhưng vẫn bám khi còn giữ (z=%.1f)" % player.global_position.z)
 	player.want_grapple = false
+	await _frames(2)
+	_check(player.state == player.State.NORMAL, "nhả phím thì thả")
 	# Thả giữa chừng giữ quán tính
 	await _reset(Vector3(0, 12.0, -40), Vector3.ZERO)
 	player.want_grapple = true
