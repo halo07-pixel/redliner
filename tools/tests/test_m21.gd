@@ -48,6 +48,11 @@ func _run() -> void:
 	print("  bake ", arena.nav_bake_ms, " ms")
 	_check(arena.nav_bake_ms < 8000, "bake < 8 s (%d ms)" % arena.nav_bake_ms)
 	var np: PackedVector3Array = arena.nav_path(sp, d["bot_spawns"][0])
+	for w in 200:   # navmesh đồng bộ vào map nav chậm hơn khi máy bận: đợi tới khi có đường
+		if np.size() > 0:
+			break
+		await _frames(1)
+		np = arena.nav_path(sp, d["bot_spawns"][0])
 	print("  path0 size ", np.size(), " last ", np[np.size() - 1] if np.size() > 0 else "-", " target ", d["bot_spawns"][0], " polys ", (arena.nav_region.navigation_mesh.get_polygon_count()))
 	var unreachable: int = 0
 	for p in arena.bot_spawns:

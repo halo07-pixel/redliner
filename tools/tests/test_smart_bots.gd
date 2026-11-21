@@ -196,13 +196,13 @@ func _run() -> void:
 	# Bệ cao không có dốc: bot không leo được, đứng yên dưới chân bệ
 	await _clear_world()
 	_box(Vector3(80, 1, 80), Vector3(0, -0.5, 0))
-	_box(Vector3(10, 3, 10), Vector3(0, 1.5, 0))
+	_box(Vector3(10, 5, 10), Vector3(0, 2.5, 0))
 	await _bake()
-	await _player(Vector3(0, 3.1, 0))
+	await _player(Vector3(0, 5.1, 0))
 	var low = _bot("rusher", Vector3(0, 0.1, 20))
 	low.melee.windup_override = 99.0
 	var best_p: float = await _min_dist_run(low, 500, 1.0)
-	_check(low.global_position.y < 0.6, "bệ cao 3 m không có dốc: bot không leo lên (y=%.2f)" % low.global_position.y)
+	_check(low.global_position.y < 0.6, "bệ cao 5 m không có dốc: bot (nhảy tối đa 3 m) không leo lên (y=%.2f)" % low.global_position.y)
 	_check(best_p < 12.0, "nhưng vẫn tiến lại gần chân bệ (cách %.1f m)" % best_p)
 
 	print("[giới hạn bot áp sát]")
@@ -273,7 +273,7 @@ func _run() -> void:
 	await _frames(20)
 	rb.melee.got_parried.emit()
 	_check(rb._retreat_t > 0.0, "bị parry: bật lùi một nhịp")
-	await _frames(4)
+	await _frames(16)   # có phanh/gia tốc (M23): cần ~0.25 s để đảo chiều
 	var to_p: Vector3 = (player.global_position - rb.global_position)
 	to_p.y = 0.0
 	_check(Vector3(rb.velocity.x, 0, rb.velocity.z).dot(to_p.normalized()) < 0.0, "bot đang lùi ra xa người chơi")
