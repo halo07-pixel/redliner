@@ -15,6 +15,7 @@ var _wave_label: Label
 var _objective_label: Label
 var _timer_label: Label
 var _types_label: Label
+var _compass_label: Label
 var _inst_bar: ProgressBar
 var _inst_label: Label
 var _inst_fill: StyleBoxFlat
@@ -353,6 +354,24 @@ func set_timer(left: float) -> void:
 
 
 ## Bot còn lại theo loại: {"swordsman": 3, ...} -> "Lính kiếm 3  Xạ thủ 1".
+## La bàn kẻ địch gần nhất: angle = 0 phía trước, dương = bên phải (radian). Tắt khi không có.
+func set_compass(on: bool, angle: float, dist: float) -> void:
+	if _compass_label == null:
+		_compass_label = Label.new()
+		_compass_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_compass_label.position.y = 14.0
+		_compass_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_compass_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_outline(_compass_label, 20)
+		add_child(_compass_label)
+	_compass_label.visible = on
+	if not on:
+		return
+	var arrows: Array = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
+	var idx: int = int(roundf(wrapf(angle, 0.0, TAU) / (TAU / 8.0))) % 8
+	_compass_label.text = "%s  %d m" % [arrows[idx], int(dist)]
+
+
 func set_enemy_types(counts: Dictionary) -> void:
 	var parts: Array = []
 	for id in Global.BOT_ORDER:

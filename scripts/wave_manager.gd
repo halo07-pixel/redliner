@@ -26,9 +26,14 @@ var _used_spots: Array = []   # chỗ đã dùng ở wave hiện tại (tránh 2
 const SPAWN_GAP: float = 1.3
 
 
-func setup(world: Node3D, spawn_points: Array) -> void:
+## band = (min, max) m quanh người chơi cho map lớn; Vector2.ZERO = cách cũ (điểm xa nhất).
+var _band: Vector2 = Vector2.ZERO
+
+
+func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> void:
 	_world = world
 	_spawns = spawn_points
+	_band = band
 
 
 func start() -> void:
@@ -101,12 +106,34 @@ func _pick_spawn() -> Vector3:
 	var best: Vector3 = _spawns[randi() % _spawns.size()]
 	if player == null:
 		return best
+	if _band != Vector2.ZERO:
+		return _pick_in_band(player.global_position)
 	var best_d: float = -1.0
 	for i in 3:
 		var p: Vector3 = _spawns[randi() % _spawns.size()]
 		var d: float = p.distance_to(player.global_position)
 		if d > best_d:
 			best_d = d
+			best = p
+	return best
+
+
+## Map lớn: chọn ngẫu nhiên điểm cách người chơi trong [min, max]; không có thì lấy điểm gần mức giữa vòng nhất.
+func _pick_in_band(from: Vector3) -> Vector3:
+	var ok: Array = []
+	for p in _spawns:
+		var d: float = (p as Vector3).distance_to(from)
+		if d >= _band.x and d <= _band.y:
+			ok.append(p)
+	if not ok.is_empty():
+		return ok[randi() % ok.size()]
+	var mid: float = (_band.x + _band.y) * 0.5
+	var best: Vector3 = _spawns[0]
+	var best_e: float = INF
+	for p in _spawns:
+		var e: float = absf((p as Vector3).distance_to(from) - mid)
+		if e < best_e:
+			best_e = e
 			best = p
 	return best
 

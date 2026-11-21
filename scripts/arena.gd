@@ -27,6 +27,11 @@ var bot_spawns: Array = []
 var props: Array = []
 var nav_region: NavigationRegion3D
 var bake_nav: bool = true # tắt được cho test cần dựng nhanh
+## Map lớn: vòng sinh bot quanh người chơi (m), có la bàn kẻ địch không, ô navmesh (m), thời gian bake (ms).
+var spawn_band: Vector2 = Vector2.ZERO
+var compass: bool = false
+var nav_cell: float = 0.25
+var nav_bake_ms: int = 0
 
 
 func _ready() -> void:
@@ -45,6 +50,9 @@ func _build_map(id: String) -> void:
 	void_y = float(m["void_y"])
 	spawn_point = m["spawn"]
 	bot_spawns = m["bot_spawns"]
+	spawn_band = m.get("spawn_band", Vector2.ZERO)
+	compass = bool(m.get("compass", false))
+	nav_cell = float(m.get("nav_cell", 0.25))
 	_box(Vector3(half.x * 2.0, 1.0, half.y * 2.0), Vector3(0.0, -0.5, 0.0), "floor")
 	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, -half.y - 0.5), "wall")
 	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, half.y + 0.5), "wall")
@@ -68,15 +76,18 @@ func _build_map(id: String) -> void:
 ## trong navmesh nên bot không kẹt dưới chân tường; dốc thoải thì đi được. Thùng/cột là chướng ngại.
 func _build_nav() -> void:
 	var nm := NavigationMesh.new()
+	nm.cell_size = nav_cell
 	nm.agent_radius = 0.5
 	nm.agent_height = 2.0
 	nm.agent_max_climb = 0.5
 	nm.agent_max_slope = 40.0
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nm.geometry_collision_mask = Global.L_WORLD
+	var t0: int = Time.get_ticks_msec()
 	var src := NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(nm, src, self)
 	NavigationServer3D.bake_from_source_geometry_data(nm, src)
+	nav_bake_ms = Time.get_ticks_msec() - t0
 	nav_region = NavigationRegion3D.new()
 	nav_region.navigation_mesh = nm
 	add_child(nav_region)
@@ -184,7 +195,7 @@ func _build_environment() -> void:
 	env.tonemap_white = e["tonemap_white"]
 	env.fog_enabled = true
 	env.fog_light_color = e["fog_color"]
-	env.fog_density = e["fog_density"]
+	env.fog_density = e["fog_density"] * (0.6 if spawn_band != Vector2.ZERO else 1.0)
 	env.fog_sky_affect = e["fog_sky_affect"]
 	env.glow_enabled = true
 	env.glow_intensity = e["glow_intensity"]
