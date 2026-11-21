@@ -76,7 +76,7 @@ func _run() -> void:
 	var s = _bot("swordsman", Vector3(0, 0, -15))
 	s.dodge_chance = 0.0
 	s.parry_chance = 0.0
-	await _frames(100)
+	await _frames(130)   # có gia tốc (M23) nên tới chậm hơn một chút
 	var d: float = s.global_position.distance_to(player.global_position)
 	_check(d < 3.0, "lính kiếm đuổi tới sát người chơi (cách %.1f m)" % d)
 	var facing: float = (-s.global_transform.basis.z).dot((player.global_position - s.global_position).normalized())

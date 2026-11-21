@@ -44,6 +44,17 @@ const BOTS: Dictionary = {
 	},
 }
 
+## Di chuyển bot (M23): gia tốc, xoay thân, nhìn trước trên đường đi, nhảy leo, nấp, tính đường thưa ở xa.
+const BOT_MOVE: Dictionary = {
+	"accel": 30.0, "decel": 60.0,        # m/s^2 khi tăng tốc / phanh
+	"turn_rate": 16.0, "turn_rate_attack": 40.0, # rad/s xoay thân (khi ra đòn xoay nhanh hơn)
+	"lookahead": 8.0,                    # m: bỏ qua điểm ngoặt nếu thấy thẳng được điểm xa hơn trong tầm này
+	"vault_max": 3.0, "vault_cd": 0.8, "vault_push": 4.5, # nhảy leo tối đa (m), thời gian chờ, lực đẩy tiến
+	"cover_chance": 0.6, "cover_radius": 9.0,  # xạ thủ/pháo thủ nấp sau mỗi lần bắn
+	"far_dist": 60.0, "far_path_interval": 1.0, "path_interval": 0.3, # bot xa người chơi tính đường thưa hơn
+	"unstick_time": 0.6,
+}
+
 ## Đạn nổ vòng cung của pháo thủ (dùng Rocket; bay tới người chơi, không hại phe bot).
 const BOMB: Dictionary = {
 	"interval": 3.2, "min_range": 7.0, "max_range": 40.0,

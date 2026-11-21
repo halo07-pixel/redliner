@@ -65,6 +65,15 @@ var _blocked_t: float = 0.0   # thời gian muốn đi mà không nhúc nhích �
 var _force_nav_t: float = 0.0 # đang ép đi theo navmesh (bỏ đường thẳng) sau khi bị kẹt
 var _steer_hold: Vector3 = Vector3.ZERO # hướng lách đã chọn quanh vật cản (giữ nhất quán, không đổi bên liên tục)
 var _steer_clear_t: float = 0.0
+var _hv: Vector3 = Vector3.ZERO     # vận tốc ngang đã làm mượt (gia tốc / phanh)
+var _vault_cd: float = 0.0
+var _vault_push_t: float = 0.0
+var _vault_dir: Vector3 = Vector3.ZERO
+var _cover_pt: Vector3 = Vector3.INF # điểm nấp đã chọn (INF = không nấp)
+var _cover_t: float = 0.0
+var _unstick_t: float = 0.0
+var _blocked_count: int = 0
+var _blocked_win: float = 0.0
 
 
 ## Gọi trước add_child. difficulty = số wave: bot khoẻ hơn, nhanh hơn, phản ứng nhanh hơn
@@ -193,8 +202,16 @@ func _physics_process(delta: float) -> void:
 	to.y = 0.0
 	var dist: float = to.length()
 	var dir: Vector3 = to / dist if dist > 0.01 else -global_transform.basis.z
+	_vault_cd = maxf(_vault_cd - delta, 0.0)
+	_cover_t = maxf(_cover_t - delta, 0.0)
+	_unstick_t = maxf(_unstick_t - delta, 0.0)
+	_blocked_win = maxf(_blocked_win - delta, 0.0)
+	if _blocked_win <= 0.0:
+		_blocked_count = 0
 	if dist > 0.05:
-		rotation.y = atan2(-to.x, -to.z) # quay mặt (-Z) về phía người chơi
+		# quay mặt (-Z) về phía người chơi, có tốc độ xoay (ra đòn thì xoay nhanh để đòn trúng hướng)
+		var turn: float = float(Global.BOT_MOVE["turn_rate_attack"] if melee.phase != melee.Phase.IDLE else Global.BOT_MOVE["turn_rate"])
+		rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), minf(1.0, turn * delta))
 
 	_update_punish()
 	if target.dead:
@@ -203,23 +220,89 @@ func _physics_process(delta: float) -> void:
 		_react_to_threat(delta, dir)
 
 	var wish := Vector3.ZERO
+	var snap: bool = false
 	if target.dead or melee.is_staggered():
 		wish = Vector3.ZERO
 	elif _dodge_t > 0.0:
 		_dodge_t -= delta
 		wish = _dodge_vec
+		snap = true # né: bật tức thì
 	elif melee.phase != melee.Phase.IDLE:
 		wish = Vector3.ZERO # đang ra đòn: đứng yên cam kết
+	elif _unstick_t > 0.0:
+		wish = Vector3(-dir.z, 0.0, dir.x) * _strafe_dir * speed * 0.7 # kẹt nhiều lần: lách ngang một nhịp
 	else:
 		wish = _decide(dir, dist)
-	velocity.x = wish.x + _kb.x
-	velocity.z = wish.z + _kb.z
+	_smooth_velocity(wish, delta, snap)
+	velocity.x = _hv.x + _kb.x
+	velocity.z = _hv.z + _kb.z
 	_kb = _kb.move_toward(Vector3.ZERO, 30.0 * delta)
 	_try_step_up()
+	_try_vault(wish, delta)
 	move_and_slide()
 	_track_blocked(wish, delta)
 	mannequin.set_look_target(target.global_position + Vector3(0.0, 1.45, 0.0) if not target.dead else null)   # đầu/thân nhìn người chơi (IK, chỉ hiển thị)
 	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
+
+
+## Làm mượt vận tốc ngang: tăng tốc dần, phanh nhanh hơn; `snap` (né) đặt thẳng.
+func _smooth_velocity(wish: Vector3, delta: float, snap: bool) -> void:
+	if snap:
+		_hv = Vector3(wish.x, 0.0, wish.z)
+		return
+	var M: Dictionary = Global.BOT_MOVE
+	var w := Vector3(wish.x, 0.0, wish.z)
+	var rate: float = float(M["accel"]) if w.length_squared() > 0.01 else float(M["decel"])
+	_hv = _hv.move_toward(w, rate * delta)
+	if _vault_push_t > 0.0:
+		_vault_push_t -= delta
+		_hv = _vault_dir * float(M["vault_push"]) # đang bật lên: đẩy tiến qua mép
+
+
+## Nhảy leo: đang đi bị một khối tĩnh cao hơn bậc (STEP_HEIGHT) chắn, mà người chơi ở cao hơn (hoặc đang kẹt),
+## và nóc khối thấp hơn `vault_max` -> bật lên qua mép. Navmesh không có đường lên bệ cao nên bot dừng ở chân bệ rồi nhảy.
+func _try_vault(wish: Vector3, _delta: float) -> void:
+	if _vault_cd > 0.0 or not is_on_floor() or _vault_push_t > 0.0:
+		return
+	var flat := Vector3(wish.x, 0.0, wish.z)
+	if dead:
+		return
+	var higher: bool = target.global_position.y > global_position.y + 0.8
+	if higher and flat.length() < 0.5:
+		# Đã tới cuối đường navmesh (chân bệ) và đứng yên: hướng thẳng về phía người chơi để nhảy lên.
+		var tt: Vector3 = target.global_position - global_position
+		tt.y = 0.0
+		if tt.length() < 8.0 and tt.length() > 0.1:
+			flat = tt.normalized()
+	if flat.length() < 0.5:
+		return
+	if not higher and _force_nav_t <= 0.0:
+		return
+	var dirn: Vector3 = flat.normalized()
+	var motion: Vector3 = dirn * 0.6
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, motion, hit):
+		return
+	if not (hit.get_collider() is StaticBody3D) or absf(hit.get_normal().y) > 0.6:
+		return
+	var into := Vector3(-hit.get_normal().x, 0.0, -hit.get_normal().z)
+	if into.length() < 0.1 or into.normalized().dot(dirn) < 0.5:
+		return # chỉ nhảy khi đang đi thẳng vào mặt khối, không phải lướt dọc mép
+	dirn = into.normalized()
+	motion = dirn * 0.6
+	var vmax: float = float(Global.BOT_MOVE["vault_max"])
+	var h: float = STEP_HEIGHT + 0.25
+	while h <= vmax:
+		var up := Vector3.UP * h
+		if test_move(global_transform, up):
+			return # có trần
+		if not test_move(global_transform.translated(up), motion):
+			velocity.y = sqrt(2.0 * GRAVITY * (h + 0.35))
+			_vault_dir = dirn
+			_vault_push_t = 0.45
+			_vault_cd = float(Global.BOT_MOVE["vault_cd"])
+			return
+		h += 0.25
 
 
 ## Muốn đi mà gần như không nhúc nhích (vật cản thấp như thùng, góc tường) -> ép đi theo navmesh một lúc
@@ -233,6 +316,12 @@ func _track_blocked(wish: Vector3, delta: float) -> void:
 		if _blocked_t > 0.4:
 			_force_nav_t = 1.5
 			_blocked_t = 0.0
+			_blocked_count += 1
+			_blocked_win = 3.0
+			if _blocked_count >= 2: # ép navmesh vẫn kẹt: lách ngang một nhịp rồi thử lại
+				_unstick_t = float(Global.BOT_MOVE["unstick_time"])
+				_strafe_dir = -_strafe_dir
+				_blocked_count = 0
 	else:
 		_blocked_t = maxf(_blocked_t - delta, 0.0)
 
@@ -281,6 +370,13 @@ func _decide(dir: Vector3, dist: float) -> Vector3:
 	if _strafe_t <= 0.0:
 		_strafe_t = randf_range(1.5, 3.0)
 		_strafe_dir = -_strafe_dir
+	if keep > 0.0 and _cover_t > 0.0 and _cover_pt != Vector3.INF:
+		# Vừa bắn xong: chạy vào chỗ nấp (che tầm nhìn người chơi) chờ nạp, rồi ló ra bắn tiếp.
+		var co: Vector3 = _cover_pt - global_position
+		co.y = 0.0
+		if co.length() > 0.8:
+			return _navigate(_cover_pt, co.normalized(), co.length()) * spd
+		return Vector3.ZERO
 	if keep > 0.0:
 		# Xạ thủ / pháo thủ: giữ khoảng cách, đi ngang (đổi hướng định kỳ)
 		if dist < keep - 3.0:
@@ -300,10 +396,53 @@ func _decide(dir: Vector3, dist: float) -> Vector3:
 	if bool(cfg["shoots"]) and _shoot_cd <= 0.0 and dist >= 6.0 and dist <= float(Global.COMBAT["turret_range"]) and _has_line_of_sight():
 		_shoot_cd = float(cfg["shoot_interval"]) * randf_range(0.8, 1.2)
 		_shoot_predicted()
+		_maybe_take_cover()
 	if bool(cfg.get("bombs", false)) and _shoot_cd <= 0.0 and dist >= float(Global.BOMB["min_range"]) and dist <= float(Global.BOMB["max_range"]) and _has_line_of_sight():
 		_shoot_cd = float(Global.BOMB["interval"]) * randf_range(0.85, 1.15)
 		_throw_bomb()
+		_maybe_take_cover()
 	return wish
+
+
+## Sau mỗi lần bắn, có xác suất `cover_chance` tìm chỗ nấp gần và chạy vào đó cho tới lượt bắn kế.
+func _maybe_take_cover() -> void:
+	var M: Dictionary = Global.BOT_MOVE
+	_cover_pt = Vector3.INF
+	if randf() >= float(M["cover_chance"]):
+		return
+	_cover_pt = _find_cover(float(M["cover_radius"]))
+	if _cover_pt != Vector3.INF:
+		_cover_t = clampf(_shoot_cd * 0.8, 0.6, 2.5)
+
+
+## Điểm nấp: thử 8 hướng x 2 bán kính quanh bot, nằm trên navmesh, ray từ điểm đó tới ngực người chơi bị chắn.
+## Chọn điểm gần bot nhất; không có thì INF.
+func _find_cover(radius: float) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var nmap: RID = get_world_3d().navigation_map
+	var has_nav: bool = not NavigationServer3D.map_get_regions(nmap).is_empty()
+	var best: Vector3 = Vector3.INF
+	var best_d: float = INF
+	var a0: float = randf() * TAU
+	for r in [radius * 0.5, radius]:
+		for k in 8:
+			var ang: float = a0 + TAU * float(k) / 8.0
+			var c: Vector3 = global_position + Vector3(cos(ang), 0.0, sin(ang)) * r
+			if has_nav:
+				c = NavigationServer3D.map_get_closest_point(nmap, c)
+			if absf(c.y - global_position.y) > 1.0 or c.distance_to(target.global_position) < 6.0:
+				continue
+			var q := PhysicsRayQueryParameters3D.create(c + Vector3(0.0, 1.2, 0.0), _chest(target), Global.L_WORLD)
+			q.exclude = [get_rid()]
+			if space.intersect_ray(q).is_empty():
+				continue # vẫn thấy người chơi: không phải chỗ nấp
+			var d: float = c.distance_to(global_position)
+			if d < best_d:
+				best_d = d
+				best = c
+		if best != Vector3.INF:
+			return best
+	return Vector3.INF
 
 
 ## Di chuyển cận chiến: lao thẳng vào, nhưng chỉ tối đa `max_melee_attackers` bot được áp sát cùng lúc
@@ -321,6 +460,9 @@ func _melee_move(dir: Vector3, dist: float, spd: float) -> Vector3:
 	var goal: Vector3 = target.global_position
 	if bool(cfg.get("flank", false)) and dist > 6.0:
 		goal += Vector3(-dir.z, 0.0, dir.x) * _strafe_dir * 5.0
+		var nmap: RID = get_world_3d().navigation_map
+		if not NavigationServer3D.map_get_regions(nmap).is_empty():
+			goal = NavigationServer3D.map_get_closest_point(nmap, goal) # điểm bọc sườn phải nằm trên navmesh (không trong tường)
 	return _navigate(goal, dir, dist) * spd
 
 
@@ -350,14 +492,42 @@ func _navigate(goal: Vector3, dir: Vector3, dist: float) -> Vector3:
 		return _steer(goal_dir)
 	_path_t -= get_physics_process_delta_time()
 	if _path_t <= 0.0:
-		_path_t = 0.3
+		var far: bool = global_position.distance_to(target.global_position) > float(Global.BOT_MOVE["far_dist"])
+		_path_t = float(Global.BOT_MOVE["far_path_interval"] if far else Global.BOT_MOVE["path_interval"])
 		_path = NavigationServer3D.map_get_path(map, global_position, goal, true)
+	var pick: int = -1
 	for i in range(1, _path.size()):
-		var off: Vector3 = _path[i] - global_position
-		off.y = 0.0
-		if off.length() > 0.4 or i == _path.size() - 1:
-			return off.normalized() if off.length() > 0.05 else Vector3.ZERO
-	return _steer(goal_dir)
+		var off0: Vector3 = _path[i] - global_position
+		off0.y = 0.0
+		if off0.length() > 0.4 or i == _path.size() - 1:
+			pick = i
+			break
+	if pick < 0:
+		return _steer(goal_dir)
+	# Nhìn trước: nếu thấy thẳng được điểm ngoặt xa hơn (trong tầm lookahead, cùng độ cao) thì nhắm điểm đó -> đường cong mượt, không bẻ góc ở từng điểm.
+	var la: float = float(Global.BOT_MOVE["lookahead"])
+	var j: int = pick + 1
+	while j < _path.size() and j <= pick + 3:
+		var p: Vector3 = _path[j]
+		if absf(p.y - global_position.y) > 0.8 or p.distance_to(global_position) > la or not _clear_walk(p):
+			break
+		pick = j
+		j += 1
+	var off: Vector3 = _path[pick] - global_position
+	off.y = 0.0
+	return off.normalized() if off.length() > 0.05 else Vector3.ZERO
+
+
+## Đi thẳng tới `p` không bị khối nào chắn (ray thấp + ray ngang đầu gối, cách xa mép một chút).
+func _clear_walk(p: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	for h in [0.3, 1.0]:
+		var o: Vector3 = global_position + Vector3(0.0, h, 0.0)
+		var q := PhysicsRayQueryParameters3D.create(o, Vector3(p.x, o.y, p.z), Global.L_WORLD)
+		q.exclude = [get_rid()]
+		if not space.intersect_ray(q).is_empty():
+			return false
+	return true
 
 
 ## Pháo thủ: ném đạn nổ vòng cung về phía người chơi (có đón đầu). Không hại phe bot.

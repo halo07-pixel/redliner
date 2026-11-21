@@ -190,6 +190,12 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - `grapple_rope.gd`: `set_tension` (dây dày hơn khi kéo mạnh).
 - Thông số grapple nằm trong `Global.PLAYER` (sửa trong code; bộ chỉnh F4 chỉ chỉnh hoạt ảnh). Test: `tools/tests/test_m22.gd`; `test_advanced_movement` đổi kỳ vọng "tới gần thì vẫn bám".
 
+## M23 (nhánh `feature/m23-bot-movement`: di chuyển bot)
+- `Global.BOT_MOVE`: `accel/decel` (vận tốc ngang bot tăng/giảm dần, `_smooth_velocity`; né vẫn bật tức thì), `turn_rate` (xoay thân có tốc độ), `lookahead` (nhắm điểm ngoặt xa hơn nếu thấy thẳng, `_clear_walk`), `vault_*` (nhảy leo khối tĩnh <= 3 m khi người chơi ở cao hơn hoặc kẹt, `_try_vault`; bệ cao hơn thì bot không lên được), `cover_*` (xạ thủ/pháo thủ nấp sau mỗi lần bắn, `_find_cover`), `far_*` (bot xa > 60 m tính đường mỗi 1 s), `unstick_time` (kẹt 2 lần trong 3 s -> lách ngang).
+- Điểm bọc sườn của rusher được snap vào navmesh.
+- Test: `tools/tests/test_m23.gd` (có bài chạy bot trên Khu phố); đổi kỳ vọng ở `test_bots` (tới chậm hơn do gia tốc), `test_smart_bots` (bệ 5 m thay 3 m; đảo chiều lùi cần ~16 khung).
+- Test tháp 2 nấc trong test_m23 phụ thuộc ngẫu nhiên (hướng lách) nên đôi khi chậm; nếu đỏ, chạy lại.
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -225,7 +231,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (27 bộ, thêm test_m21, test_m22: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (28 bộ, thêm test_m21, test_m22, test_m23: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
