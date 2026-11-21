@@ -113,8 +113,11 @@ func _ready() -> void:
 	body_view.set_render_layers(BODY_LAYER)
 	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
+	melee.clashed.connect(func(d): viewmodel.clash(camera.global_transform.basis.inverse() * Vector3(d)))
+	melee.clashed.connect(func(d): body_view.play("clash", float(Global.ANIM["clash_time"]), {"direction": body_view.global_transform.basis.inverse() * Vector3(d)}))
+	body_view.ik_feet = false   # thân người chơi chỉ để đổ bóng
 	melee.swing_started.connect(viewmodel.play_swing)
-	melee.swing_started.connect(func(_w, _a, _r): _cam_fx_v.z -= float(Global.ANIM["cam_lunge"]) * _cam_fx_amount())
+	melee.swing_started.connect(func(_w, _a, _r): _cam_fx_v.z -= float(Global.ta("cam_lunge")) * _cam_fx_amount())
 	footstep.connect(viewmodel.footstep)
 	SwordTrail.attach(melee)
 	combat.shot_fired.connect(func(_f, _t): viewmodel.kick())
@@ -129,6 +132,7 @@ func _ready() -> void:
 	combat.shot_fired.connect(func(_f, _t): body_view.play("shoot", float(Global.ANIM["shoot_time"])))
 	parry.parry_started.connect(viewmodel.raise)
 	parry.parried.connect(func(_h): viewmodel.parry_hit())
+	parry.parried.connect(func(_h): body_view.play("parry_hit", float(Global.ANIM["parry_hit_time"])))
 	parry.parry_missed.connect(viewmodel.parry_fail)
 	# Instability "mất thế": thua clash / parry hụt / bị parry thì tăng; parry thành công và đánh trúng thì giảm.
 	melee.clashed.connect(func(_d): instability.clash_penalty())
@@ -172,7 +176,7 @@ func _process(delta: float) -> void:
 	if state == State.SLIDE and not Global.reduced_fx:
 		# Lướt: camera nghiêng nhẹ về phía bước ngang (hoặc bên phải nếu đi thẳng), tỉ lệ theo hệ số hiệu ứng camera.
 		var side: float = -signf(move_input.x) if absf(move_input.x) > 0.1 else -1.0
-		roll += side * deg_to_rad(float(Global.ANIM["slide_tilt_deg"])) * _cam_fx_amount()
+		roll += side * deg_to_rad(float(Global.ta("slide_tilt_deg"))) * _cam_fx_amount()
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
 	_step_cam_fx(delta)
 	_shake = maxf(_shake - delta * 0.5, 0.0)
@@ -201,11 +205,11 @@ func _step_cam_fx(delta: float) -> void:
 		_fall_vy = minf(_fall_vy, velocity.y)
 	elif not _was_floor_vis:
 		var drop: float = clampf(-_fall_vy - float(Global.ANIM["cam_dip_min_fall"]), 0.0, 30.0)
-		_cam_fx_v.y -= minf(drop * float(Global.ANIM["cam_dip_per_speed"]), float(Global.ANIM["cam_dip_max"])) * _cam_fx_amount()
+		_cam_fx_v.y -= minf(drop * float(Global.ta("cam_dip_per_speed")), float(Global.ta("cam_dip_max"))) * _cam_fx_amount()
 		_fall_vy = 0.0
 	_was_floor_vis = floor_now
-	var k: float = float(Global.ANIM["cam_fx_k"])
-	var c: float = float(Global.ANIM["cam_fx_c"])
+	var k: float = float(Global.ta("cam_fx_k"))
+	var c: float = float(Global.ta("cam_fx_c"))
 	var n: int = maxi(1, ceili(delta / (1.0 / 120.0)))
 	var h: float = delta / float(n)
 	for i in n:

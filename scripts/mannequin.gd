@@ -16,6 +16,8 @@ const JOINT_NAMES: Array = [
 @export var color: Color = Color(0.85, 0.85, 0.9)
 ## Loại hình dáng: "dummy", "swordsman", "gunner", "elite". Đặt trước add_child.
 var kind: String = "dummy"
+## Bám chân xuống mặt đất bằng IK (bật mặc định; thân người chơi chỉ để đổ bóng nên tắt).
+var ik_feet: bool = true
 
 var joints: Dictionary = {}
 var weapon: Node3D
@@ -150,6 +152,16 @@ func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_nam
 ## Chạy overlay chiến đấu ("swing", "shoot", "parry", "parry_miss", "hurt", "stagger", "die"); xem rig_animator.gd.
 func play(overlay_name: String, duration: float, data: Dictionary = {}) -> void:
 	animator.play(overlay_name, duration, data)
+
+
+## Mục tiêu nhìn (vị trí thế giới) hoặc null. Chỉ hiển thị (IK đầu/thân).
+func set_look_target(p: Variant) -> void:
+	animator.set_look_target(p)
+
+
+## Điểm tay trái cần chạm để đỡ báng súng (thế giới): phần trước thân súng.
+func support_grip() -> Vector3:
+	return weapon.to_global(Vector3(0.0, -0.02, -0.4)) if weapon != null else Vector3.ZERO
 
 
 func clear_overlay() -> void:

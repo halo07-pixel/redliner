@@ -129,6 +129,8 @@ func _ready() -> void:
 	melee.swing_started.connect(func(w, a, r): mannequin.play("swing", w + a + r, {"windup": w, "active": a, "recovery": r}))
 	melee.staggered.connect(func(d): mannequin.play("stagger", d))
 	parry.parry_started.connect(func(): mannequin.play("parry", float(Global.ANIM["parry_time"])))
+	parry.parried.connect(func(_h): mannequin.play("parry_hit", float(Global.ANIM["parry_hit_time"])))
+	melee.clashed.connect(func(d): mannequin.play("clash", float(Global.ANIM["clash_time"]), {"direction": mannequin.global_transform.basis.inverse() * Vector3(d)}))
 	parry.parry_missed.connect(func(): mannequin.play("parry_miss", float(Global.ANIM["parry_miss_time"])))
 	# Mất thế (dùng chung cơ chế với người chơi): thua clash / parry hụt / bị parry -> Destabilized.
 	instability = InstabilityScript.new()
@@ -216,6 +218,7 @@ func _physics_process(delta: float) -> void:
 	_try_step_up()
 	move_and_slide()
 	_track_blocked(wish, delta)
+	mannequin.set_look_target(target.global_position + Vector3(0.0, 1.45, 0.0) if not target.dead else null)   # đầu/thân nhìn người chơi (IK, chỉ hiển thị)
 	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
 
 
@@ -509,11 +512,24 @@ func _react_to_threat(delta: float, dir: Vector3) -> void:
 
 # ------------------------------------------------------------------ nhận đòn / chết
 
+## Vùng bị trúng theo độ cao điểm trúng (nếu đòn có "point"): "head" | "torso" | "legs". Đòn kiếm không có điểm = torso.
+func hit_zone(hit: Dictionary) -> String:
+	var pt: Variant = hit.get("point")
+	if not (pt is Vector3):
+		return "torso"
+	var h: float = (pt as Vector3).y - global_position.y
+	if h >= float(Global.ANIM["head_zone"]):
+		return "head"
+	if h <= float(Global.ANIM["leg_zone"]):
+		return "legs"
+	return "torso"
+
+
 func _on_hurt(hit: Dictionary, _left: float) -> void:
 	_last_hit = hit
 	mannequin.flash()
 	var local_dir: Vector3 = mannequin.global_transform.basis.inverse() * Vector3(hit.get("direction", Vector3.ZERO))
-	mannequin.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": local_dir})
+	mannequin.play("hurt", float(Global.ANIM["hurt_time"]), {"direction": local_dir, "zone": hit_zone(hit)})
 
 
 func _on_died() -> void:
