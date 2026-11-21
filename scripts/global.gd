@@ -539,8 +539,8 @@ const TIMED: Dictionary = {
 const TRAINING: Dictionary = {"respawn_time": 2.0, "bot_wave": 1, "types": ["swordsman", "gunner", "rusher", "elite", "bomber"]}
 
 const VERSION: String = "1.0.0"
-const MAP_IDS: Array = ["yard", "alley", "tower"]
-const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp"}
+const MAP_IDS: Array = ["yard", "alley", "tower", "district"]
+const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp", "district": "Khu phố"}
 
 ## Điểm cao nhất + mức đồ họa, lưu vào file để còn sau khi tắt game.
 var save_path: String = "user://savegame.cfg"

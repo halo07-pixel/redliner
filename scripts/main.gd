@@ -97,7 +97,7 @@ func _ready() -> void:
 	player.combat.hit_confirmed.connect(func(landed: bool): stats.record_hit(landed))
 	waves = WaveScript.new()
 	add_child(waves)
-	waves.setup(arena, arena.bot_spawns)
+	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
 	waves.wave_started.connect(_on_wave_started)
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
 	waves.enemies_left_changed.connect(_on_enemies_for_music)
@@ -305,6 +305,7 @@ func _on_parried(_hit: Dictionary) -> void:
 
 ## Lưới an toàn: rơi khỏi bản đồ thì mất 30 máu và quay về điểm xuất phát (không hồi máu).
 func _physics_process(delta: float) -> void:
+	_update_compass()
 	if _over or player.dead:
 		return
 	if mode != null and mode.active:
@@ -314,6 +315,27 @@ func _physics_process(delta: float) -> void:
 		if not player.dead:
 			player.global_position = arena.spawn_point
 			player.velocity = Vector3.ZERO
+
+
+## La bàn (chỉ map lớn): hướng + khoảng cách tới kẻ địch gần nhất, chỉ cập nhật UI qua hàm của HUD.
+func _update_compass() -> void:
+	if not arena.compass:
+		return
+	var best: Node3D = null
+	var best_d: float = INF
+	for b in get_tree().get_nodes_in_group("bots"):
+		var n := b as Node3D
+		if n == null or not is_instance_valid(n):
+			continue
+		var d: float = n.global_position.distance_to(player.global_position)
+		if d < best_d:
+			best_d = d
+			best = n
+	if best == null:
+		hud.set_compass(false, 0.0, 0.0)
+		return
+	var local: Vector3 = player.global_transform.affine_inverse() * best.global_position
+	hud.set_compass(true, atan2(local.x, -local.z), best_d)
 
 
 func _on_slammed(pos: Vector3, _radius: float) -> void:

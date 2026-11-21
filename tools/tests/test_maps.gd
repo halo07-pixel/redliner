@@ -109,6 +109,8 @@ func _run() -> void:
 	G.set_map("bậy")
 	_check(G.selected_map == "tower", "id sai bị bỏ qua")
 	G.cycle_map()
+	_check(G.selected_map == "district", "cycle_map: tower -> district")
+	G.cycle_map()
 	_check(G.selected_map == "yard", "cycle_map vòng về yard")
 	G.set_map("alley")
 	G.selected_map = "yard"
