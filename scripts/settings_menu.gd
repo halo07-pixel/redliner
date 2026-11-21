@@ -36,6 +36,7 @@ func _ready() -> void:
 	_add_slider(box, "mouse_mult", "Độ nhạy chuột", 0.2, 3.0, 0.05)
 	_add_slider(box, "fov", "Góc nhìn (FOV)", 70.0, 110.0, 1.0)
 	_add_slider(box, "bob", "Lắc đầu khi chạy", 0.0, 1.0, 0.05)
+	_add_slider(box, "cam_fx", "Hiệu ứng camera (chém/tiếp đất/lướt)", 0.0, 1.5, 0.05)
 	_add_slider(box, "pad_sens", "Độ nhạy tay cầm", 0.3, 3.0, 0.05)
 	_add_slider(box, "pad_deadzone", "Vùng chết cần analog", 0.05, 0.5, 0.01)
 	_add_slider(box, "vol_master", "Âm lượng tổng", 0.0, 1.0, 0.05)

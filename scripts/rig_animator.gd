@@ -153,15 +153,27 @@ func overlay_weight() -> float:
 		return 0.0
 	var t: float = overlay["t"]
 	var dur: float = overlay["dur"]
-	var w: float = clampf(t / float(Global.ANIM["overlay_in"]), 0.0, 1.0)
+	var w: float = _ease(t / float(Global.ANIM["overlay_in"]))
 	if not overlay["hold"]:
-		w *= clampf((dur - t) / float(Global.ANIM["overlay_out"]), 0.0, 1.0)
+		w *= _ease((dur - t) / float(Global.ANIM["overlay_out"]))
 	return w
 
 
 static func _ease(x: float) -> float:
 	x = clampf(x, 0.0, 1.0)
 	return x * x * (3.0 - 2.0 * x)
+
+
+## Vào chậm rồi tăng tốc mạnh (đòn chém: dồn lực rồi bật ra).
+static func _ease_in(x: float) -> float:
+	x = clampf(x, 0.0, 1.0)
+	return x * x * x
+
+
+## Bật nhanh rồi giảm tốc (windup, đỡ đòn).
+static func _ease_out(x: float) -> float:
+	x = clampf(x, 0.0, 1.0)
+	return 1.0 - pow(1.0 - x, 3.0)
 
 
 ## Tư thế của overlay tại thời điểm t (hàm thuần, dễ test): {khớp: Vector3 độ, "hips_y": Vector3(x=offset m)}.
@@ -174,7 +186,7 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 			var ac: float = float(data.get("active", 0.12))
 			var rc: float = float(data.get("recovery", 0.3))
 			if t < wu:      # giơ kiếm lên, xoay thân về sau
-				var k: float = _ease(t / maxf(wu, 0.001))
+				var k: float = _ease_out(t / maxf(wu, 0.001))
 				o["shoulder_r"] = Vector3(lerpf(-15.0, 150.0, k), 0.0, 0.0)
 				o["elbow_r"] = Vector3(lerpf(60.0, 80.0, k), 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(0.0, 8.0, k), lerpf(0.0, 28.0, k), 0.0)
@@ -183,7 +195,7 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 				o["+knee_l"] = Vector3(-30.0 * k, 0.0, 0.0)
 				o["+knee_r"] = Vector3(-22.0 * k, 0.0, 0.0)
 			elif t < wu + ac: # chém xuống/ngang qua người
-				var k2: float = _ease((t - wu) / maxf(ac, 0.001))
+				var k2: float = _ease_in((t - wu) / maxf(ac, 0.001))
 				o["shoulder_r"] = Vector3(lerpf(150.0, -20.0, k2), 0.0, 0.0)
 				o["elbow_r"] = Vector3(lerpf(80.0, 20.0, k2), 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(8.0, -20.0, k2), lerpf(28.0, -38.0, k2), 0.0)
@@ -194,8 +206,9 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 				o["+knee_r"] = Vector3(lerpf(-22.0, -10.0, k2), 0.0, 0.0)
 			else:           # thu về
 				var k3: float = _ease((t - wu - ac) / maxf(rc, 0.001))
-				o["shoulder_r"] = Vector3(lerpf(-20.0, -15.0, k3), 0.0, 0.0)
-				o["elbow_r"] = Vector3(lerpf(20.0, 60.0, k3), 0.0, 0.0)
+				var over: float = sin(PI * clampf((t - wu - ac) / maxf(rc, 0.001) * 1.6, 0.0, 1.0)) * (1.0 - k3)   # follow-through: quất quá đích rồi mới về
+				o["shoulder_r"] = Vector3(lerpf(-20.0, -15.0, k3) - 16.0 * over, 0.0, 0.0)
+				o["elbow_r"] = Vector3(lerpf(20.0, 60.0, k3) - 10.0 * over, 0.0, 0.0)
 				o["spine"] = Vector3(lerpf(-20.0, 0.0, k3), lerpf(-38.0, 0.0, k3), 0.0)
 				o["+hips_y"] = Vector3(lerpf(-0.05, 0.0, k3), 0.0, 0.0)
 				o["hips_z"] = Vector3(-float(Global.ANIM["lunge"]) * (1.0 - k3), 0.0, 0.0)
@@ -207,21 +220,27 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 			o["shoulder_r"] = Vector3(70.0 + 12.0 * kick, 0.0, 0.0)
 			o["elbow_r"] = Vector3(10.0 + 20.0 * kick, 0.0, 0.0)
 			o["spine"] = Vector3(7.0 * kick, 0.0, 0.0)
-		"parry":    # kiếm chắn ngang trước ngực
-			o["shoulder_r"] = Vector3(-60.0, 0.0, -25.0)
-			o["elbow_r"] = Vector3(110.0, 0.0, 0.0)
-			o["spine"] = Vector3(-4.0, 22.0, 0.0)
+		"parry":    # kiếm chắn ngang trước ngực: bật nhanh (ease-out) rồi giữ
+			var pk: float = _ease_out(t / 0.08)
+			o["shoulder_r"] = Vector3(-60.0, 0.0, -25.0) * pk
+			o["elbow_r"] = Vector3(110.0, 0.0, 0.0) * pk
+			o["spine"] = Vector3(-4.0, 22.0, 0.0) * pk
 		"parry_miss": # loạng choạng ngắn
 			var e: float = sin(PI * p)
-			o["spine"] = Vector3(16.0 * e, 0.0, sin(t * 14.0) * 4.0 * (1.0 - p))
-			o["head"] = Vector3(12.0 * e, 0.0, 0.0)
-			o["shoulder_r"] = Vector3(10.0, 0.0, 15.0 * e)
+			var bounce: float = exp(-3.5 * p) * sin(p * TAU * 1.5)    # nảy đàn hồi tắt dần
+			o["spine"] = Vector3(16.0 * e + 10.0 * bounce, 0.0, sin(t * 14.0) * 4.0 * (1.0 - p))
+			o["head"] = Vector3(12.0 * e + 8.0 * bounce, 0.0, 0.0)
+			o["shoulder_r"] = Vector3(10.0 + 14.0 * bounce, 0.0, 15.0 * e)
 		"hurt":     # giật người theo hướng đòn tới
 			var env: float = sin(PI * clampf(p, 0.0, 1.0))
 			var d: Vector3 = data.get("direction", Vector3(0.0, 0.0, 1.0))
-			o["spine"] = Vector3(22.0 * env * signf(d.z if absf(d.z) > 0.01 else 1.0), 0.0, -14.0 * env * clampf(d.x, -1.0, 1.0))
-			o["head"] = Vector3(14.0 * env, 0.0, 0.0)
+			var side: float = clampf(d.x, -1.0, 1.0)
+			var recoil: float = env * (1.0 + 0.35 * sin(p * TAU * 1.5) * (1.0 - p))       # giật rồi dội nhẹ
+			o["spine"] = Vector3(22.0 * recoil * signf(d.z if absf(d.z) > 0.01 else 1.0), -10.0 * env * side, -14.0 * env * side)
+			o["hips"] = Vector3(0.0, 12.0 * env * side, 0.0)                              # hông xoay lệch theo hướng đòn
+			o["head"] = Vector3(14.0 * env, 16.0 * env * side, 8.0 * env * side)           # đầu bật theo hướng đòn tới
 			o["shoulder_l"] = Vector3(-25.0 * env, 0.0, -20.0 * env)
+			o["shoulder_r"] = Vector3(-14.0 * env, 0.0, 12.0 * env * (1.0 + side))
 			o["+knee_l"] = Vector3(-18.0 * env, 0.0, 0.0)                                         # khuỵu gối
 			o["+knee_r"] = Vector3(-12.0 * env, 0.0, 0.0)
 			o["+hips_y"] = Vector3(-0.06 * env, 0.0, 0.0)

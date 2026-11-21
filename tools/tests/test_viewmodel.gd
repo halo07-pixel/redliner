@@ -159,7 +159,7 @@ func _run() -> void:
 	await create_timer(0.12).timeout
 	_check(sw.sword_pivot.rotation_degrees.y > 15.0, "chém: sau windup kiếm giơ cao")
 	await create_timer(0.35).timeout
-	_check(sw.sword_pivot.rotation_degrees.distance_to(Vector3(72.0, 0.0, -6.0)) < 1.0, "chém: kiếm về tư thế nghỉ sau recovery")
+	_check(sw.sword_pivot.rotation_degrees.distance_to(Vector3(72.0, 0.0, -6.0)) < 4.0, "chém: kiếm về tư thế nghỉ sau recovery (còn lắc thở khi đứng yên)")
 	_check(sw.sword_pivot.rotation_degrees.x > 60.0 and sw.sword_pivot.rotation_degrees.x < 90.0, "kiếm cầm thẳng: lưỡi hướng lên khi nghỉ")
 	sw.raise()
 	await create_timer(0.1).timeout

@@ -173,13 +173,21 @@ const ANIM: Dictionary = {
 	"parry_time": 0.28,      # giữ tư thế chắn: cửa sổ parry + một nhịp
 	"parry_miss_time": 0.6,
 	"die_time": 0.45,
+	# Camera hỗ trợ hoạt ảnh (M19), đều nhân với hệ số Cài đặt "cam_fx".
+	"cam_lunge": 0.9,        # xung lao tới khi chém (m/s, lò xo kéo về)
+	"cam_dip_min_fall": 6.0, # rơi chậm hơn mức này (m/s) thì không đập camera
+	"cam_dip_per_speed": 0.012, # m/s xung đập mỗi m/s rơi vượt ngưỡng
+	"cam_dip_max": 0.35,
+	"cam_fx_k": 160.0,       # độ cứng/giảm chấn lò xo camera (c < 2*sqrt(k) thì nảy nhẹ)
+	"cam_fx_c": 16.0,
+	"slide_tilt_deg": 2.5,   # camera nghiêng khi lướt (độ)
 }
 
 ## Tay + vũ khí góc nhìn thứ nhất (M7.4). Chỉ là hiển thị, không ảnh hưởng vật lý. Vị trí tính theo mét, góc theo độ.
 const VIEWMODEL: Dictionary = {
 	"sword_pos": Vector3(0.34, -0.55, -0.6),
 	"gun_pos": Vector3(-0.3, -0.26, -0.5),
-	"bob_freq": 0.55,          # rad pha bước trên mỗi mét đi được
+	"bob_freq": 0.4545,        # chu kỳ trên mỗi mét = 1 / PLAYER.step_stride: nhịp nhún khớp nhịp bước chân
 	"bob_amp": 0.03,          # biên độ nhún lên xuống (m) ở tốc độ bob_speed_ref
 	"bob_side": 0.02,
 	"bob_speed_ref": 10.0,
@@ -203,10 +211,36 @@ const VIEWMODEL: Dictionary = {
 		"grapple": {"pos": Vector3(0.0, 0.02, 0.0), "rot": Vector3(60.0, 0.0, -24.0)},
 	},
 	"gun_pose": {
+		"grapple": {"pos": Vector3(0.05, 0.22, -0.08), "rot": Vector3(-12.0, 0.0, -6.0)},
 		"slide": {"pos": Vector3(0.03, -0.02, 0.03), "rot": Vector3(-12.0, 0.0, -18.0)},
 		"dash": {"pos": Vector3(0.0, 0.03, 0.06), "rot": Vector3(-8.0, 0.0, 0.0)},
 		"wallrun": {"pos": Vector3(0.0, 0.0, 0.0), "rot": Vector3(0.0, 0.0, 10.0)},
 	},
+	# Tư thế của CẢ viewmodel theo trạng thái (M19): pos (m) + rot (độ pitch, yaw, roll), cross-fade theo trọng số trạng thái.
+	"body_pose": {
+		"slide": {"pos": Vector3(0.0, -0.09, 0.05), "rot": Vector3(4.0, 0.0, 12.0)},
+		"dash": {"pos": Vector3(0.0, -0.03, 0.14), "rot": Vector3(-6.0, 0.0, 0.0)},
+		"wallrun": {"pos": Vector3.ZERO, "rot": Vector3(0.0, 0.0, 8.0)},
+	},
+	"state_fade": 0.14,        # giây để trọng số một trạng thái trượt 0 -> 1 (cross-fade, không đổi tức thì)
+	"step_impulse": 0.3,       # nhún mỗi bước chân (m/s xung), đồng bộ âm bước chân
+	"step_roll": 2.2,          # nghiêng luân phiên trái/phải mỗi bước (độ)
+	"kick_zeta": 0.6,          # giảm chấn lò xo giật súng (< 1 = nảy nhẹ)
+	"draw_k": 160.0,
+	"reload_k": 220.0,
+	# Độ cứng lò xo theo pha clip (k lớn = bám đích sát/nhanh; k nhỏ = trễ, mềm).
+	"swing_windup_k": 520.0,
+	"swing_active_k": 1500.0,  # chém: bám sát đích để "tăng tốc mạnh rồi dừng đột ngột"
+	"swing_follow_k": 700.0,
+	"swing_recover_k": 600.0,
+	"guard_k": 1800.0,         # đỡ: bật rất nhanh
+	"guard_hold_k": 600.0,
+	"parry_fail_k": 260.0,
+	# Cánh tay hai khớp (IK): vai trong không gian viewmodel (ngoài màn hình), độ dài hai đoạn (m).
+	"sword_shoulder": Vector3(0.28, -0.55, 0.15),
+	"gun_shoulder": Vector3(-0.26, -0.5, 0.15),
+	"upper_arm": 0.6,
+	"fore_arm": 0.6,
 	# Tư thế đỡ đòn: lưỡi kiếm nằm ngang chắn trước mặt (yaw ~80 độ quét lưỡi sang trái).
 	"guard_pos": Vector3(0.2, -0.2, -0.62),
 	"guard_rot": Vector3(12.0, 82.0, 8.0),
@@ -413,7 +447,7 @@ signal bindings_changed
 
 ## Cài đặt người chơi (lưu savegame mục "settings"). mouse_mult nhân với PLAYER.mouse_sens.
 const DEFAULT_SETTINGS: Dictionary = {
-	"mouse_mult": 1.0, "invert_y": false, "fov": 90.0, "bob": 1.0,
+	"mouse_mult": 1.0, "invert_y": false, "fov": 90.0, "bob": 1.0, "cam_fx": 1.0,
 	"pad_sens": 1.0, "pad_deadzone": 0.2,
 	"vol_master": 1.0, "vol_sfx": 1.0, "vol_music": 0.7,
 }
@@ -504,6 +538,9 @@ var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
 var selected_map: String = "yard"
 var reduced_fx: bool = false
+## Bật để lớp phủ F3 hiện pha/clip hoạt ảnh viewmodel (gỡ lỗi hoạt ảnh).
+var anim_debug: bool = false
+var anim_debug_text: String = ""   # viewmodel ghi mỗi frame khi anim_debug bật
 var difficulty: String = "normal"
 var game_mode: String = "survival"
 var _scores: Dictionary = {}
@@ -621,6 +658,7 @@ func _clamp_settings() -> void:
 	settings["mouse_mult"] = clampf(float(settings["mouse_mult"]), 0.2, 3.0)
 	settings["fov"] = clampf(float(settings["fov"]), 70.0, 110.0)
 	settings["bob"] = clampf(float(settings["bob"]), 0.0, 1.0)
+	settings["cam_fx"] = clampf(float(settings["cam_fx"]), 0.0, 1.5)
 	settings["pad_sens"] = clampf(float(settings["pad_sens"]), 0.3, 3.0)
 	settings["pad_deadzone"] = clampf(float(settings["pad_deadzone"]), 0.05, 0.5)
 	for k in ["vol_master", "vol_sfx", "vol_music"]:

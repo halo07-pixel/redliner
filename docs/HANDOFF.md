@@ -158,6 +158,16 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - Test: `test_m18` (tư thế theo trạng thái, đỡ/parry hụt, chen ngang không kẹt, chớp nòng, dây móc, vệt tốc độ, bụi, giảm hiệu ứng). Ảnh: `tools/screenshots/shoot_m18.gd`.
 - Cần người chơi thử: mức "rõ" là cảm giác, hãy chỉnh `sword_pose`, `guard_*`, `bob_amp`. Tư thế đỡ là vệt chéo cắt qua giữa màn hình (có thể che tâm ngắm một chút khi đỡ). Chưa có hoạt ảnh tay riêng cho tay cầm súng khi grapple ngoài việc giơ lên.
 
+## M19 (nhánh `feature/m19-smooth-animation`: hệ hoạt ảnh mượt hơn)
+- `viewmodel.gd` viết lại, GIỮ API công khai. Mọi thứ đi qua lò xo: `Layer` (kiếm, súng) = clip keyframe đặt ĐÍCH cho lò xo vị trí + lò xo góc (mềm hơn: `rot_lag`, cổ tay trễ nhịp). Clip bắt đầu từ tư thế hiện tại, kết bằng khoá `base` (tư thế nền sống) nên chen ngang không nhảy. Cửa sổ hủy `cancel_from` + hàng đợi 1 lệnh (`pending_command`); `parry_fail`/`reset` ngắt ngay.
+- Trọng số trạng thái `_w` (slide/dash/wallrun/grapple) trượt trong `VIEWMODEL.state_fade` rồi smoothstep: đổi trạng thái là cross-fade. Tư thế nằm trong `VIEWMODEL` (`sword_pose`, `gun_pose`, `body_pose`).
+- Tay hai khớp IK (`solve_two_bone`, `_make_arm`): vai cố định, cổ tay bám vật cầm; test `arm_error()`.
+- Giật súng là lò xo cộng thêm (`_kick_spring`), `footstep()` nhún tay mỗi bước (nối Signal `Player.footstep`).
+- Camera (`player.gd`): lao nhẹ khi chém, đập khi tiếp đất theo tốc độ rơi, nghiêng khi lướt; nhịp lắc camera bám `step_stride` (điểm thấp nhất trùng tiếng bước). Hệ số Cài đặt `cam_fx` (0..1.5); hằng số `ANIM.cam_*`. LƯU Ý: nhịp lắc camera trước đây ~10 Hz, nay ~4 Hz ở 9 m/s: cảm giác khác, cần chơi thử.
+- Bot (`rig_animator.gd`): overlay vào/ra smoothstep, chém ease-in + follow-through, đỡ bật nhanh, parry hụt nảy đàn hồi, trúng đòn xoay hông/đầu theo hướng.
+- Gỡ lỗi: F3 rồi F4 hiện clip/pha viewmodel (`Global.anim_debug`). Test mới `test_m19` (không nhảy tư thế, hàng đợi, chen ngang, IK, không rò node, camera). `viewmodel` tự chạy trong `_process` khi chủ nhân không gọi `update()` (test/màn xem trước).
+- CHƯA kiểm bằng người: độ mượt thật khi chơi, các hằng số k/zeta (`VIEWMODEL.*_k`, `ANIM.cam_*`) cần chỉnh sau khi chơi thử. Ảnh chuỗi: `docs/screenshots/m19/sheet_*.png` (`tools/screenshots/shoot_m19.gd`).
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.

@@ -26,6 +26,8 @@ func toggle() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
 		toggle()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F4 and visible:
+		Global.anim_debug = not Global.anim_debug   # F4 (khi F3 đang mở): hiện pha/clip hoạt ảnh viewmodel
 
 
 func _process(delta: float) -> void:
@@ -41,3 +43,5 @@ func _process(delta: float) -> void:
 		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
 		Global.VERSION,
 	]
+	if Global.anim_debug:
+		label.text += "\n" + Global.anim_debug_text
