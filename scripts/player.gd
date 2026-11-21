@@ -63,6 +63,11 @@ var _coyote_t: float = 0.0
 var _jump_buf_t: float = 0.0
 var _prev_want_jump: bool = false
 var _step_dist: float = 0.0
+var _step_sign: float = 1.0   # đổi dấu mỗi bước chân: camera lắc ngang luân phiên trái/phải
+var _cam_fx: Vector3 = Vector3.ZERO     # lệch camera do hiệu ứng (z: lao khi chém, y: đập khi tiếp đất), có lò xo
+var _cam_fx_v: Vector3 = Vector3.ZERO
+var _fall_vy: float = 0.0                # vận tốc rơi lớn nhất từ lúc rời đất (để tính cú đập khi tiếp đất)
+var _was_floor_vis: bool = true
 var _bob_phase: float = 0.0
 var _cam_base: Vector3 = Vector3.ZERO
 var _ledge_cd: float = 0.0
@@ -109,6 +114,8 @@ func _ready() -> void:
 	camera.cull_mask = 0xFFFFF & ~BODY_LAYER
 	melee.clashed.connect(_on_clashed)
 	melee.swing_started.connect(viewmodel.play_swing)
+	melee.swing_started.connect(func(_w, _a, _r): _cam_fx_v.z -= float(Global.ANIM["cam_lunge"]) * _cam_fx_amount())
+	footstep.connect(viewmodel.footstep)
 	SwordTrail.attach(melee)
 	combat.shot_fired.connect(func(_f, _t): viewmodel.kick())
 	combat.reloading_changed.connect(viewmodel.set_reloading)
@@ -162,7 +169,12 @@ func _process(delta: float) -> void:
 		roll = -_wall_side * deg_to_rad(Global.PLAYER["wall_roll_deg"])
 	elif not Global.reduced_fx and is_on_floor():
 		roll = -move_input.x * deg_to_rad(Global.PLAYER["strafe_roll_deg"]) * clampf(horizontal_speed() / 9.0, 0.0, 1.0)
+	if state == State.SLIDE and not Global.reduced_fx:
+		# Lướt: camera nghiêng nhẹ về phía bước ngang (hoặc bên phải nếu đi thẳng), tỉ lệ theo hệ số hiệu ứng camera.
+		var side: float = -signf(move_input.x) if absf(move_input.x) > 0.1 else -1.0
+		roll += side * deg_to_rad(float(Global.ANIM["slide_tilt_deg"])) * _cam_fx_amount()
 	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
+	_step_cam_fx(delta)
 	_shake = maxf(_shake - delta * 0.5, 0.0)
 	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
 	var zoom: float = combat.zoom_fov()
@@ -177,16 +189,42 @@ func _process(delta: float) -> void:
 	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
 
 
+## Hệ số hiệu ứng camera (lao khi chém, đập khi tiếp đất, nghiêng khi lướt): 0 = tắt, 1 = mặc định. Tắt hẳn khi giảm hiệu ứng.
+func _cam_fx_amount() -> float:
+	return 0.0 if Global.reduced_fx else clampf(float(Global.settings.get("cam_fx", 1.0)), 0.0, 1.5)
+
+
+## Lò xo cho lệch camera do hiệu ứng + cú đập khi tiếp đất theo độ cao rơi. Chỉ hình ảnh, chạy ở _process.
+func _step_cam_fx(delta: float) -> void:
+	var floor_now: bool = is_on_floor()
+	if not floor_now:
+		_fall_vy = minf(_fall_vy, velocity.y)
+	elif not _was_floor_vis:
+		var drop: float = clampf(-_fall_vy - float(Global.ANIM["cam_dip_min_fall"]), 0.0, 30.0)
+		_cam_fx_v.y -= minf(drop * float(Global.ANIM["cam_dip_per_speed"]), float(Global.ANIM["cam_dip_max"])) * _cam_fx_amount()
+		_fall_vy = 0.0
+	_was_floor_vis = floor_now
+	var k: float = float(Global.ANIM["cam_fx_k"])
+	var c: float = float(Global.ANIM["cam_fx_c"])
+	var n: int = maxi(1, ceili(delta / (1.0 / 120.0)))
+	var h: float = delta / float(n)
+	for i in n:
+		_cam_fx_v += (-_cam_fx * k - _cam_fx_v * c) * h
+		_cam_fx += _cam_fx_v * h
+
+
 ## Lắc đầu khi chạy trên sàn (chỉ hình ảnh); tắt khi giảm hiệu ứng hoặc đặt bob = 0.
+## Nhịp lắc bám theo quãng đường bước chân (`_step_dist` / step_stride): điểm thấp nhất của camera trùng tiếng bước chân.
 func _update_bob(delta: float) -> void:
 	var amp: float = float(Global.PLAYER["bob_amplitude"]) * float(Global.settings["bob"])
 	var moving: bool = state == State.NORMAL and is_on_floor() and horizontal_speed() > 1.0
+	var fx: Vector3 = _cam_fx * (0.0 if Global.reduced_fx else 1.0)
 	if Global.reduced_fx or amp <= 0.0 or not moving:
-		camera.position = camera.position.lerp(_cam_base, minf(1.0, 12.0 * delta))
+		camera.position = camera.position.lerp(_cam_base + fx, minf(1.0, 12.0 * delta))
 		return
-	_bob_phase += horizontal_speed() * delta * float(Global.PLAYER["bob_frequency"]) * TAU
+	_bob_phase = clampf(_step_dist / float(Global.PLAYER["step_stride"]), 0.0, 1.0) * TAU
 	var k: float = clampf(horizontal_speed() / 9.0, 0.0, 1.5)
-	var target := _cam_base + Vector3(sin(_bob_phase * 0.5) * amp * 0.6, absf(sin(_bob_phase * 0.5)) * amp * k, 0.0)
+	var target := _cam_base + fx + Vector3(sin(_bob_phase * 0.5) * _step_sign * amp * 0.6, absf(sin(_bob_phase * 0.5)) * amp * k, 0.0)
 	camera.position = camera.position.lerp(target, minf(1.0, 18.0 * delta))
 
 
@@ -447,6 +485,7 @@ func _tick_footsteps(delta: float) -> void:
 	_step_dist += horizontal_speed() * delta
 	if _step_dist >= float(Global.PLAYER["step_stride"]):
 		_step_dist = 0.0
+		_step_sign = -_step_sign
 		footstep.emit(horizontal_speed())
 
 
