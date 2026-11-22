@@ -34,7 +34,7 @@ func _run() -> void:
 	player.global_position = arena.spawn_point
 	await _frames(10)
 
-	var walk: float = Global.PLAYER["walk_speed"]
+	var walk: float = root.get_node("Global").PLAYER["walk_speed"]
 	_check(player.is_on_floor(), "đứng được trên sàn sau khi spawn")
 
 	# 1. Đi tiến: đạt đúng walk_speed và dịch về phía -Z

@@ -62,7 +62,7 @@ func _run() -> void:
 	player.global_position = Vector3(0, 0.1, 0)
 	await _frames(10)
 
-	var C: Dictionary = Global.PLAYER
+	var C: Dictionary = root.get_node("Global").PLAYER
 
 	# ---------------- SLIDE BOOST có cooldown + SLIDE HOP
 	print("[slide boost / slide hop]")
