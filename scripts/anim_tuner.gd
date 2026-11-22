@@ -37,10 +37,17 @@ func _ready() -> void:
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
+	_add_header(list, "-- Hoạt ảnh tay / súng --")
 	for k in Global.TUNABLE_VM:
 		_add_row(list, "v." + String(k), float(Global.VIEWMODEL[k]))
+	_add_header(list, "-- Camera / thân --")
 	for k in Global.TUNABLE_ANIM:
 		_add_row(list, "a." + String(k), float(Global.ANIM[k]))
+	var heads: Dictionary = {"p": "-- Grapple --", "b": "-- Di chuyển bot --", "t": "-- Titan --"}
+	for g in Global.TUNABLE_LIVE:
+		_add_header(list, heads[g])
+		for k in Global.TUNABLE_LIVE[g]:
+			_add_row(list, "%s.%s" % [g, k], Global.live_default(g, k))
 	graph = Control.new()
 	graph.custom_minimum_size = Vector2(0.0, 110.0)
 	graph.draw.connect(_draw_graph)
@@ -51,6 +58,15 @@ func _ready() -> void:
 	export_btn.text = "Xuất"
 	export_btn.pressed.connect(export_changes)
 	btns.add_child(export_btn)
+	var save_btn := Button.new()
+	save_btn.text = "Lưu"
+	save_btn.pressed.connect(save_live)
+	btns.add_child(save_btn)
+	for pr in ["easy", "normal", "hard"]:
+		var pb := Button.new()
+		pb.text = "Titan " + {"easy": "dễ", "normal": "thường", "hard": "khó"}[pr]
+		pb.pressed.connect(func(): apply_titan_preset(pr))
+		btns.add_child(pb)
 	var reset_btn := Button.new()
 	reset_btn.text = "Đặt lại"
 	reset_btn.pressed.connect(reset_all)
@@ -59,6 +75,13 @@ func _ready() -> void:
 	status.text = ""
 	col.add_child(status)
 	panel.visible = false
+
+
+func _add_header(parent: Control, text: String) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	parent.add_child(l)
 
 
 func _add_row(parent: Control, key: String, default: float) -> void:
@@ -87,12 +110,43 @@ func set_value(key: String, v: float) -> bool:
 	if not _rows.has(key):
 		return false
 	var row: Dictionary = _rows[key]
-	if is_equal_approx(v, float(row["default"])):
+	var changed: bool = not is_equal_approx(v, float(row["default"]))
+	if _is_live(key):
+		var parts: PackedStringArray = key.split(".")
+		Global.set_live(parts[0], parts[1], v)
+	elif not changed:
 		Global.tune.erase(key)
 	else:
 		Global.tune[key] = v
-	(row["label"] as Label).text = "%s = %s%s" % [key, _fmt(v), "" if not Global.tune.has(key) else "  *"]
+	(row["label"] as Label).text = "%s = %s%s" % [key, _fmt(v), "  *" if changed else ""]
 	return true
+
+
+func _is_live(key: String) -> bool:
+	return key.length() > 2 and key[1] == "." and Global.LIVE_GROUPS.has(key[0])
+
+
+## Đặt thanh trượt theo giá trị hiện tại của Global (sau khi nạp preset / đặt lại).
+func _sync_live_rows() -> void:
+	for k in _rows:
+		if not _is_live(k):
+			continue
+		var parts: PackedStringArray = (k as String).split(".")
+		var v: float = float(Global.live_dict(parts[0])[parts[1]])
+		var row: Dictionary = _rows[k]
+		(row["slider"] as HSlider).set_value_no_signal(v)
+		(row["label"] as Label).text = "%s = %s%s" % [k, _fmt(v), "" if is_equal_approx(v, float(row["default"])) else "  *"]
+
+
+func apply_titan_preset(preset: String) -> void:
+	if Global.apply_titan_preset(preset):
+		_sync_live_rows()
+		status.text = "Titan: " + preset
+
+
+func save_live() -> void:
+	var n: int = Global.save_live()
+	status.text = "Đã lưu %d giá trị vào %s" % [n, Global.LIVE_PATH]
 
 
 ## Văn bản các giá trị đã đổi so với mặc định, mỗi dòng `khoá = giá trị`.
@@ -101,6 +155,9 @@ func export_text() -> String:
 	for k in _rows:
 		if Global.tune.has(k):
 			lines.append("%s = %s" % [k, _fmt(float(Global.tune[k]))])
+	var live: Dictionary = Global.live_changed()
+	for id in live:
+		lines.append("%s = %s" % [id, _fmt(float(live[id]))])
 	return "\n".join(lines)
 
 
@@ -118,6 +175,7 @@ func export_changes() -> void:
 
 func reset_all() -> void:
 	Global.tune.clear()
+	Global.reset_live()
 	for k in _rows:
 		var row: Dictionary = _rows[k]
 		(row["slider"] as HSlider).set_value_no_signal(float(row["default"]))
