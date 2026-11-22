@@ -8,14 +8,15 @@ const L_ENEMY: int = 4
 const L_PROJECTILE: int = 8
 const L_PLAYER_HURT: int = 16
 const L_ENEMY_HURT: int = 32
+const L_TITAN: int = 64 # bề mặt Titan để móc grapple (Area, chỉ dùng cho tia grapple)
 
 const TEAM_PLAYER: int = 0
 const TEAM_ENEMY: int = 1
 
 ## Loại bot. reaction = độ trễ phản ứng (giây), parry/dodge = xác suất, windup = thời gian báo đòn kiếm.
 ## Thứ tự và tên hiển thị các loại bot (HUD / tổng kết).
-const BOT_ORDER: Array = ["swordsman", "rusher", "gunner", "bomber", "elite"]
-const BOT_NAMES: Dictionary = {"swordsman": "Lính kiếm", "rusher": "Lao nhanh", "gunner": "Xạ thủ", "bomber": "Pháo thủ", "elite": "Tinh nhuệ"}
+const BOT_ORDER: Array = ["swordsman", "rusher", "gunner", "bomber", "elite", "titan"]
+const BOT_NAMES: Dictionary = {"swordsman": "Lính kiếm", "rusher": "Lao nhanh", "gunner": "Xạ thủ", "bomber": "Pháo thủ", "elite": "Tinh nhuệ", "titan": "Titan"}
 const BOTS: Dictionary = {
 	"swordsman": {
 		"color": Color(0.85, 0.2, 0.2), "health": 60.0, "speed": 7.5, "melee": true, "range": 2.0,
@@ -37,11 +38,31 @@ const BOTS: Dictionary = {
 		"shoots": false, "shoot_interval": 0.0, "keep_range": 16.0, "bombs": true,
 		"reaction": 0.5, "parry": 0.0, "dodge": 0.2, "windup": 0.3, "attack_cd": 1.5, "score": 200,
 	},
+	"titan": {
+		"color": Color(0.72, 0.5, 0.4), "health": 600.0, "speed": 4.0, "melee": false, "range": 0.0,
+		"shoots": false, "shoot_interval": 0.0, "keep_range": 0.0,
+		"reaction": 1.0, "parry": 0.0, "dodge": 0.0, "windup": 1.2, "attack_cd": 3.0, "score": 1000,
+	},
 	"elite": {
 		"color": Color(0.6, 0.25, 0.85), "health": 90.0, "speed": 8.5, "melee": true, "range": 2.0,
 		"shoots": true, "shoot_interval": 3.5, "keep_range": 0.0,
 		"reaction": 0.12, "parry": 0.5, "dodge": 0.5, "windup": 0.22, "attack_cd": 1.0, "score": 300,
 	},
+}
+
+## Titan (M24). Nhân sát thương theo vùng: thân chỉ trầy, gáy rất đau, gối làm quỵ. Chỉ chạy ở map có `titans`.
+const TITAN: Dictionary = {
+	"scale": 6.0,                  # cỡ hình nhân (cao ~11 m)
+	"body_mult": 0.1, "nape_mult": 6.0, "knee_mult": 0.5,   # nhân sát thương lên máu Titan theo vùng
+	"knee_threshold": 120.0,       # sát thương thô vào gối để Titan quỵ
+	"kneel_time": 4.0, "kneel_height": 0.7, # thời gian quỵ, tỉ lệ chiều cao khi quỵ
+	"speed_accel": 5.0, "turn_rate": 1.4,
+	"stomp_range": 13.0, "stomp_radius": 8.0, "stomp_damage": 40.0, "stomp_windup": 1.6, "stomp_recovery": 1.2, "stomp_cd": 4.0, "stomp_push": 13.0, "stomp_max_height": 3.0,
+	"swipe_range": 15.0, "swipe_reach": 13.0, "swipe_width": 8.0, "swipe_damage": 55.0, "swipe_windup": 1.2, "swipe_active": 0.3, "swipe_recovery": 1.0, "swipe_cd": 3.0, "swipe_push": 16.0,
+	"parry_stagger": 3.0,          # bị parry đòn: choáng chừng này giây
+	"step_interval": 0.9, "shake_range": 45.0,
+	"agent_radius": 2.0, "body_radius": 1.8, "body_height": 11.0,
+	"first_wave": 5, "every": 5, "max_alive": 2,
 }
 
 ## Di chuyển bot (M23): gia tốc, xoay thân, nhìn trước trên đường đi, nhảy leo, nấp, tính đường thưa ở xa.
@@ -152,6 +173,7 @@ const RIG: Dictionary = {
 	"elite": {"shoulder": 1.4, "bulk": 1.3, "armor": 2, "weapon": "sword", "glow": true, "style": "guard"},
 	"rusher": {"shoulder": 0.9, "bulk": 0.85, "armor": 0, "weapon": "sword", "glow": true, "style": "ronin"},
 	"bomber": {"shoulder": 1.1, "bulk": 1.25, "armor": 1, "weapon": "gun", "glow": false, "style": "ranger"},
+	"titan": {"shoulder": 1.3, "bulk": 1.2, "armor": 0, "weapon": "none", "glow": false, "style": "none"},
 }
 ## Màu da dùng chung cho đầu, cổ, bàn tay (thân/quần áo lấy màu theo loại bot).
 const SKIN_COLOR: Color = Color(0.84, 0.68, 0.57)

@@ -32,6 +32,10 @@ var spawn_band: Vector2 = Vector2.ZERO
 var compass: bool = false
 var nav_cell: float = 0.25
 var nav_bake_ms: int = 0
+## Map có Titan: navmesh riêng cho thân hình lớn (bán kính lớn), nằm trên một map điều hướng riêng.
+var titans: bool = false
+var titan_nav_map: RID = RID()
+var _titan_region: RID = RID()
 
 
 func _ready() -> void:
@@ -53,6 +57,7 @@ func _build_map(id: String) -> void:
 	spawn_band = m.get("spawn_band", Vector2.ZERO)
 	compass = bool(m.get("compass", false))
 	nav_cell = float(m.get("nav_cell", 0.25))
+	titans = bool(m.get("titans", false))
 	_box(Vector3(half.x * 2.0, 1.0, half.y * 2.0), Vector3(0.0, -0.5, 0.0), "floor")
 	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, -half.y - 0.5), "wall")
 	_box(Vector3(half.x * 2.0, wall_h, 1.0), Vector3(0.0, wall_h * 0.5, half.y + 0.5), "wall")
@@ -69,6 +74,8 @@ func _build_map(id: String) -> void:
 		_spawn_prop(cp, "crate")
 	if bake_nav:
 		_build_nav()
+		if titans:
+			_build_titan_nav()
 	map_loaded.emit(id)
 
 
@@ -92,6 +99,36 @@ func _build_nav() -> void:
 	nav_region.navigation_mesh = nm
 	add_child(nav_region)
 	NavigationServer3D.map_force_update(nav_region.get_navigation_map())
+
+
+## Navmesh Titan: bake với bán kính/chiều cao lớn, đặt trên map điều hướng riêng (bot thường vẫn dùng navmesh cũ).
+func _build_titan_nav() -> void:
+	var T: Dictionary = Global.TITAN
+	var nm := NavigationMesh.new()
+	nm.cell_size = 0.5
+	nm.agent_radius = float(T["agent_radius"])
+	nm.agent_height = float(T["body_height"]) + 1.0
+	nm.agent_max_climb = 0.5
+	nm.agent_max_slope = 35.0
+	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nm.geometry_collision_mask = Global.L_WORLD
+	var src := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(nm, src, self)
+	NavigationServer3D.bake_from_source_geometry_data(nm, src)
+	titan_nav_map = NavigationServer3D.map_create()
+	NavigationServer3D.map_set_active(titan_nav_map, true)
+	NavigationServer3D.map_set_cell_size(titan_nav_map, 0.5)
+	_titan_region = NavigationServer3D.region_create()
+	NavigationServer3D.region_set_map(_titan_region, titan_nav_map)
+	NavigationServer3D.region_set_navigation_mesh(_titan_region, nm)
+	NavigationServer3D.map_force_update(titan_nav_map)
+
+
+func _exit_tree() -> void:
+	if _titan_region.is_valid():
+		NavigationServer3D.free_rid(_titan_region)
+	if titan_nav_map.is_valid():
+		NavigationServer3D.free_rid(titan_nav_map)
 
 
 ## Đường đi (điểm ngoặt) trên navmesh từ a tới b; rỗng nếu chưa có navmesh.

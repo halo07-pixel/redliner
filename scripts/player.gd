@@ -62,6 +62,8 @@ var _prev_grapple: bool = false
 var _grapple_len: float = 0.0       # độ dài dây hiện tại (chỉ ngắn lại)
 var _grapple_taut: bool = false     # dây đang căng ở khung gần nhất
 var _target_valid: bool = false
+var _grapple_node: Node3D = null    # Titan đang móc (điểm móc bám theo thân)
+var _grapple_local: Vector3 = Vector3.ZERO
 var _target_timer: float = 0.0
 var _shake: float = 0.0
 var _coyote_t: float = 0.0
@@ -741,8 +743,9 @@ func _find_grapple_point() -> Dictionary:
 	var from: Vector3 = head.global_position
 	var fwd: Vector3 = -head.global_transform.basis.z
 	var rng: float = float(Global.PLAYER["grapple_range"])
-	var q := PhysicsRayQueryParameters3D.create(from, from + fwd * rng, Global.L_WORLD)
+	var q := PhysicsRayQueryParameters3D.create(from, from + fwd * rng, Global.L_WORLD | Global.L_TITAN)
 	q.exclude = [get_rid()]
+	q.collide_with_areas = true
 	var hit: Dictionary = space.intersect_ray(q)
 	if not hit.is_empty():
 		return hit
@@ -757,8 +760,9 @@ func _find_grapple_point() -> Dictionary:
 		for k in 8:
 			var a: float = TAU * float(k) / 8.0
 			var dir: Vector3 = (fwd + (right * cos(a) + up * sin(a)) * tan(cone * ring)).normalized()
-			q = PhysicsRayQueryParameters3D.create(from, from + dir * rng, Global.L_WORLD)
+			q = PhysicsRayQueryParameters3D.create(from, from + dir * rng, Global.L_WORLD | Global.L_TITAN)
 			q.exclude = [get_rid()]
+			q.collide_with_areas = true
 			var h: Dictionary = space.intersect_ray(q)
 			if not h.is_empty() and (h["normal"] as Vector3).y < 0.7:   # bỏ qua mặt sàn: móc xuống đất vô ích
 				var d: float = (h["position"] as Vector3).distance_to(from)
@@ -792,6 +796,11 @@ func _try_start_grapple() -> void:
 	if state == State.SLIDE:
 		_exit_slide()
 	_grapple_point = hit["position"]
+	_grapple_node = null
+	var col: Object = hit.get("collider")
+	if col is Area3D and (col as Area3D).collision_layer & Global.L_TITAN != 0:
+		_grapple_node = (col as Area3D).get_parent() as Node3D   # móc lên Titan: điểm móc đi theo thân
+		_grapple_local = _grapple_node.to_local(_grapple_point)
 	_grapple_time = 0.0
 	_grapple_len = head.global_position.distance_to(_grapple_point)
 	_grapple_taut = false
@@ -808,6 +817,14 @@ func _end_grapple() -> void:
 func _move_grapple(delta: float) -> void:
 	var cfg: Dictionary = Global.PLAYER
 	_grapple_time += delta
+	if _grapple_node != null:
+		if is_instance_valid(_grapple_node) and not bool(_grapple_node.get("dead")):
+			_grapple_point = _grapple_node.to_global(_grapple_local)
+			rope.set_target(_grapple_point)
+		else:
+			_grapple_node = null
+			_end_grapple() # Titan chết / biến mất: thả móc
+			return
 	var to: Vector3 = _grapple_point - head.global_position
 	var dist: float = to.length()
 	if not want_grapple:
