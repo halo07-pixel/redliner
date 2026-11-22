@@ -583,7 +583,7 @@ const REMAPPABLE: Array = [
 	["move_forward", "Tiến"], ["move_back", "Lùi"], ["move_left", "Trái"], ["move_right", "Phải"],
 	["jump", "Nhảy"], ["slide", "Trượt"], ["dash", "Dash"], ["slam", "Đập đất"],
 	["attack", "Chém"], ["heavy", "Chém rộng"], ["shoot", "Bắn"], ["parry", "Parry"],
-	["grapple", "Móc"], ["reload", "Nạp đạn"], ["zoom", "Ngắm"],
+	["grapple", "Móc"], ["reload", "Nạp đạn"], ["zoom", "Ngắm"], ["spawn_titan", "Gọi/xoá Titan (Tập luyện, Khu phố)"],
 	["weapon_1", "Súng 1"], ["weapon_2", "Súng 2"], ["weapon_3", "Súng 3"], ["weapon_4", "Súng 4"],
 ]
 
@@ -595,7 +595,7 @@ const MODE_NAMES: Dictionary = {"survival": "Sinh tồn", "timed": "Thử thách
 const MODE_DESCRIPTIONS: Dictionary = {
 	"survival": "Chống lại các wave bot ngày càng mạnh cho tới khi gục. Điểm cao nhất được lưu.",
 	"timed": "Hạ đủ số bot trước khi hết giờ. Mỗi bot hạ được cộng thêm giây. Thắng càng sớm điểm càng cao.",
-	"training": "Bất tử, đạn vô hạn, có bot tập để thử vũ khí và di chuyển. Không tính điểm.",
+	"training": "Bất tử, đạn vô hạn, có bot tập để thử vũ khí và di chuyển. Không tính điểm. Ở bản đồ Khu phố: phím T gọi / xoá một Titan để thử.",
 }
 const TIMED: Dictionary = {
 	"start_time": 90.0, "kill_bonus": 3.0, "max_time": 150.0, "target_kills": 25,
@@ -904,6 +904,15 @@ func set_map(id: String) -> void:
 	map_changed.emit(id)
 
 
+## Bắt đầu từ wave N (chỉ để thử Titan / wave cao; không lưu, không tính kỷ lục). Chỉ áp dụng Sinh tồn và Thời gian.
+const START_WAVES: Array = [1, 5, 10, 15]
+var start_wave: int = 1
+
+
+func cycle_start_wave() -> void:
+	start_wave = START_WAVES[(START_WAVES.find(start_wave) + 1) % START_WAVES.size()]
+
+
 func cycle_map() -> void:
 	set_map(MAP_IDS[(MAP_IDS.find(selected_map) + 1) % MAP_IDS.size()])
 
@@ -940,6 +949,8 @@ func best_score(mode: String = "", level: String = "") -> int:
 ## Nộp điểm cho chế độ (mặc định: đang chọn) ở mức độ khó hiện tại. true nếu phá kỷ lục.
 func submit_mode_score(value: int, mode: String = "") -> bool:
 	var m: String = mode if mode in MODES else game_mode
+	if start_wave > 1 and m != "training":
+		return false # chơi thử từ wave cao: không ghi kỷ lục
 	match m:
 		"survival":
 			return submit_score(value)
@@ -977,6 +988,7 @@ func _setup_input() -> void:
 	_add_key("slam", KEY_C)
 	_add_key("heavy", KEY_Q)
 	_add_key("zoom", KEY_Z)
+	_add_key("spawn_titan", KEY_T)
 	_add_key("weapon_1", KEY_1)
 	_add_key("weapon_2", KEY_2)
 	_add_key("weapon_3", KEY_3)
