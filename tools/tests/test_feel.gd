@@ -267,7 +267,7 @@ func _run() -> void:
 	_check(G.settings["mouse_mult"] == 0.2, "độ nhạy chuột kẹp tối thiểu 0.2")
 	G.set_setting("fov", 100.0)
 	await _frames(1)
-	for i in 60:
+	for i in 120:   # FOV đuổi theo bằng lò xo (0.22 s) nên chờ lâu hơn
 		await process_frame
 	_check(player.camera.fov >= 99.0, "FOV nền áp dụng cho camera (%.1f)" % player.camera.fov)
 	G.set_setting("fov", 90.0)

@@ -43,7 +43,7 @@ func _ready() -> void:
 	_add_header(list, "-- Camera / thân --")
 	for k in Global.TUNABLE_ANIM:
 		_add_row(list, "a." + String(k), float(Global.ANIM[k]))
-	var heads: Dictionary = {"p": "-- Grapple --", "b": "-- Di chuyển bot --", "t": "-- Titan --"}
+	var heads: Dictionary = {"m": "-- Chuyển động chung (camera, nghiêng) --", "p": "-- Người chơi / Grapple --", "b": "-- Di chuyển bot --", "t": "-- Titan --"}
 	for g in Global.TUNABLE_LIVE:
 		_add_header(list, heads[g])
 		for k in Global.TUNABLE_LIVE[g]:
@@ -62,6 +62,11 @@ func _ready() -> void:
 	save_btn.text = "Lưu"
 	save_btn.pressed.connect(save_live)
 	btns.add_child(save_btn)
+	for mp in ["smooth", "fast"]:
+		var mb := Button.new()
+		mb.text = "Chuyển động " + {"smooth": "mượt", "fast": "nhanh"}[mp]
+		mb.pressed.connect(func(): apply_motion_preset(mp))
+		btns.add_child(mb)
 	for pr in ["easy", "normal", "hard"]:
 		var pb := Button.new()
 		pb.text = "Titan " + {"easy": "dễ", "normal": "thường", "hard": "khó"}[pr]
@@ -142,6 +147,12 @@ func apply_titan_preset(preset: String) -> void:
 	if Global.apply_titan_preset(preset):
 		_sync_live_rows()
 		status.text = "Titan: " + preset
+
+
+func apply_motion_preset(preset: String) -> void:
+	if Global.apply_motion_preset(preset):
+		_sync_live_rows()
+		status.text = "Chuyển động: " + preset
 
 
 func save_live() -> void:

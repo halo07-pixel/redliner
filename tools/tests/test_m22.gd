@@ -109,8 +109,8 @@ func _run() -> void:
 	player._grapple_taut = true
 	var look: Vector3 = -player.head.global_transform.basis.z
 	player.want_grapple = false
-	await _frames(1)
-	_check(player.velocity.length() >= 20.0 + float(P["grapple_release_snap"]) - 1.0, "nhả khi căng: tốc độ tăng thêm snap (%.1f m/s)" % player.velocity.length())
+	await _frames(14)   # vận tốc xoay dần (M26)
+	_check(player.velocity.length() >= 20.0 + float(P["grapple_release_snap"]) - 1.5, "nhả khi căng: tốc độ tăng thêm snap (%.1f m/s)" % player.velocity.length())
 
 	print("[giữ lâu được]")
 	_check(float(P["grapple_max_time"]) >= 5.0, "thời gian bám tối đa >= 5 s")

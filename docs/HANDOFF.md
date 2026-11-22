@@ -214,6 +214,13 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - Lưu ý: nếu có file `user://tuning.cfg`, game dùng giá trị trong đó thay mặc định (F3 báo "tuning N giá trị đổi"). Xoá bằng nút Đặt lại rồi Lưu.
 - Test: `tools/tests/test_m25.gd`.
 
+## M26 (nhánh `feature/m26-unified-motion`: chuyển động mượt, đồng nhất)
+- `scripts/motion.gd`: `damp()` (lò xo tắt dần tới hạn, vận tốc liên tục) và `pops()` (đếm "cú giật" trong chuỗi mẫu, dùng để đo độ mượt).
+- `Global.MOTION` + preset `smooth` (mặc định) / `fast` (`apply_motion_preset`, nút trong F4): gia tốc người chơi `ground_accel` 70 (fast 100; lưu ý cân bằng với ma sát: cần > walk_speed * friction), bot 55, thời gian đáp ứng camera (roll/FOV/độ cao đầu qua `Motion.damp` thay lerp mũ), `accel_lean` (thân nghiêng theo gia tốc ở `rig_animator.update`, dùng chung cho người chơi, bot, Titan), `grapple_redirect_time` 0.15 s (nhả móc xoay vận tốc dần, `_step_redirect`), `grapple_tilt_deg` (camera nghiêng về điểm móc).
+- Titan: nhịp bước khớp chu kỳ hoạt ảnh (`anim_speed_mult`, một bước = nửa chu kỳ).
+- Test: `tools/tests/test_m26.gd` (đo thời gian đạt 90% tốc độ, thời gian dừng, độ giật camera, nhả móc, nghiêng theo gia tốc). Đã cập nhật `test_feel` (FOV đuổi bằng lò xo), `test_m9_movement` và `test_m22` (nhả móc xoay dần trong ~0.15 s).
+- Số đo (cloud): smooth đạt 90% tốc độ sau ~0.28 s, dừng sau ~0.30 s; fast ~0.18 s. Cảm giác thật cần bạn thử bằng F4 -> nút Chuyển động mượt/nhanh.
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -249,7 +256,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (30 bộ, thêm test_m21..test_m25: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (31 bộ, thêm test_m21..test_m26: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
