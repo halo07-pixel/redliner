@@ -305,13 +305,15 @@ func _physics_process(delta: float) -> void:
 	velocity.z = _hv.z
 	move_and_slide()
 	var sp: float = Vector2(velocity.x, velocity.z).length()
-	_step_t -= delta * clampf(sp / maxf(speed, 0.1), 0.0, 1.0)
+	# Nhịp bước chân khớp với chu kỳ hoạt ảnh: một bước = nửa chu kỳ chạy (pha tăng speed * stride_rate mỗi giây).
+	var anim_speed: float = sp / float(T["scale"]) * float(T["anim_speed_mult"])
+	_step_t -= delta
 	if sp > 0.5 and _step_t <= 0.0:
-		_step_t = float(T["step_interval"])
+		_step_t = PI / maxf(anim_speed * float(Global.ANIM["stride_rate"]), 0.1)
 		stepped.emit(global_position)
 		sound.emit("step")
 	mannequin.set_look_target(target.global_position + Vector3(0.0, 1.45, 0.0) if not target.dead else null)
-	mannequin.animate(delta, sp * 0.6, is_on_floor(), velocity.y)
+	mannequin.animate(delta, anim_speed, is_on_floor(), velocity.y)
 
 
 func _face(to: Vector3, delta: float, rate_mult: float = 1.0) -> void:

@@ -59,6 +59,13 @@ var _grapple_point: Vector3 = Vector3.ZERO
 var _grapple_time: float = 0.0
 var _grapple_cd: float = 0.0
 var _prev_grapple: bool = false
+const Motion = preload("res://scripts/motion.gd")
+var _roll_v: float = 0.0            # vận tốc lò xo camera (M26)
+var _fov_v: float = 0.0
+var _head_v: float = 0.0
+var _redirect_target: Vector3 = Vector3.ZERO   # nhả móc: vận tốc đích, xoay dần trong grapple_redirect_time
+var _redirect_rate: float = 0.0
+var _redirect_left: float = 0.0
 var _grapple_len: float = 0.0       # độ dài dây hiện tại (chỉ ngắn lại)
 var _grapple_taut: bool = false     # dây đang căng ở khung gần nhất
 var _target_valid: bool = false
@@ -184,20 +191,30 @@ func _process(delta: float) -> void:
 		# Lướt: camera nghiêng nhẹ về phía bước ngang (hoặc bên phải nếu đi thẳng), tỉ lệ theo hệ số hiệu ứng camera.
 		var side: float = -signf(move_input.x) if absf(move_input.x) > 0.1 else -1.0
 		roll += side * deg_to_rad(float(Global.ta("slide_tilt_deg"))) * _cam_fx_amount()
-	head.rotation.z = lerpf(head.rotation.z, roll, minf(1.0, 10.0 * delta))
+	if state == State.GRAPPLE and not Global.reduced_fx:
+		# Đang kéo: camera nghiêng nhẹ về phía điểm móc.
+		var to_a: Vector3 = _grapple_point - head.global_position
+		roll += -signf(to_a.dot(head.global_transform.basis.x)) * deg_to_rad(float(Global.PLAYER["grapple_tilt_deg"])) * clampf(absf(to_a.normalized().dot(head.global_transform.basis.x)) * 3.0, 0.0, 1.0)
+	var rr: Vector2 = Motion.damp(head.rotation.z, roll, _roll_v, float(Global.MOTION["cam_roll_time"]), delta)
+	head.rotation.z = rr.x
+	_roll_v = rr.y
 	_step_cam_fx(delta)
 	_shake = maxf(_shake - delta * 0.5, 0.0)
 	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
 	var zoom: float = combat.zoom_fov()
 	if zoom > 0.0:
 		target_fov = zoom
-	camera.fov = lerpf(camera.fov, target_fov, minf(1.0, (14.0 if zoom > 0.0 else 6.0) * delta))
+	var fr: Vector2 = Motion.damp(camera.fov, target_fov, _fov_v, 0.07 if zoom > 0.0 else float(Global.MOTION["cam_fov_time"]), delta)
+	camera.fov = fr.x
+	_fov_v = fr.y
 	_update_bob(delta)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
 	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name(), move_input.x)
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
-	head.position.y = lerpf(head.position.y, hy, minf(1.0, 14.0 * delta))
+	var hr: Vector2 = Motion.damp(head.position.y, hy, _head_v, float(Global.MOTION["cam_head_time"]), delta)
+	head.position.y = hr.x
+	_head_v = hr.y
 
 
 ## Hệ số hiệu ứng camera (lao khi chém, đập khi tiếp đất, nghiêng khi lướt): 0 = tắt, 1 = mặc định. Tắt hẳn khi giảm hiệu ứng.
@@ -325,6 +342,7 @@ func _physics_process(delta: float) -> void:
 	if use_input:
 		_read_input()
 	_tick_timers(delta)
+	_step_redirect(delta)
 	_tick_feel(delta)
 	if state == State.LEDGE and (want_dash or want_grapple or want_slam):
 		cancel_ledge()
@@ -865,7 +883,26 @@ func _release_redirect() -> void:
 	if _grapple_taut: # nhả lúc dây căng: bắn ra thêm theo hướng nhìn
 		speed += float(cfg["grapple_release_snap"])
 	var blended: Vector3 = velocity.lerp(look * speed, float(cfg["grapple_redirect_blend"]))
-	velocity = blended.normalized() * speed + look * float(cfg["grapple_release_boost"])
+	var target_v: Vector3 = blended.normalized() * speed + look * float(cfg["grapple_release_boost"])
+	var t_red: float = float(cfg["grapple_redirect_time"])
+	if t_red <= 0.001:
+		velocity = target_v
+		return
+	# Xoay dần vận tốc sang hướng mới thay vì đổi trong một khung hình (liền mạch với cú kéo trước đó).
+	_redirect_target = target_v
+	_redirect_left = t_red
+	_redirect_rate = velocity.distance_to(target_v) / t_red
+
+
+## Nhả móc: đưa vận tốc về vận tốc đích đều đặn trong `grapple_redirect_time`; dừng khi vào trạng thái khác.
+func _step_redirect(delta: float) -> void:
+	if _redirect_left <= 0.0:
+		return
+	if state != State.NORMAL or dead:
+		_redirect_left = 0.0
+		return
+	_redirect_left -= delta
+	velocity = velocity.move_toward(_redirect_target, _redirect_rate * delta)
 
 
 # ------------------------------------------------------------------ SLAM

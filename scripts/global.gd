@@ -50,6 +50,28 @@ const BOTS: Dictionary = {
 	},
 }
 
+## Chuyển động chung (M26): thời gian đáp ứng camera + độ nghiêng theo gia tốc; preset "smooth" / "fast" đổi cả PLAYER, BOT_MOVE, MOTION.
+var MOTION: Dictionary = {
+	"cam_roll_time": 0.14, "cam_fov_time": 0.22, "cam_head_time": 0.10, # giây gần tới đích (lò xo tắt dần tới hạn)
+	"accel_lean": 0.5,   # nghiêng thân theo gia tốc (0 = tắt): ~0,125 độ mỗi m/s²
+}
+const MOTION_PRESETS: Dictionary = {
+	"smooth": {"p.ground_accel": 70.0, "p.ground_friction": 7.0, "p.stop_speed": 2.5, "p.grapple_redirect_time": 0.15, "p.grapple_tilt_deg": 3.0,
+		"b.accel": 55.0, "b.decel": 55.0, "m.cam_roll_time": 0.14, "m.cam_fov_time": 0.22, "m.cam_head_time": 0.10, "m.accel_lean": 0.5},
+	"fast": {"p.ground_accel": 100.0, "p.ground_friction": 8.0, "p.stop_speed": 3.0, "p.grapple_redirect_time": 0.0, "p.grapple_tilt_deg": 0.0,
+		"b.accel": 30.0, "b.decel": 60.0, "m.cam_roll_time": 0.10, "m.cam_fov_time": 0.17, "m.cam_head_time": 0.07, "m.accel_lean": 0.0},
+}
+
+
+func apply_motion_preset(preset: String) -> bool:
+	if not MOTION_PRESETS.has(preset):
+		return false
+	for id in MOTION_PRESETS[preset]:
+		var parts: PackedStringArray = (id as String).split(".")
+		set_live(parts[0], parts[1], float(MOTION_PRESETS[preset][id]))
+	return true
+
+
 ## Titan (M24). Nhân sát thương theo vùng: thân chỉ trầy, gáy rất đau, gối làm quỵ. Chỉ chạy ở map có `titans`.
 ## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
 var TITAN: Dictionary = {
@@ -61,6 +83,7 @@ var TITAN: Dictionary = {
 	"stomp_range": 13.0, "stomp_radius": 8.0, "stomp_damage": 40.0, "stomp_windup": 1.6, "stomp_recovery": 1.2, "stomp_cd": 4.0, "stomp_push": 13.0, "stomp_max_height": 3.0,
 	"swipe_range": 15.0, "swipe_reach": 13.0, "swipe_width": 8.0, "swipe_damage": 55.0, "swipe_windup": 1.2, "swipe_active": 0.3, "swipe_recovery": 1.0, "swipe_cd": 3.0, "swipe_push": 16.0,
 	"parry_stagger": 3.0,          # bị parry đòn: choáng chừng này giây
+	"anim_speed_mult": 3.0,        # tốc độ hoạt ảnh chạy = tốc độ thật / cỡ * hệ số này (sải bước dài, nặng)
 	"step_interval": 0.9, "shake_range": 45.0,
 	"agent_radius": 2.0, "body_radius": 1.8, "body_height": 11.0,
 	"first_wave": 5, "every": 5, "max_alive": 2,
@@ -70,7 +93,7 @@ var TITAN: Dictionary = {
 ## Di chuyển bot (M23): gia tốc, xoay thân, nhìn trước trên đường đi, nhảy leo, nấp, tính đường thưa ở xa.
 ## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
 var BOT_MOVE: Dictionary = {
-	"accel": 30.0, "decel": 60.0,        # m/s^2 khi tăng tốc / phanh
+	"accel": 55.0, "decel": 55.0,        # m/s^2 khi tăng tốc / phanh (cùng cỡ với người chơi: preset "smooth")
 	"turn_rate": 16.0, "turn_rate_attack": 40.0, # rad/s xoay thân (khi ra đòn xoay nhanh hơn)
 	"lookahead": 8.0,                    # m: bỏ qua điểm ngoặt nếu thấy thẳng được điểm xa hơn trong tầm này
 	"vault_max": 3.0, "vault_cd": 0.8, "vault_push": 4.5, # nhảy leo tối đa (m), thời gian chờ, lực đẩy tiến
@@ -409,9 +432,9 @@ const BREAKABLES: Dictionary = {
 ## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
 var PLAYER: Dictionary = {
 	"walk_speed": 9.0,       # m/s, tốc độ đích khi đi bộ
-	"ground_accel": 100.0,   # m/s² trên mặt đất (đủ lớn để đạt đúng walk_speed dù có ma sát)
-	"ground_friction": 8.0,  # hệ số hãm trên mặt đất
-	"stop_speed": 3.0,       # dưới ngưỡng này ma sát hãm tuyến tính, dừng dứt khoát
+	"ground_accel": 70.0,    # m/s² trên mặt đất (preset "smooth"; "fast" = 100; cân bằng với ma sát nên cần > walk_speed * friction)
+	"ground_friction": 7.0,  # hệ số hãm trên mặt đất
+	"stop_speed": 2.5,       # dưới ngưỡng này ma sát hãm tuyến tính, dừng dứt khoát
 	"air_accel": 18.0,       # m/s² trên không (cho phép air-strafe cộng thêm tốc độ)
 	"gravity": 24.0,         # m/s²
 	"jump_velocity": 9.0,    # m/s, nhảy cao ~1.7m
@@ -470,6 +493,8 @@ var PLAYER: Dictionary = {
 	"grapple_cooldown": 0.5,
 	"grapple_redirect_blend": 0.7, # nhả móc: tỉ lệ vận tốc được xoay theo hướng nhìn (giữ nguyên độ lớn)
 	"grapple_release_boost": 3.0,  # + m/s dọc hướng nhìn khi nhả móc (redirect)
+	"grapple_redirect_time": 0.15, # giây xoay dần vận tốc khi nhả móc (0 = tức thì)
+	"grapple_tilt_deg": 3.0,       # camera nghiêng về phía điểm móc khi đang kéo
 	# --- Ground slam ---
 	"slam_min_height": 2.0,  # phải cách mặt đất ít nhất chừng này mới slam được
 	"slam_speed": 42.0,      # tốc độ lao xuống
@@ -1030,10 +1055,11 @@ func _add_mouse(action: String, button: MouseButton) -> void:
 
 ## Layer hurtbox của một phe.
 ## ---- Chỉnh lúc chơi (M25): grapple (p), di chuyển bot (b), Titan (t). Sửa thẳng các dict PLAYER/BOT_MOVE/TITAN.
-const LIVE_GROUPS: Dictionary = {"p": "PLAYER", "b": "BOT_MOVE", "t": "TITAN"}
+const LIVE_GROUPS: Dictionary = {"p": "PLAYER", "b": "BOT_MOVE", "t": "TITAN", "m": "MOTION"}
 const LIVE_PATH: String = "user://tuning.cfg"
 const TUNABLE_LIVE: Dictionary = {
-	"p": ["grapple_range", "grapple_pull_start", "grapple_pull_max", "grapple_ramp", "grapple_max_speed", "grapple_stop_dist", "grapple_max_time", "grapple_assist_deg", "grapple_swing", "grapple_release_snap"],
+	"m": ["cam_roll_time", "cam_fov_time", "cam_head_time", "accel_lean"],
+	"p": ["ground_accel", "ground_friction", "stop_speed", "grapple_redirect_time", "grapple_tilt_deg", "grapple_range", "grapple_pull_start", "grapple_pull_max", "grapple_ramp", "grapple_max_speed", "grapple_stop_dist", "grapple_max_time", "grapple_assist_deg", "grapple_swing", "grapple_release_snap"],
 	"b": ["accel", "decel", "turn_rate", "turn_rate_attack", "lookahead", "vault_max", "cover_chance", "cover_radius", "far_dist"],
 	"t": ["health_mult", "windup_mult", "body_mult", "nape_mult", "knee_mult", "knee_threshold", "kneel_time", "stomp_windup", "stomp_damage", "stomp_radius", "swipe_windup", "swipe_damage", "swipe_reach", "parry_stagger"],
 }

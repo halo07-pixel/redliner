@@ -129,7 +129,7 @@ func _run() -> void:
 	var spd: float = player.velocity.length()
 	var before_dot: float = player.velocity.normalized().dot(-player.global_transform.basis.z)
 	player.want_grapple = false
-	await _frames(1)
+	await _frames(14)   # vận tốc xoay dần trong grapple_redirect_time (M26)
 	var after_dot: float = player.velocity.normalized().dot(-player.global_transform.basis.z)
 	_check(after_dot > before_dot + 0.3, "nhả móc: vận tốc bẻ theo hướng nhìn (cos %.2f -> %.2f)" % [before_dot, after_dot])
 	_check(player.velocity.length() >= spd - 0.5, "redirect giữ (hoặc tăng) độ lớn vận tốc (%.1f -> %.1f)" % [spd, player.velocity.length()])

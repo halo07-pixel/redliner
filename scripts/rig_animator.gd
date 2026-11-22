@@ -10,6 +10,10 @@ var mannequin: Node3D
 var anim_state: String = "idle"
 var phase: float = 0.0
 var _t: float = 0.0
+const Motion = preload("res://scripts/motion.gd")
+var _prev_speed: float = 0.0
+var _acc_s: float = 0.0       # gia tốc đã làm mượt (m/s²) -> nghiêng thân theo gia tốc
+var _acc_sv: float = 0.0
 var _hips_base_y: float = 0.0
 var _rot: Dictionary = {}    # khớp -> góc hiện tại (độ), do lò xo điều khiển
 var _vel: Dictionary = {}
@@ -308,6 +312,15 @@ func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name
 	if anim_state == "run" or anim_state == "wallrun":
 		phase = fmod(phase + speed * delta * float(Global.ANIM["stride_rate"]), TAU)
 	var pose: Dictionary = target_pose(anim_state, phase, speed, vel_y, side, _t)
+	# Nghiêng thân theo gia tốc: tăng tốc thì cúi về trước, phanh thì ngả ra sau (cùng một cách cho người chơi, bot, Titan).
+	var acc: float = clampf((speed - _prev_speed) / maxf(delta, 0.0001), -60.0, 60.0)
+	_prev_speed = speed
+	var ar: Vector2 = Motion.damp(_acc_s, acc, _acc_sv, 0.12, delta)
+	_acc_s = ar.x
+	_acc_sv = ar.y
+	if anim_state == "run" or anim_state == "idle":
+		var lean_acc: float = clampf(_acc_s * float(Global.MOTION["accel_lean"]) * 0.25, -8.0, 8.0)
+		pose["spine"] = (pose.get("spine", Vector3.ZERO) as Vector3) + Vector3(-lean_acc, 0.0, 0.0)
 	if not overlay.is_empty():
 		overlay["t"] = float(overlay["t"]) + delta
 		if not overlay["hold"] and float(overlay["t"]) >= float(overlay["dur"]):
