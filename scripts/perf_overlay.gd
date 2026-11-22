@@ -30,6 +30,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		Global.anim_debug = not Global.anim_debug   # F4 (khi F3 đang mở): hiện pha/clip hoạt ảnh viewmodel
 
 
+## Dòng thông tin cho map lớn / Titan: số bot, Titan gần nhất, thời gian bake navmesh, tuning đang áp dụng.
+func _game_stats() -> String:
+	var tree := get_tree()
+	var bots: int = tree.get_nodes_in_group("bots").size()
+	var text: String = "bot %d" % bots
+	var player := tree.get_first_node_in_group("player") as Node3D
+	var nearest: float = INF
+	for b in tree.get_nodes_in_group("bots"):
+		if "is_titan" in b and not b.dead and player != null:
+			nearest = minf(nearest, (b as Node3D).global_position.distance_to(player.global_position))
+	if nearest < INF:
+		text += " | Titan %d m" % int(nearest)
+	var scene: Node = tree.current_scene
+	var arena: Variant = scene.get("arena") if scene != null else null
+	if arena != null and "nav_bake_ms" in arena:
+		text += " | navmesh %d ms" % int(arena.nav_bake_ms)
+	var n: int = Global.live_changed().size()
+	if n > 0:
+		text += " | tuning %d giá trị đổi" % n
+	return text
+
+
 func _process(delta: float) -> void:
 	if not visible:
 		return
@@ -43,5 +65,6 @@ func _process(delta: float) -> void:
 		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
 		Global.VERSION,
 	]
+	label.text += "\n" + _game_stats()
 	if Global.anim_debug:
 		label.text += "\n" + Global.anim_debug_text

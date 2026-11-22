@@ -72,7 +72,7 @@ func setup(p_type: String, p_difficulty: int) -> void:
 	difficulty = p_difficulty
 	cfg = Global.BOTS["titan"]
 	var st: Dictionary = Global.bot_stats("titan", p_difficulty)
-	max_health = float(st["health"])
+	max_health = float(st["health"]) * float(Global.TITAN["health_mult"])
 	health = max_health
 	speed = float(st["speed"])
 	score_mult = float(st["score_mult"])
@@ -359,7 +359,7 @@ func _nav_dir(to: Vector3, dist: float) -> Vector3:
 func _start_stomp() -> void:
 	var T: Dictionary = Global.TITAN
 	state = S.STOMP_WIND
-	_t = float(T["stomp_windup"])
+	_t = float(T["stomp_windup"]) * float(T["windup_mult"])
 	_stomp_pt = target.global_position
 	_stomp_pt.y = global_position.y
 	_show_marker("disc", _stomp_pt, float(T["stomp_radius"]))
@@ -385,7 +385,7 @@ func _do_stomp() -> void:
 func _start_swipe() -> void:
 	var T: Dictionary = Global.TITAN
 	state = S.SWIPE_WIND
-	_t = float(T["swipe_windup"])
+	_t = float(T["swipe_windup"]) * float(T["windup_mult"])
 	_swipe_dir = -global_transform.basis.z
 	_swipe_cd = float(T["swipe_cd"])
 	mannequin.play("swing", _t + float(T["swipe_active"]) + float(T["swipe_recovery"]), {"windup": _t, "active": float(T["swipe_active"]), "recovery": float(T["swipe_recovery"])})

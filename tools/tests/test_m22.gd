@@ -59,7 +59,7 @@ func _run() -> void:
 	root.add_child(player)
 	player.global_position = Vector3(0, 1.0, 0)
 	await _frames(3)
-	var P: Dictionary = Global.PLAYER
+	var P: Dictionary = root.get_node("Global").PLAYER
 
 	print("[tầm + hỗ trợ ngắm]")
 	_check(float(P["grapple_range"]) >= 90.0, "tầm móc >= 90 m")

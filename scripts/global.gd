@@ -51,7 +51,8 @@ const BOTS: Dictionary = {
 }
 
 ## Titan (M24). Nhân sát thương theo vùng: thân chỉ trầy, gáy rất đau, gối làm quỵ. Chỉ chạy ở map có `titans`.
-const TITAN: Dictionary = {
+## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
+var TITAN: Dictionary = {
 	"scale": 6.0,                  # cỡ hình nhân (cao ~11 m)
 	"body_mult": 0.1, "nape_mult": 6.0, "knee_mult": 0.5,   # nhân sát thương lên máu Titan theo vùng
 	"knee_threshold": 120.0,       # sát thương thô vào gối để Titan quỵ
@@ -63,10 +64,12 @@ const TITAN: Dictionary = {
 	"step_interval": 0.9, "shake_range": 45.0,
 	"agent_radius": 2.0, "body_radius": 1.8, "body_height": 11.0,
 	"first_wave": 5, "every": 5, "max_alive": 2,
+	"health_mult": 1.0, "windup_mult": 1.0,   # độ khó Titan: nhân máu / thời gian báo đòn
 }
 
 ## Di chuyển bot (M23): gia tốc, xoay thân, nhìn trước trên đường đi, nhảy leo, nấp, tính đường thưa ở xa.
-const BOT_MOVE: Dictionary = {
+## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
+var BOT_MOVE: Dictionary = {
 	"accel": 30.0, "decel": 60.0,        # m/s^2 khi tăng tốc / phanh
 	"turn_rate": 16.0, "turn_rate_attack": 40.0, # rad/s xoay thân (khi ra đòn xoay nhanh hơn)
 	"lookahead": 8.0,                    # m: bỏ qua điểm ngoặt nếu thấy thẳng được điểm xa hơn trong tầm này
@@ -403,7 +406,8 @@ const BREAKABLES: Dictionary = {
 	"crate": {"health": 10.0, "explosive": false},
 }
 
-const PLAYER: Dictionary = {
+## (var: chỉnh được lúc chơi qua bộ chỉnh F4, xem set_live)
+var PLAYER: Dictionary = {
 	"walk_speed": 9.0,       # m/s, tốc độ đích khi đi bộ
 	"ground_accel": 100.0,   # m/s² trên mặt đất (đủ lớn để đạt đúng walk_speed dù có ma sát)
 	"ground_friction": 8.0,  # hệ số hãm trên mặt đất
@@ -601,6 +605,8 @@ var _default_bindings: Dictionary = {}
 func _ready() -> void:
 	_setup_input()
 	load_save()
+	_snapshot_live()
+	load_live()
 
 
 ## Giá trị trong file save có thể bị sửa/hỏng: chỉ nhận số/chuỗi/bool, còn lại về mặc định.
@@ -1023,6 +1029,100 @@ func _add_mouse(action: String, button: MouseButton) -> void:
 
 
 ## Layer hurtbox của một phe.
+## ---- Chỉnh lúc chơi (M25): grapple (p), di chuyển bot (b), Titan (t). Sửa thẳng các dict PLAYER/BOT_MOVE/TITAN.
+const LIVE_GROUPS: Dictionary = {"p": "PLAYER", "b": "BOT_MOVE", "t": "TITAN"}
+const LIVE_PATH: String = "user://tuning.cfg"
+const TUNABLE_LIVE: Dictionary = {
+	"p": ["grapple_range", "grapple_pull_start", "grapple_pull_max", "grapple_ramp", "grapple_max_speed", "grapple_stop_dist", "grapple_max_time", "grapple_assist_deg", "grapple_swing", "grapple_release_snap"],
+	"b": ["accel", "decel", "turn_rate", "turn_rate_attack", "lookahead", "vault_max", "cover_chance", "cover_radius", "far_dist"],
+	"t": ["health_mult", "windup_mult", "body_mult", "nape_mult", "knee_mult", "knee_threshold", "kneel_time", "stomp_windup", "stomp_damage", "stomp_radius", "swipe_windup", "swipe_damage", "swipe_reach", "parry_stagger"],
+}
+const TITAN_PRESETS: Dictionary = {
+	"easy": {"health_mult": 0.7, "windup_mult": 1.3},
+	"normal": {"health_mult": 1.0, "windup_mult": 1.0},
+	"hard": {"health_mult": 1.4, "windup_mult": 0.8},
+}
+var _live_defaults: Dictionary = {}   # "g.key" -> giá trị gốc
+
+
+func _snapshot_live() -> void:
+	_live_defaults.clear()
+	for g in LIVE_GROUPS:
+		var d: Dictionary = live_dict(g)
+		for k in TUNABLE_LIVE[g]:
+			_live_defaults["%s.%s" % [g, k]] = float(d[k])
+
+
+func live_dict(group: String) -> Dictionary:
+	return get(LIVE_GROUPS[group])
+
+
+func live_default(group: String, key: String) -> float:
+	return float(_live_defaults["%s.%s" % [group, key]])
+
+
+## Đổi một giá trị chỉnh được. Trả về false nếu khoá không nằm trong danh sách cho phép.
+func set_live(group: String, key: String, v: float) -> bool:
+	if not TUNABLE_LIVE.has(group) or not (key in TUNABLE_LIVE[group]) or not is_finite(v):
+		return false
+	live_dict(group)[key] = v
+	return true
+
+
+func live_changed() -> Dictionary:
+	var out: Dictionary = {}
+	for id in _live_defaults:
+		var parts: PackedStringArray = (id as String).split(".")
+		var cur: float = float(live_dict(parts[0])[parts[1]])
+		if not is_equal_approx(cur, float(_live_defaults[id])):
+			out[id] = cur
+	return out
+
+
+func reset_live() -> void:
+	for id in _live_defaults:
+		var parts: PackedStringArray = (id as String).split(".")
+		live_dict(parts[0])[parts[1]] = _live_defaults[id]
+
+
+func apply_titan_preset(preset: String) -> bool:
+	if not TITAN_PRESETS.has(preset):
+		return false
+	for k in TITAN_PRESETS[preset]:
+		TITAN[k] = float(TITAN_PRESETS[preset][k])
+	return true
+
+
+## Lưu các giá trị đã đổi vào user://tuning.cfg (chỉ lưu phần khác mặc định). Trả về số giá trị đã lưu.
+func save_live() -> int:
+	var ch: Dictionary = live_changed()
+	var cf := ConfigFile.new()
+	for id in ch:
+		var parts: PackedStringArray = (id as String).split(".")
+		cf.set_value(parts[0], parts[1], ch[id])
+	if ch.is_empty():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(LIVE_PATH))
+	else:
+		cf.save(LIVE_PATH)
+	return ch.size()
+
+
+## Nạp tuning đã lưu (nếu có). Chỉ nhận khoá cho phép và giá trị số hợp lệ; file hỏng thì bỏ qua.
+func load_live() -> int:
+	var cf := ConfigFile.new()
+	if cf.load(LIVE_PATH) != OK:
+		return 0
+	var n: int = 0
+	for g in TUNABLE_LIVE:
+		if not cf.has_section(g):
+			continue
+		for k in cf.get_section_keys(g):
+			var v: Variant = cf.get_value(g, k)
+			if (v is int or v is float) and set_live(g, k, float(v)):
+				n += 1
+	return n
+
+
 ## Giá trị hoạt ảnh có thể chỉnh lúc chơi: ưu tiên `tune`, rồi tới hằng số.
 func tv(key: String) -> Variant:
 	if tune.is_empty():

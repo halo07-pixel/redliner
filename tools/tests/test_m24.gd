@@ -70,7 +70,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	await process_frame
-	var T: Dictionary = Global.TITAN
+	var T: Dictionary = root.get_node("Global").TITAN
 
 	print("[cỡ + vùng]")
 	await _clear()

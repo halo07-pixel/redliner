@@ -82,7 +82,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	await process_frame
-	var M: Dictionary = Global.BOT_MOVE
+	var M: Dictionary = root.get_node("Global").BOT_MOVE
 
 	print("[gia tốc]")
 	await _clear()
