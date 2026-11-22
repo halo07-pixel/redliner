@@ -9,6 +9,7 @@ var help_button: Button
 var quality_button: Button
 var map_button: Button
 var difficulty_button: Button
+var start_wave_button: Button
 var mode_button: Button
 var start_button: Button
 var setup_back_button: Button
@@ -84,6 +85,7 @@ func _build_setup() -> void:
 	mode_button = UIKit.mode_button()
 	map_button = UIKit.map_button()
 	difficulty_button = UIKit.difficulty_button()
+	start_wave_button = UIKit.start_wave_button()
 	mode_desc_label = UIKit.label("", 20)
 	mode_desc_label.custom_minimum_size = Vector2(640.0, 0.0)
 	mode_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -91,8 +93,10 @@ func _build_setup() -> void:
 	best_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	start_button = UIKit.button("Bắt đầu")
 	setup_back_button = UIKit.button("Quay lại")
-	for c in [mode_button, map_button, difficulty_button, mode_desc_label, best_label, start_button, setup_back_button]:
+	for c in [mode_button, map_button, difficulty_button, start_wave_button, mode_desc_label, best_label, start_button, setup_back_button]:
 		box.add_child(c)
+	map_button.pressed.connect(_refresh_setup)
+	start_wave_button.pressed.connect(_refresh_setup)
 	Global.difficulty_changed.connect(func(_l): _refresh_setup())
 	Global.mode_changed.connect(func(_m): _refresh_setup())
 	start_button.pressed.connect(_on_play)
@@ -103,6 +107,9 @@ func _build_setup() -> void:
 ## Mô tả chế độ + kỷ lục của (chế độ, độ khó) đang chọn.
 func _refresh_setup() -> void:
 	mode_desc_label.text = String(Global.MODE_DESCRIPTIONS[Global.game_mode])
+	if Global.selected_map == "district" and Global.game_mode != "training":
+		mode_desc_label.text += " Khu phố có Titan từ wave 5."
+	start_wave_button.visible = Global.game_mode != "training"
 	if Global.game_mode == "training":
 		best_label.text = "Không tính điểm"
 	else:

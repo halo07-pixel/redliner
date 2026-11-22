@@ -31,6 +31,8 @@ const SPAWN_GAP: float = 1.3
 var _band: Vector2 = Vector2.ZERO
 ## Map có Titan (Khu phố): wave 5, 10, ... có thêm Titan. Mặc định tắt để composition() thuần cho map thường.
 var titans_enabled: bool = false
+## Bắt đầu từ wave này (>1: chơi thử, main đặt từ Global.start_wave).
+var first_wave: int = 1
 
 
 func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> void:
@@ -41,7 +43,7 @@ func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> 
 
 func start() -> void:
 	_running = true
-	wave = 0
+	wave = maxi(first_wave, 1) - 1
 	_next_wave()
 
 
@@ -87,22 +89,47 @@ func _next_wave() -> void:
 	enemies_left_changed.emit(_alive) # báo lại sau khi sinh xong để HUD thấy cơ cấu bot theo loại
 
 
+## Tạo Titan (navmesh Titan, chỗ sinh đủ rộng) và thêm vào thế giới; chưa nối Signal chết.
+func _create_titan(at_wave: int) -> CharacterBody3D:
+	var b: CharacterBody3D = TitanScript.new()
+	b.setup("titan", at_wave)
+	var nm: Variant = _world.get("titan_nav_map")
+	if nm is RID and (nm as RID).is_valid():
+		b.nav_map = nm
+	var sp: Vector3 = _pick_spawn()
+	if b.nav_map.is_valid():
+		sp = NavigationServer3D.map_get_closest_point(b.nav_map, sp) # chỗ đủ rộng cho thân hình Titan
+	b.position = sp
+	_world.add_child(b)
+	bot_spawned.emit(b)
+	return b
+
+
+## Tập luyện: gọi một Titan (chỉ map có Titan). Không tính vào wave, không làm bot tập sinh lại. Trả về null nếu map không có.
+func spawn_titan_practice() -> Node3D:
+	if not titans_enabled or _spawns.is_empty():
+		return null
+	return _create_titan(int(Global.TRAINING["bot_wave"]))
+
+
+## Tập luyện: xoá mọi Titan đang có. Trả về số Titan đã xoá.
+func clear_titans() -> int:
+	var n: int = 0
+	for b in get_tree().get_nodes_in_group("bots"):
+		if "is_titan" in b:
+			b.queue_free()
+			n += 1
+	return n
+
+
 func _spawn(type_name: String) -> void:
-	var b: CharacterBody3D = (TitanScript if type_name == "titan" else BotScript).new()
-	b.setup(type_name, wave)
 	if type_name == "titan":
-		var nm: Variant = _world.get("titan_nav_map")
-		if nm is RID and (nm as RID).is_valid():
-			b.nav_map = nm
-		var sp: Vector3 = _pick_spawn()
-		if b.nav_map.is_valid():
-			sp = NavigationServer3D.map_get_closest_point(b.nav_map, sp) # chỗ đủ rộng cho thân hình Titan
-		b.position = sp
-		_world.add_child(b)
-		b.died.connect(_on_bot_died)
+		var t: CharacterBody3D = _create_titan(wave)
+		t.died.connect(_on_bot_died)
 		alive_types[type_name] = int(alive_types.get(type_name, 0)) + 1
-		bot_spawned.emit(b)
 		return
+	var b: CharacterBody3D = BotScript.new()
+	b.setup(type_name, wave)
 	b.position = _free_spot(_pick_spawn())
 	_used_spots.append(b.position)
 	_world.add_child(b)

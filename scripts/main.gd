@@ -99,6 +99,7 @@ func _ready() -> void:
 	waves = WaveScript.new()
 	add_child(waves)
 	waves.titans_enabled = arena.titans
+	waves.first_wave = Global.start_wave if Global.game_mode != "training" else 1
 	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
 	waves.wave_started.connect(_on_wave_started)
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
@@ -176,6 +177,21 @@ func _spawn_practice_bot() -> void:
 	_practice_i += 1
 
 
+## Tập luyện (phím T): gọi một Titan, bấm lần nữa để xoá. Chỉ ở bản đồ Khu phố.
+func _toggle_practice_titan() -> void:
+	if mode == null or mode.mode != "training":
+		return
+	if not arena.titans:
+		hud.flash("Titan chỉ có ở Khu phố", Color(0.8, 0.8, 0.8))
+		return
+	if waves.clear_titans() > 0:
+		hud.set_boss(false, 0.0)
+		hud.flash("ĐÃ XOÁ TITAN", Color(0.8, 0.8, 0.8))
+		return
+	waves.spawn_titan_practice()
+	hud.flash("TITAN!", Color(1.0, 0.5, 0.3))
+
+
 func _on_practice_bot_killed(_bot: Node3D, _info: Dictionary) -> void:
 	stats.record_kill(String(_bot.type_name))
 	hud.flash("ĐÃ HẠ", Color(0.5, 1.0, 0.5))
@@ -188,6 +204,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("ui_cancel") and not get_tree().paused:
 		_set_paused(true)
+	elif event.is_action_pressed("spawn_titan") and not get_tree().paused:
+		_toggle_practice_titan()
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED and not get_tree().paused and not Global.anim_debug:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
