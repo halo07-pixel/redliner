@@ -164,6 +164,27 @@ func support_grip() -> Vector3:
 	return weapon.to_global(Vector3(0.0, -0.02, -0.4)) if weapon != null else Vector3.ZERO
 
 
+## Chớp sáng ngắn trên vũ khí (báo cửa sổ parry đang mở). Chỉ hình ảnh; không làm gì khi giảm hiệu ứng.
+func flash_weapon(duration: float) -> void:
+	if weapon == null or Global.reduced_fx:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.5, 0.9, 1.0, 0.85)
+	var meshes: Array = []
+	for c in weapon.get_children():
+		if c is MeshInstance3D:
+			(c as MeshInstance3D).material_overlay = mat
+			meshes.append(c)
+	var tw := weapon.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, maxf(duration, 0.05))
+	tw.tween_callback(func():
+		for m in meshes:
+			if is_instance_valid(m):
+				(m as MeshInstance3D).material_overlay = null)
+
+
 func clear_overlay() -> void:
 	animator.clear_overlay()
 	reset_pose()

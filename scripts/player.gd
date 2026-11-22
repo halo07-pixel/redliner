@@ -80,6 +80,10 @@ var _step_dist: float = 0.0
 var _step_sign: float = 1.0   # đổi dấu mỗi bước chân: camera lắc ngang luân phiên trái/phải
 var _cam_fx: Vector3 = Vector3.ZERO     # lệch camera do hiệu ứng (z: lao khi chém, y: đập khi tiếp đất), có lò xo
 var _cam_fx_v: Vector3 = Vector3.ZERO
+var _pk_rot: Vector2 = Vector2.ZERO    # giật camera do parry (x: pitch, y: roll; độ), tắt dần bằng lò xo
+var _pk_rot_v: Vector2 = Vector2.ZERO
+var _pk_fov: float = 0.0               # FOV nảy do parry (độ)
+var _pk_fov_v: float = 0.0
 var _fall_vy: float = 0.0                # vận tốc rơi lớn nhất từ lúc rời đất (để tính cú đập khi tiếp đất)
 var _was_floor_vis: bool = true
 var _bob_phase: float = 0.0
@@ -200,7 +204,8 @@ func _process(delta: float) -> void:
 	_roll_v = rr.y
 	_step_cam_fx(delta)
 	_shake = maxf(_shake - delta * 0.5, 0.0)
-	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0)
+	_step_parry_react(delta)
+	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0) + _pk_fov
 	var zoom: float = combat.zoom_fov()
 	if zoom > 0.0:
 		target_fov = zoom
@@ -294,6 +299,30 @@ func _read_input() -> void:
 		combat.want_reload = false
 		combat.want_heavy = false
 		combat.want_zoom = false
+
+
+## Parry thành công (M28): camera giật theo hướng đòn bị đỡ + FOV nảy. `incoming` = hướng đòn bay tới người chơi (thế giới).
+## Chỉ hình ảnh; nhân với hệ số "cam_fx", tắt khi giảm hiệu ứng.
+func parry_react(incoming: Vector3) -> void:
+	var amt: float = _cam_fx_amount()
+	if amt <= 0.0:
+		return
+	var local: Vector3 = head.global_transform.basis.inverse() * incoming
+	var kick: float = float(Global.ta("pf_cam_kick")) * amt
+	_pk_rot.x += kick
+	_pk_rot.y += -signf(local.x) * kick * 0.6 if absf(local.x) > 0.05 else 0.0
+	_pk_fov += float(Global.ta("pf_fov_punch")) * amt
+
+
+func _step_parry_react(delta: float) -> void:
+	var rx: Vector2 = Motion.damp(_pk_rot.x, 0.0, _pk_rot_v.x, 0.12, delta)
+	var ry: Vector2 = Motion.damp(_pk_rot.y, 0.0, _pk_rot_v.y, 0.12, delta)
+	_pk_rot = Vector2(rx.x, ry.x)
+	_pk_rot_v = Vector2(rx.y, ry.y)
+	var rf: Vector2 = Motion.damp(_pk_fov, 0.0, _pk_fov_v, 0.15, delta)
+	_pk_fov = rf.x
+	_pk_fov_v = rf.y
+	camera.rotation = Vector3(deg_to_rad(_pk_rot.x), 0.0, deg_to_rad(_pk_rot.y))
 
 
 ## Rung camera (gọi từ main khi có va chạm/đòn trúng).

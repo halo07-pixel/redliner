@@ -166,6 +166,8 @@ var _sword_rest: Vector3 = Vector3(72.0, 0.0, -6.0)
 var _sword_rest_pos: Vector3
 var _t: float = 0.0
 var _flash_light: OmniLight3D
+var _blade_light: OmniLight3D
+var _blade_tween: Tween
 var _gun_rest_pos: Vector3
 var _flash_t: float = 0.0
 var _w: Dictionary = {"slide": 0.0, "dash": 0.0, "wallrun": 0.0, "grapple": 0.0}  # trọng số trạng thái, trượt mượt
@@ -228,6 +230,14 @@ func _ready() -> void:
 	_flash_light.shadow_enabled = false
 	_flash_light.visible = false
 	muzzle_flash.add_child(_flash_light)
+	# Đèn chớp lưỡi kiếm (M28): dựng sẵn, ẩn; chỉ bật khi parry (không tạo node giữa trận)
+	_blade_light = OmniLight3D.new()
+	_blade_light.light_color = Color(0.6, 0.9, 1.0)
+	_blade_light.omni_range = 2.5
+	_blade_light.shadow_enabled = false
+	_blade_light.visible = false
+	_blade_light.position = Vector3(0.0, 0.0, -0.3)
+	sword_pivot.add_child(_blade_light)
 
 	# ---- Các súng khác (cùng gốc = bàn tay cầm; chỉ hiện súng đang chọn) ----
 	_gun_models["pistol"] = pistol
@@ -583,9 +593,25 @@ func _start_raise() -> void:
 
 ## Parry thành công: cú đẩy kiếm ra trước (phản lực) + giật nhẹ; kiếm bật ra ngoài rồi thu về (clip, ngắt ngay).
 func parry_hit() -> void:
+	_blade_flash()
 	_pos_spring.v += Vector3(0.0, 0.2, -1.8)
 	_rot_spring.v += Vector3(-60.0, 0.0, 0.0)
 	_sword_command("parry_hit", func(): _start_deflect(), true)
+
+
+## Chớp sáng ngắn trên lưỡi kiếm lúc bật (M28). Không có khi giảm hiệu ứng.
+func _blade_flash() -> void:
+	if Global.reduced_fx or sword_pivot == null:
+		return
+	if _blade_light == null:
+		return
+	_blade_light.visible = true
+	_blade_light.light_energy = float(Global.ta("pf_flash_energy"))
+	if _blade_tween != null and _blade_tween.is_valid():
+		_blade_tween.kill()
+	_blade_tween = _blade_light.create_tween()
+	_blade_tween.tween_property(_blade_light, "light_energy", 0.0, 0.12)
+	_blade_tween.tween_callback(func(): _blade_light.visible = false)
 
 
 func _start_deflect() -> void:
