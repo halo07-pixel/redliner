@@ -268,5 +268,5 @@ static func _district() -> Dictionary:
 		"barrels": barrels,
 		"crates": crates,
 		# map lớn: bot sinh trong vòng 35..60 m quanh người chơi (không sinh ở đầu kia bản đồ), có la bàn kẻ địch, navmesh ô thô hơn
-		"big": true, "spawn_band": Vector2(35.0, 60.0), "compass": true, "nav_cell": 0.25,
+		"big": true, "titans": true, "spawn_band": Vector2(35.0, 60.0), "compass": true, "nav_cell": 0.25,
 	}

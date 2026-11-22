@@ -11,6 +11,7 @@ signal practice_bot_killed(bot: Node3D, info: Dictionary)
 signal bot_relocated(bot: Node3D) # bot rơi/văng khỏi map, được đưa về điểm sinh
 
 const BotScript = preload("res://scripts/bot.gd")
+const TitanScript = preload("res://scripts/titan.gd")
 const MAX_BOTS_PER_WAVE: int = 10
 
 var break_time: float = 4.0
@@ -28,6 +29,8 @@ const SPAWN_GAP: float = 1.3
 
 ## band = (min, max) m quanh người chơi cho map lớn; Vector2.ZERO = cách cũ (điểm xa nhất).
 var _band: Vector2 = Vector2.ZERO
+## Map có Titan (Khu phố): wave 5, 10, ... có thêm Titan. Mặc định tắt để composition() thuần cho map thường.
+var titans_enabled: bool = false
 
 
 func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> void:
@@ -61,6 +64,13 @@ func composition(n: int) -> Array:
 			types.append("gunner")
 		else:
 			types.append("swordsman")
+	if titans_enabled:
+		var T: Dictionary = Global.TITAN
+		var first: int = int(T["first_wave"])
+		if n >= first and (n - first) % int(T["every"]) == 0:
+			var k: int = mini(1 + (n - first) / (int(T["every"]) * 2), int(T["max_alive"]))
+			for i in k:
+				types.append("titan")
 	return types
 
 
@@ -78,8 +88,21 @@ func _next_wave() -> void:
 
 
 func _spawn(type_name: String) -> void:
-	var b: CharacterBody3D = BotScript.new()
+	var b: CharacterBody3D = (TitanScript if type_name == "titan" else BotScript).new()
 	b.setup(type_name, wave)
+	if type_name == "titan":
+		var nm: Variant = _world.get("titan_nav_map")
+		if nm is RID and (nm as RID).is_valid():
+			b.nav_map = nm
+		var sp: Vector3 = _pick_spawn()
+		if b.nav_map.is_valid():
+			sp = NavigationServer3D.map_get_closest_point(b.nav_map, sp) # chỗ đủ rộng cho thân hình Titan
+		b.position = sp
+		_world.add_child(b)
+		b.died.connect(_on_bot_died)
+		alive_types[type_name] = int(alive_types.get(type_name, 0)) + 1
+		bot_spawned.emit(b)
+		return
 	b.position = _free_spot(_pick_spawn())
 	_used_spots.append(b.position)
 	_world.add_child(b)

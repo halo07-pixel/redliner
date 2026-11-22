@@ -98,6 +98,7 @@ func _ready() -> void:
 	player.combat.hit_confirmed.connect(func(landed: bool): stats.record_hit(landed))
 	waves = WaveScript.new()
 	add_child(waves)
+	waves.titans_enabled = arena.titans
 	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
 	waves.wave_started.connect(_on_wave_started)
 	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
@@ -106,7 +107,9 @@ func _ready() -> void:
 	waves.enemies_left_changed.connect(func(_l): hud.set_enemy_types(waves.alive_types))
 	waves.bot_spawned.connect(func(bot):
 		bot.sound.connect(func(n: String): Sfx.play_at(n, bot.global_position))
-		bot.exploded.connect(_on_exploded))
+		bot.exploded.connect(_on_exploded)
+		if "is_titan" in bot:
+			_hook_titan(bot))
 	waves.bot_killed.connect(_on_bot_killed)
 	arena.explosion.connect(_on_exploded)
 	arena.prop_broken.connect(_on_prop_broken)
@@ -316,6 +319,27 @@ func _physics_process(delta: float) -> void:
 		if not player.dead:
 			player.global_position = arena.spawn_point
 			player.velocity = Vector3.ZERO
+
+
+## Titan: thanh máu, rung màn hình theo khoảng cách, chữ báo trúng điểm yếu (chỉ nối Signal, không xử lý logic).
+func _hook_titan(t: Node3D) -> void:
+	hud.set_boss(true, 1.0)
+	t.health_changed.connect(func(cur: float, mx: float): hud.set_boss(cur > 0.0, cur / maxf(mx, 1.0)))
+	t.stepped.connect(func(p: Vector3): _titan_shake(p, 0.025))
+	t.stomp_landed.connect(func(p: Vector3, r: float):
+		_titan_shake(p, 0.12)
+		Fx.ring(self, p, Color(1.0, 0.4, 0.2, 0.9))
+		Fx.sparks(self, p + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.6, 0.3)))
+	t.weak_point_hit.connect(func(zone: String):
+		hud.flash("GÁY!" if zone == "nape" else "GỐI!", Color(1.0, 0.85, 0.2)))
+	t.died.connect(func(_b, _i): hud.set_boss(false, 0.0))
+
+
+func _titan_shake(p: Vector3, amount: float) -> void:
+	var d: float = p.distance_to(player.global_position)
+	var rng: float = float(Global.TITAN["shake_range"])
+	if d < rng:
+		player.shake(amount * (1.0 - d / rng))
 
 
 ## La bàn (chỉ map lớn): hướng + khoảng cách tới kẻ địch gần nhất, chỉ cập nhật UI qua hàm của HUD.

@@ -17,6 +17,7 @@ var _timer_label: Label
 var _types_label: Label
 var _compass_label: Label
 var _grapple_dot: Label
+var _boss_bar: ProgressBar
 var _inst_bar: ProgressBar
 var _inst_label: Label
 var _inst_fill: StyleBoxFlat
@@ -371,6 +372,26 @@ func set_compass(on: bool, angle: float, dist: float) -> void:
 	var arrows: Array = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
 	var idx: int = int(roundf(wrapf(angle, 0.0, TAU) / (TAU / 8.0))) % 8
 	_compass_label.text = "%s  %d m" % [arrows[idx], int(dist)]
+
+
+## Thanh máu Titan (giữa trên, dưới la bàn). on=false ẩn.
+func set_boss(on: bool, ratio: float) -> void:
+	if _boss_bar == null:
+		_boss_bar = ProgressBar.new()
+		_boss_bar.show_percentage = false
+		_boss_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_boss_bar.custom_minimum_size = Vector2(420.0, 14.0)
+		_boss_bar.size = Vector2(420.0, 14.0)
+		_boss_bar.position = Vector2(-210.0, 52.0)
+		_boss_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_boss_bar.max_value = 1.0
+		_boss_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = Color(0.85, 0.2, 0.15)
+		_boss_bar.add_theme_stylebox_override("fill", fill)
+		add_child(_boss_bar)
+	_boss_bar.visible = on
+	_boss_bar.value = clampf(ratio, 0.0, 1.0)
 
 
 ## Chấm vàng cạnh tâm ngắm: đang có điểm móc được.

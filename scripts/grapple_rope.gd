@@ -58,6 +58,10 @@ func hide_rope() -> void:
 	set_process(false)
 
 
+func set_target(p: Vector3) -> void:
+	_target = p
+
+
 func set_tension(t: float) -> void:
 	tension = clampf(t, 0.0, 1.0)
 

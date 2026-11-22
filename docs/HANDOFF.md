@@ -196,6 +196,16 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - Test: `tools/tests/test_m23.gd` (có bài chạy bot trên Khu phố); đổi kỳ vọng ở `test_bots` (tới chậm hơn do gia tốc), `test_smart_bots` (bệ 5 m thay 3 m; đảo chiều lùi cần ~16 khung).
 - Test tháp 2 nấc trong test_m23 phụ thuộc ngẫu nhiên (hướng lách) nên đôi khi chậm; nếu đỏ, chạy lại.
 
+## M24 (nhánh `feature/m24-titans`: Titan)
+- `scripts/titan.gd` (CharacterBody3D, group "bots", cùng giao diện signal với bot: `died(bot, info)`, `sound`, `exploded`, thêm `health_changed`, `stepped`, `stomp_landed`, `weak_point_hit`). Hình nhân khối `mannequin.gd` kind `titan` phóng 6x (chưa có asset Titan riêng).
+- Ba vùng nhận sát thương (Hurtbox máu vô hạn, máu thật trừ ở `_on_zone_hit`): thân `body_mult 0.1`, gáy `nape_mult 6`, gối `knee_mult 0.5`; sát thương thô vào gối >= `knee_threshold` -> quỵ `kneel_time` giây (gáy hạ thấp).
+- Hai đòn có báo trước: giậm (vòng đỏ dưới đất, tránh bằng cách chạy ra / nhảy cao) và quét (dải đỏ trước mặt); đều đi qua `target.hurtbox.take_hit` kind `melee` nên parry được -> Titan choáng `parry_stagger` giây.
+- Navmesh riêng cho Titan: `arena._build_titan_nav` (map điều hướng riêng `titan_nav_map`, bán kính `agent_radius` 2 m); bot thường không đổi.
+- Grapple móc được thân Titan (Area trên tầng `Global.L_TITAN`), điểm móc bám theo thân (`player._grapple_node`, `rope.set_target`); Titan chết thì thả móc.
+- Wave: chỉ map có `"titans": true` (Khu phố): wave 5, 10, ... thêm Titan (`wave_manager.titans_enabled`, `Global.TITAN`: `first_wave`, `every`, `max_alive`). HUD: thanh máu Titan (`hud.set_boss`), chữ GÁY!/GỐI!, rung màn hình theo khoảng cách (main `_hook_titan`).
+- Thông số: `Global.TITAN` và `Global.BOTS["titan"]`. Test: `tools/tests/test_m24.gd`; ảnh `tools/screenshots/shoot_m24.gd`.
+- Chưa kiểm cân bằng / cảm giác khổng lồ trong chơi thật (cloud không có GPU).
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -231,7 +241,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (28 bộ, thêm test_m21, test_m22, test_m23: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (29 bộ, thêm test_m21..test_m24: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
