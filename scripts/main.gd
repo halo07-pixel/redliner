@@ -78,7 +78,9 @@ func _ready() -> void:
 	player.melee.hit_landed.connect(_on_melee_hit)
 	player.melee.clashed.connect(_on_clash)
 	player.parry.parried.connect(_on_parried)
-	player.parry.parry_missed.connect(func(): hud.flash("PARRY HỤT", Color(0.8, 0.8, 0.8)))
+	player.parry.parry_missed.connect(func():
+		Sfx.play("parry_miss")
+		hud.flash("PARRY HỤT", Color(0.8, 0.8, 0.8)))
 	player.parry.cooldown_progress.connect(hud.set_parry)
 	player.instability.changed.connect(hud.set_instability)
 	player.instability.destabilized_changed.connect(_on_destabilized)
@@ -312,17 +314,36 @@ func _on_clash(_direction: Vector3) -> void:
 	Sfx.play("clash")
 	hud.flash("CLASH!", Color(1.0, 0.85, 0.3))
 	Fx.sparks(self, _front_point(), Color(1.0, 0.85, 0.3))
-	Global.hitstop(0.08)
+	Global.hitstop(float(Global.ta("pf_clash_hitstop")) * (float(Global.ANIM["pf_reduced_hitstop"]) if Global.reduced_fx else 1.0), float(Global.ta("pf_hitstop_scale")))
 
 
-func _on_parried(_hit: Dictionary) -> void:
+## Hướng đòn bay tới người chơi (thế giới): kiếm = từ kẻ tấn công tới mình (phẳng); đạn = ngược vận tốc đã bị phản.
+func _incoming_dir(hit: Dictionary) -> Vector3:
+	var back: Vector3 = player.head.global_transform.basis.z
+	var src: Variant = hit.get("source")
+	if hit.get("kind") == "bullet" and is_instance_valid(hit.get("bullet")):
+		var v: Vector3 = -Vector3(hit["bullet"].velocity)
+		return v.normalized() if v.length() > 0.01 else back
+	if src is Node3D and is_instance_valid(src):
+		var d: Vector3 = player.global_position - (src as Node3D).global_position
+		d.y = 0.0
+		return d.normalized() if d.length() > 0.01 else back
+	return back
+
+
+func _on_parried(hit: Dictionary) -> void:
+	var incoming: Vector3 = _incoming_dir(hit)
+	var at: Vector3 = _front_point()
 	Sfx.play("parry")
+	Sfx.play("parry_low")
 	hud.flash("PARRY!", Color(0.4, 0.85, 1.0))
-	Fx.sparks(self, _front_point(), Color(0.5, 0.9, 1.0))
-	Fx.sparks(self, _front_point() + Vector3(0.0, 0.15, 0.0), Color(1.0, 1.0, 1.0))
-	Fx.ring(self, _front_point(), Color(0.5, 0.9, 1.0, 0.9), -player.head.global_transform.basis.z)
+	var cone: float = float(Global.ta("pf_spark_cone"))
+	Fx.sparks(self, at, Color(0.5, 0.9, 1.0), -incoming, cone)          # bật ngược về phía kẻ tấn công
+	Fx.sparks(self, at + Vector3(0.0, 0.15, 0.0), Color(1.0, 1.0, 1.0), -incoming, cone * 0.6)
+	Fx.ring(self, at, Color(0.5, 0.9, 1.0, 0.9), -player.head.global_transform.basis.z)
 	player.shake(0.05)
-	Global.hitstop(0.08)
+	player.parry_react(incoming)
+	Global.hitstop(Global.parry_hitstop_time(String(hit.get("kind", "melee"))), float(Global.ta("pf_hitstop_scale")))
 
 
 ## Lưới an toàn: rơi khỏi bản đồ thì mất 30 máu và quay về điểm xuất phát (không hồi máu).

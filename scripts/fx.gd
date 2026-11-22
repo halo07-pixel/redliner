@@ -2,14 +2,15 @@ extends RefCounted
 ## Hiệu ứng hình ảnh dùng chung (hạt tia lửa).
 
 
-static func sparks(parent: Node, pos: Vector3, color: Color) -> void:
+## direction/spread mặc định: phun mọi hướng. Truyền hướng + độ loe (độ) để phun theo hướng đòn (M28).
+static func sparks(parent: Node, pos: Vector3, color: Color, direction: Vector3 = Vector3.UP, spread: float = 180.0) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.amount = maxi(4, int(28.0 * (float(Global.FX["reduced_particles"]) if Global.reduced_fx else 1.0)))
 	p.lifetime = 0.45
 	p.explosiveness = 1.0
-	p.direction = Vector3.UP
-	p.spread = 180.0
+	p.direction = direction
+	p.spread = spread
 	p.initial_velocity_min = 3.0
 	p.initial_velocity_max = 9.0
 	p.gravity = Vector3(0.0, -14.0, 0.0)
@@ -25,6 +26,7 @@ static func sparks(parent: Node, pos: Vector3, color: Color) -> void:
 	p.global_position = pos
 	p.emitting = true
 	parent.get_tree().create_timer(1.0).timeout.connect(p.queue_free)
+	return p
 
 
 ## Sóng parry: vòng tròn phẳng nở ra rồi tan. Không vẽ khi giảm hiệu ứng.

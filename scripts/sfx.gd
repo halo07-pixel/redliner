@@ -40,6 +40,9 @@ func _ready() -> void:
 	_streams["hit"] = _noise_burst(0.12, 0.4, 0.15, 90.0, 0.9)
 	_streams["clash"] = _noise_burst(0.28, 0.9, 0.5, 880.0, 0.5)
 	_streams["parry"] = _ping(0.4, 1320.0, 1980.0)
+	_streams["parry_low"] = _sweep(0.2, 220.0, 70.0, 0.35)      # lớp thấp: cú va "đã tay"
+	_streams["parry_miss"] = _noise_burst(0.24, 0.5, 0.08, 70.0, 0.7) # hụt: đục, không vang
+	_streams["tell"] = _ping(0.1, 1500.0, 1100.0)               # bot bắt đầu gồng đòn
 	_streams["hurt"] = _noise_burst(0.2, 0.3, 0.1, 140.0, 0.8)
 	_streams["dash"] = _noise_burst(0.22, 0.12, 0.6, 0.0, 0.0)
 	_streams["slide"] = _noise_burst(0.4, 0.1, 0.04, 70.0, 0.3)

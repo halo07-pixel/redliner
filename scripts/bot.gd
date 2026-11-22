@@ -136,6 +136,7 @@ func _ready() -> void:
 	melee.windup_override = float(cfg["windup"])
 	# Hoạt ảnh chiến đấu nghe Signal của component (signal up); chỉ hiển thị, không ảnh hưởng logic.
 	melee.swing_started.connect(func(w, a, r): mannequin.play("swing", w + a + r, {"windup": w, "active": a, "recovery": r}))
+	melee.swing_started.connect(_on_swing_tell)
 	melee.staggered.connect(func(d): mannequin.play("stagger", d))
 	parry.parry_started.connect(func(): mannequin.play("parry", float(Global.ANIM["parry_time"])))
 	parry.parried.connect(func(_h): mannequin.play("parry_hit", float(Global.ANIM["parry_hit_time"])))
@@ -158,6 +159,21 @@ func _ready() -> void:
 	blade.mesh = bm
 	blade.position = Vector3(0.4, -0.1, -0.5)
 	melee.add_child(blade)
+
+
+## Báo đòn (M28, chỉ hình ảnh/âm thanh): tiếng "tick" khi bắt đầu gồng, chớp sáng vũ khí đúng lúc cửa sổ parry của người chơi mở
+## (parry_window trước khi đòn chạm). Không đổi thời gian windup. Chỉ khi bot ở gần người chơi.
+func _on_swing_tell(w: float, _a: float, _r: float) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if global_position.distance_to((target as Node3D).global_position) > float(Global.ta("pf_tell_range")):
+		return
+	Sfx.play_at("tell", global_position + Vector3(0.0, 1.5, 0.0))
+	var win: float = float(Global.COMBAT["parry_window"])
+	var delay: float = maxf(w - win, 0.0)
+	get_tree().create_timer(delay).timeout.connect(func():
+		if is_inside_tree() and not dead and mannequin != null and mannequin.has_method("flash_weapon"):
+			mannequin.flash_weapon(win))
 
 
 ## Destabilized: huỷ đòn đang đánh, không tấn công/parry trong vài giây (chững lại, là cơ hội cho người chơi).

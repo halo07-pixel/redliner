@@ -240,6 +240,20 @@ const ANIM: Dictionary = {
 	"cam_fx_k": 160.0,       # độ cứng/giảm chấn lò xo camera (c < 2*sqrt(k) thì nảy nhẹ)
 	"cam_fx_c": 16.0,
 	"slide_tilt_deg": 2.5,   # camera nghiêng khi lướt (độ)
+	# Cảm giác parry (M28): chỉ phản hồi, KHÔNG đổi cửa sổ/phạt trong COMBAT. Camera nhân với "cam_fx"; reduced_fx giảm hitstop.
+	"pf_hitstop": 0.08,        # khựng khi đỡ đòn kiếm thành công (s, thời gian thực)
+	"pf_hitstop_bullet": 0.05, # khựng khi phản đạn
+	"pf_hitstop_scale": 0.05,  # time_scale trong lúc khựng
+	"pf_clash_hitstop": 0.08,  # khựng khi clash (giữ như cũ)
+	"pf_reduced_hitstop": 0.5, # hệ số khựng khi giảm hiệu ứng
+	"pf_cam_kick": 2.5,        # camera giật theo hướng đòn bị đỡ (độ)
+	"pf_fov_punch": 4.0,       # FOV nảy ngắn (độ)
+	"pf_spark_cone": 50.0,     # độ loe chùm tia lửa quanh hướng đòn (độ)
+	"pf_flash_energy": 2.5,    # chớp sáng trên lưỡi kiếm khi bật
+	"pf_tell_lean": 12.0,      # bot ngả người báo đòn đầu windup (độ)
+	"pf_tell_time": 0.3,       # thời lượng gồng báo đòn (s)
+	"pf_tell_range": 14.0,     # tiếng báo đòn / chớp sáng chỉ khi bot gần hơn mức này (m)
+	"pf_miss_stumble": 1.5,    # nhân biên độ loạng choạng khi parry hụt (bot)
 	# Bot (M20): IK + tiếp xúc.
 	"look_max_yaw": 60.0,    # giới hạn quay đầu/thân nhìn mục tiêu (độ)
 	"look_max_pitch": 30.0,
@@ -539,6 +553,9 @@ const SOUNDS: Dictionary = {
 	"hurt": {"vol_db": -5.0, "pitch_var": 0.05, "voices": 2, "bus": "SFX"},
 	"clash": {"vol_db": -4.0, "pitch_var": 0.1, "voices": 3, "bus": "SFX"},
 	"parry": {"vol_db": -4.0, "pitch_var": 0.03, "voices": 2, "bus": "SFX"},
+	"parry_low": {"vol_db": -5.0, "pitch_var": 0.05, "voices": 2, "bus": "SFX"},
+	"parry_miss": {"vol_db": -7.0, "pitch_var": 0.05, "voices": 2, "bus": "SFX"},
+	"tell": {"vol_db": -9.0, "pitch_var": 0.04, "voices": 3, "bus": "SFX"},
 	"step": {"vol_db": -14.0, "pitch_var": 0.15, "voices": 2, "bus": "SFX"},
 	"step_metal": {"vol_db": -12.0, "pitch_var": 0.12, "voices": 2, "bus": "SFX"},
 	"step_wood": {"vol_db": -12.0, "pitch_var": 0.12, "voices": 2, "bus": "SFX"},
@@ -1176,7 +1193,7 @@ func ta(key: String) -> Variant:
 
 ## Các khoá hoạt ảnh cho phép chỉnh trong bộ chỉnh (anim_tuner.gd).
 const TUNABLE_VM: Array = ["spring_k", "spring_c", "rot_spring_k", "rot_spring_c", "sway_impulse", "state_fade", "step_impulse", "step_roll", "kick_zeta", "draw_k", "reload_k", "swing_windup_k", "swing_active_k", "swing_follow_k", "swing_recover_k", "guard_k", "guard_hold_k", "parry_fail_k", "clash_impulse", "land_impulse", "flinch_impulse", "kick_back", "kick_pitch"]
-const TUNABLE_ANIM: Array = ["cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
+const TUNABLE_ANIM: Array = ["pf_hitstop", "pf_hitstop_bullet", "pf_cam_kick", "pf_fov_punch", "pf_spark_cone", "pf_flash_energy", "pf_tell_lean", "pf_tell_time", "pf_miss_stumble", "cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
 
 
 func hurt_layer(team: int) -> int:
@@ -1185,6 +1202,12 @@ func hurt_layer(team: int) -> int:
 
 ## Hitstop: làm chậm game thật ngắn khi trúng đòn (đếm bằng thời gian thực).
 var _hitstop_active: bool = false
+
+
+## Thời gian khựng (s) cho parry thành công theo loại đòn ("bullet"/"melee"), đã tính giảm hiệu ứng. Chỉ phản hồi, không đổi COMBAT.
+func parry_hitstop_time(kind: String) -> float:
+	var t: float = float(ta("pf_hitstop_bullet")) if kind == "bullet" else float(ta("pf_hitstop"))
+	return t * (float(ANIM["pf_reduced_hitstop"]) if reduced_fx else 1.0)
 
 
 func hitstop(duration: float, scale: float = 0.05) -> void:

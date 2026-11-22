@@ -200,6 +200,11 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 				o["+hip_l"] = Vector3(22.0 * k, 0.0, 0.0)
 				o["+knee_l"] = Vector3(-30.0 * k, 0.0, 0.0)
 				o["+knee_r"] = Vector3(-22.0 * k, 0.0, 0.0)
+				# Báo đòn (M28): ngả người gồng trong pf_tell_time đầu (nhô lên rồi hoà vào thế giơ kiếm)
+				var tt: float = clampf(t / maxf(minf(float(Global.ta("pf_tell_time")), wu), 0.001), 0.0, 1.0)
+				var tell: float = sin(PI * tt) * float(Global.ta("pf_tell_lean"))
+				o["spine"] += Vector3(-tell, 0.0, 0.0)
+				o["head"] = Vector3(tell * 0.5, 0.0, 0.0)
 			elif t < wu + ac: # chém xuống/ngang qua người
 				var k2: float = _ease_in((t - wu) / maxf(ac, 0.001))
 				o["shoulder_r"] = Vector3(lerpf(150.0, -20.0, k2), 0.0, 0.0)
@@ -234,9 +239,10 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 		"parry_miss": # loạng choạng ngắn
 			var e: float = sin(PI * p)
 			var bounce: float = exp(-3.5 * p) * sin(p * TAU * 1.5)    # nảy đàn hồi tắt dần
-			o["spine"] = Vector3(16.0 * e + 10.0 * bounce, 0.0, sin(t * 14.0) * 4.0 * (1.0 - p))
-			o["head"] = Vector3(12.0 * e + 8.0 * bounce, 0.0, 0.0)
-			o["shoulder_r"] = Vector3(10.0 + 14.0 * bounce, 0.0, 15.0 * e)
+			var st: float = float(Global.ta("pf_miss_stumble"))        # M28: loạng choạng rõ hơn (chỉ biên độ hình ảnh)
+			o["spine"] = Vector3(16.0 * e + 10.0 * bounce, 0.0, sin(t * 14.0) * 4.0 * (1.0 - p)) * st
+			o["head"] = Vector3(12.0 * e + 8.0 * bounce, 0.0, 0.0) * st
+			o["shoulder_r"] = Vector3(10.0 + 14.0 * bounce, 0.0, 15.0 * e) * st
 		"hurt":     # giật người theo hướng đòn tới
 			var env: float = sin(PI * clampf(p, 0.0, 1.0))
 			var d: Vector3 = data.get("direction", Vector3(0.0, 0.0, 1.0))
