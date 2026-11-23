@@ -82,6 +82,7 @@ var _cam_fx: Vector3 = Vector3.ZERO     # lệch camera do hiệu ứng (z: lao 
 var _cam_fx_v: Vector3 = Vector3.ZERO
 var _pk_rot: Vector2 = Vector2.ZERO    # giật camera do parry (x: pitch, y: roll; độ), tắt dần bằng lò xo
 var _pk_rot_v: Vector2 = Vector2.ZERO
+var _fall_peak: float = 0.0          # vận tốc rơi lớn nhất trong lần đang trên không (cho viewmodel: tiếp đất mạnh)
 var _pk_fov: float = 0.0               # FOV nảy do parry (độ)
 var _pk_fov_v: float = 0.0
 var _fall_vy: float = 0.0                # vận tốc rơi lớn nhất từ lúc rời đất (để tính cú đập khi tiếp đất)
@@ -137,6 +138,7 @@ func _ready() -> void:
 	melee.swing_started.connect(viewmodel.play_swing)
 	melee.swing_started.connect(func(_w, _a, _r): _cam_fx_v.z -= float(Global.ta("cam_lunge")) * _cam_fx_amount())
 	footstep.connect(viewmodel.footstep)
+	ledge_climbed.connect(viewmodel.ledge)
 	SwordTrail.attach(melee)
 	combat.shot_fired.connect(func(_f, _t): viewmodel.kick())
 	combat.reloading_changed.connect(viewmodel.set_reloading)
@@ -215,7 +217,11 @@ func _process(delta: float) -> void:
 	_update_bob(delta)
 	camera.h_offset = randf_range(-1.0, 1.0) * _shake
 	camera.v_offset = randf_range(-1.0, 1.0) * _shake
-	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name(), move_input.x)
+	if not is_on_floor():
+		_fall_peak = maxf(_fall_peak, -velocity.y)
+	viewmodel.update(delta, horizontal_speed(), is_on_floor(), _anim_state_name(), move_input.x, _fall_peak)
+	if is_on_floor():
+		_fall_peak = 0.0
 	var hy: float = HEAD_SLIDE if _is_crouched() else HEAD_STAND
 	var hr: Vector2 = Motion.damp(head.position.y, hy, _head_v, float(Global.MOTION["cam_head_time"]), delta)
 	head.position.y = hr.x

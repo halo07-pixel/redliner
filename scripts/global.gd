@@ -336,6 +336,23 @@ const VIEWMODEL: Dictionary = {
 	"flash_time": 0.05,
 	"reload_down_time": 0.2,
 	"reload_up_time": 0.2,
+	# M29 - riêng từng súng. Giật: nhân với kick_back/kick_pitch; "time" nhân kick_time (hồi chậm hơn = nặng hơn).
+	"weapon_kick": {
+		"pistol": {"back": 1.0, "pitch": 1.0, "time": 1.0},
+		"shotgun": {"back": 1.5, "pitch": 1.7, "time": 1.2},
+		"launcher": {"back": 1.9, "pitch": 1.4, "time": 1.5},
+		"sniper": {"back": 1.4, "pitch": 2.0, "time": 1.6},
+	},
+	# Rút súng: tư thế bắt đầu (lệch so với tư thế nghỉ), vượt quá một chút ("over") rồi về. Thời gian = WEAPONS[id]["draw"].
+	"weapon_draw": {
+		"pistol": {"pos": Vector3(0.0, -0.3, 0.1), "rot": Vector3(-35.0, 0.0, 0.0), "over": Vector3(0.0, 0.015, -0.02)},
+		"shotgun": {"pos": Vector3(0.12, -0.36, 0.14), "rot": Vector3(-50.0, 10.0, 18.0), "over": Vector3(0.0, 0.02, -0.03)},
+		"launcher": {"pos": Vector3(0.2, -0.4, 0.2), "rot": Vector3(-60.0, 20.0, 25.0), "over": Vector3(0.0, 0.03, -0.04)},
+		"sniper": {"pos": Vector3(0.0, -0.45, 0.25), "rot": Vector3(-70.0, 0.0, 8.0), "over": Vector3(0.0, 0.01, -0.05)},
+	},
+	"grip_curl_deg": 28.0,     # độ bóp của ngón khi bắn / chém
+	"ledge_impulse": 1.0,      # nhấc vũ khí khi leo gờ
+	"land_fall_gain": 1.2,     # tiếp đất mạnh theo vận tốc rơi: xung nhân (1 + fall/12 * gain)
 	"flinch_impulse": 1.0,     # vận tốc giật khi bị đánh (m/s)
 	"sleeve": Color(0.16, 0.36, 0.55),
 	"glove": Color(0.62, 0.52, 0.42),
@@ -1192,7 +1209,7 @@ func ta(key: String) -> Variant:
 
 
 ## Các khoá hoạt ảnh cho phép chỉnh trong bộ chỉnh (anim_tuner.gd).
-const TUNABLE_VM: Array = ["spring_k", "spring_c", "rot_spring_k", "rot_spring_c", "sway_impulse", "state_fade", "step_impulse", "step_roll", "kick_zeta", "draw_k", "reload_k", "swing_windup_k", "swing_active_k", "swing_follow_k", "swing_recover_k", "guard_k", "guard_hold_k", "parry_fail_k", "clash_impulse", "land_impulse", "flinch_impulse", "kick_back", "kick_pitch"]
+const TUNABLE_VM: Array = ["spring_k", "spring_c", "rot_spring_k", "rot_spring_c", "sway_impulse", "state_fade", "step_impulse", "step_roll", "kick_zeta", "draw_k", "reload_k", "swing_windup_k", "swing_active_k", "swing_follow_k", "swing_recover_k", "guard_k", "guard_hold_k", "parry_fail_k", "clash_impulse", "land_impulse", "flinch_impulse", "kick_back", "kick_pitch", "grip_curl_deg", "ledge_impulse", "land_fall_gain"]
 const TUNABLE_ANIM: Array = ["pf_hitstop", "pf_hitstop_bullet", "pf_cam_kick", "pf_fov_punch", "pf_spark_cone", "pf_flash_energy", "pf_tell_lean", "pf_tell_time", "pf_miss_stumble", "cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
 
 
