@@ -549,6 +549,13 @@ var PLAYER: Dictionary = {
 	"grapple_swing": 1.0,        # 1 = dây căng thì đu như con lắc (không bị kéo xa hơn độ dài dây), 0 = tắt
 	"grapple_release_snap": 4.0, # + m/s khi nhả lúc dây đang căng (bắn ra theo hướng nhìn)
 	"grapple_cooldown": 0.5,
+	"grapple_soft_cap": 38.0,      # M33: tốc độ ngang trên mức này bị hãm dần (không chặn cứng); boost nhả móc cũng giảm về 0 tại mức này
+	"grapple_cap_drag": 2.5,       # 1/giây: phần vượt trần giảm theo hàm mũ
+	"grapple_chain_free": 2.0,     # số lần móc liên tiếp không bị phạt cooldown
+	"grapple_chain_cd": 0.15,      # + giây cooldown cho mỗi lần móc liên tiếp quá mức trên
+	"grapple_chain_cd_max": 0.6,   # trần cooldown cộng thêm
+	"grapple_chain_recover": 0.5,  # chuỗi giảm bấy nhiêu lần/giây khi không móc
+	"fov_speed_max": 11.0,         # M33: FOV nở tối đa theo tốc độ (độ); trước đây 18
 	"grapple_redirect_blend": 0.7, # nhả móc: tỉ lệ vận tốc được xoay theo hướng nhìn (giữ nguyên độ lớn)
 	"grapple_release_boost": 3.0,  # + m/s dọc hướng nhìn khi nhả móc (redirect)
 	"grapple_redirect_time": 0.15, # giây xoay dần vận tốc khi nhả móc (0 = tức thì)

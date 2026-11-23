@@ -66,6 +66,7 @@ var _head_v: float = 0.0
 var _redirect_target: Vector3 = Vector3.ZERO   # nhả móc: vận tốc đích, xoay dần trong grapple_redirect_time
 var _redirect_rate: float = 0.0
 var _redirect_left: float = 0.0
+var _grapple_chain: float = 0.0     # M33: số lần móc liên tiếp (giảm dần theo thời gian)
 var _grapple_len: float = 0.0       # độ dài dây hiện tại (chỉ ngắn lại)
 var _grapple_taut: bool = false     # dây đang căng ở khung gần nhất
 var _target_valid: bool = false
@@ -207,7 +208,7 @@ func _process(delta: float) -> void:
 	_step_cam_fx(delta)
 	_shake = maxf(_shake - delta * 0.5, 0.0)
 	_step_parry_react(delta)
-	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, 18.0) + _pk_fov
+	var target_fov: float = float(Global.settings["fov"]) + clampf((horizontal_speed() - 10.0) * 0.5, 0.0, float(Global.PLAYER["fov_speed_max"])) + _pk_fov
 	var zoom: float = combat.zoom_fov()
 	if zoom > 0.0:
 		target_fov = zoom
@@ -400,6 +401,7 @@ func _physics_process(delta: float) -> void:
 		State.LEDGE:
 			_move_ledge(delta)
 
+	_apply_speed_cap(delta)
 	move_and_slide()
 	_tick_footsteps(delta)
 	if state == State.SLAM and is_on_floor():
@@ -450,6 +452,7 @@ func _tick_timers(delta: float) -> void:
 	_dash_cd = maxf(_dash_cd - delta, 0.0)
 	_wall_lockout = maxf(_wall_lockout - delta, 0.0)
 	_grapple_cd = maxf(_grapple_cd - delta, 0.0)
+	_grapple_chain = maxf(_grapple_chain - delta * float(Global.PLAYER["grapple_chain_recover"]), 0.0)
 	_slide_boost_cd = maxf(_slide_boost_cd - delta, 0.0)
 	_slam_cd = maxf(_slam_cd - delta, 0.0)
 	var cfg: Dictionary = Global.PLAYER
@@ -862,7 +865,10 @@ func _try_start_grapple() -> void:
 
 
 func _end_grapple() -> void:
-	_grapple_cd = Global.PLAYER["grapple_cooldown"]
+	var cfg: Dictionary = Global.PLAYER
+	_grapple_chain += 1.0
+	var extra: float = clampf((_grapple_chain - float(cfg["grapple_chain_free"])) * float(cfg["grapple_chain_cd"]), 0.0, float(cfg["grapple_chain_cd_max"]))
+	_grapple_cd = float(cfg["grapple_cooldown"]) + extra
 	_set_state(State.NORMAL)
 	grapple_ended.emit()
 
@@ -908,6 +914,20 @@ func _move_grapple(delta: float) -> void:
 	_accelerate(_wish_dir(), cfg["walk_speed"], cfg["air_accel"], delta)
 
 
+## M33: tốc độ ngang vượt trần mềm bị hãm dần (hàm mũ), không chặn cứng. Chạy trong _physics_process, trước move_and_slide.
+func _apply_speed_cap(delta: float) -> void:
+	var cap: float = float(Global.PLAYER["grapple_soft_cap"])
+	var h: float = horizontal_speed()
+	if h <= cap:
+		return
+	var k: float = (cap + (h - cap) * exp(-float(Global.PLAYER["grapple_cap_drag"]) * delta)) / h
+	velocity.x *= k
+	velocity.z *= k
+	if _redirect_left > 0.0:
+		_redirect_target.x *= k
+		_redirect_target.z *= k
+
+
 ## Nhả móc chủ động: xoay vận tốc về hướng nhìn (giữ độ lớn) + cộng một chút dọc hướng nhìn.
 func _release_redirect() -> void:
 	var cfg: Dictionary = Global.PLAYER
@@ -915,10 +935,12 @@ func _release_redirect() -> void:
 	if speed < 8.0:
 		return
 	var look: Vector3 = -head.global_transform.basis.z
+	# M33: boost/snap giảm dần theo tốc độ hiện có, về 0 tại trần mềm (chống cộng dồn khi spam móc)
+	var room: float = clampf(1.0 - horizontal_speed() / float(cfg["grapple_soft_cap"]), 0.0, 1.0)
 	if _grapple_taut: # nhả lúc dây căng: bắn ra thêm theo hướng nhìn
-		speed += float(cfg["grapple_release_snap"])
+		speed += float(cfg["grapple_release_snap"]) * room
 	var blended: Vector3 = velocity.lerp(look * speed, float(cfg["grapple_redirect_blend"]))
-	var target_v: Vector3 = blended.normalized() * speed + look * float(cfg["grapple_release_boost"])
+	var target_v: Vector3 = blended.normalized() * speed + look * float(cfg["grapple_release_boost"]) * room
 	var t_red: float = float(cfg["grapple_redirect_time"])
 	if t_red <= 0.001:
 		velocity = target_v
