@@ -149,6 +149,11 @@ func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_nam
 	animator.update(delta, speed, grounded, vel_y, state_name, side)
 
 
+## Hướng đi cục bộ (x phải, y tiến) và tốc độ quay người (độ/giây): dáng chạy theo hướng (M30). Chỉ hình ảnh.
+func set_motion(dir_local: Vector2, turn_deg_per_s: float) -> void:
+	animator.set_motion(dir_local, turn_deg_per_s)
+
+
 ## Chạy overlay chiến đấu ("swing", "shoot", "parry", "parry_miss", "hurt", "stagger", "die"); xem rig_animator.gd.
 func play(overlay_name: String, duration: float, data: Dictionary = {}) -> void:
 	animator.play(overlay_name, duration, data)

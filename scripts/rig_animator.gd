@@ -4,7 +4,7 @@ extends RefCounted
 ## Tư thế là hàm thuần `target_pose()` (dễ test); `update()` chỉ pha trộn mượt về tư thế đó.
 
 const RigIK = preload("res://scripts/rig_ik.gd")
-const STATES: Array = ["idle", "run", "air", "slide", "dash", "wallrun", "grapple"]
+const STATES: Array = ["idle", "run", "air", "slide", "dash", "wallrun", "grapple", "cover", "vault"]
 
 var mannequin: Node3D
 var anim_state: String = "idle"
@@ -24,6 +24,15 @@ var _hzv: float = 0.0
 # Overlay chiến đấu: {name, t, dur, data, prio, hold}. Chỉ điều khiển một số khớp, còn lại giữ hoạt ảnh nền.
 var overlay: Dictionary = {}
 var ik := RigIK.new()   # bám chân, nhìn mục tiêu, tay phụ (M20)
+# Hướng đi cục bộ (M30): x = phải (+), y = tiến (+) theo hướng nhìn của hình nhân; độ/giây quay người (+ = quay trái). Mặc định: đi thẳng, không quay.
+var move_dir: Vector2 = Vector2(0.0, 1.0)
+var turn_rate: float = 0.0
+var _md_s: Vector2 = Vector2(0.0, 1.0)   # hướng đi đã làm mượt
+var _md_v: Vector2 = Vector2.ZERO
+var _turn_s: float = 0.0
+var _turn_v: float = 0.0
+var _stride_dir: float = 1.0             # chiều bước chân (+1 tiến, -1 lùi), đổi mượt
+var _stride_v: float = 0.0
 
 const OVERLAY_PRIO: Dictionary = {"swing": 1, "shoot": 1, "parry": 1, "parry_miss": 1, "parry_hit": 1, "hurt": 1, "stagger": 2, "clash": 2, "die": 3}
 
@@ -38,10 +47,12 @@ func setup(p_mannequin: Node3D) -> void:
 
 ## Chọn trạng thái hoạt ảnh. state_name: "" (bình thường) | "slide" | "dash" | "wallrun" | "grapple".
 static func pick_state(speed: float, grounded: bool, state_name: String) -> String:
-	if state_name in ["slide", "dash", "wallrun", "grapple"]:
+	if state_name in ["slide", "dash", "wallrun", "grapple", "vault"]:
 		return state_name
 	if not grounded:
 		return "air"
+	if state_name == "cover" and speed <= float(Global.ANIM["run_min_speed"]):
+		return "cover"
 	if speed > float(Global.ANIM["run_min_speed"]):
 		return "run"
 	return "idle"
@@ -56,7 +67,8 @@ func target_pose(st: String, p_phase: float, speed: float, vel_y: float, side: f
 	match st:
 		"idle":
 			var look: float = float(A["idle_look"]) * sin(t * 0.37) * maxf(0.0, sin(t * 0.9)) # thỉnh thoảng quay đầu nhìn quanh
-			pose["spine"] = Vector3(sin(t * 1.6) * 1.2, 0.0, 0.0)                         # thở
+			var lead_idle: float = clampf(_turn_s * float(A["bm_turn_lead"]), -float(A["bm_turn_max"]), float(A["bm_turn_max"]))
+			pose["spine"] = Vector3(sin(t * 1.6) * 1.2, lead_idle, 0.0)                    # thở; thân dẫn trước khi quay người
 			pose["hips"] = Vector3(0.0, 0.0, sin(t * 0.6) * 2.2)                           # đổi trọng tâm
 			pose["hip_l"] = Vector3(sin(t * 0.6) * 2.5, 0.0, 0.0)
 			pose["hip_r"] = Vector3(-sin(t * 0.6) * 2.5, 0.0, 0.0)
@@ -66,13 +78,22 @@ func target_pose(st: String, p_phase: float, speed: float, vel_y: float, side: f
 		"run", "wallrun":
 			var k: float = 1.0 if st == "run" else 1.15
 			var ls: float = float(A["leg_swing"]) * k
+			# Hướng đi (M30): lùi -> bước ngắn, ngả ra sau; đi ngang -> hông xoay về hướng đi, vai giữ hướng nhìn, chân bắt chéo.
+			var back_w: float = clampf(-_md_s.y, 0.0, 1.0) if st == "run" else 0.0
+			var sx: float = clampf(_md_s.x, -1.0, 1.0) if st == "run" else 0.0
+			var side_w: float = absf(sx) * (1.0 - back_w)
+			ls *= lerpf(1.0, float(A["bm_back_swing"]), back_w) * (1.0 - 0.3 * side_w)
+			lean = lerpf(lean, float(A["bm_back_lean"]), back_w)
 			var hip_y: float = -float(A["hip_twist"]) * swing                             # hông xoay: chân trái tiến -> hông trái tiến
 			var sp_y: float = float(A["spine_twist"]) * swing                              # vai xoay ngược hông
-			pose["hips"] = Vector3(0.0, hip_y, 0.0)
-			pose["spine"] = Vector3(lean, sp_y, side * 14.0 if st == "wallrun" else 0.0)
+			var lead_run: float = clampf(_turn_s * float(A["bm_turn_lead"]), -float(A["bm_turn_max"]), float(A["bm_turn_max"]))
+			var side_hip: float = -sx * float(A["bm_side_hip"]) * (1.0 - back_w)
+			pose["hips"] = Vector3(0.0, hip_y + side_hip, 0.0)
+			pose["spine"] = Vector3(lean, sp_y - side_hip + lead_run, side * 14.0 if st == "wallrun" else -sx * 5.0)
 			pose["hips_y"] = Vector3(-float(A["hip_bob"]) * (0.5 + 0.5 * cos(2.0 * p_phase)), 0.0, 0.0)  # nhún theo từng bước
-			pose["hip_l"] = Vector3(ls * swing, 0.0, 0.0)
-			pose["hip_r"] = Vector3(-ls * swing, 0.0, 0.0)
+			var cross: float = sx * float(A["bm_side_cross"]) * (1.0 - back_w)
+			pose["hip_l"] = Vector3(ls * swing, 0.0, cross * swing)
+			pose["hip_r"] = Vector3(-ls * swing, 0.0, -cross * swing)
 			pose["knee_l"] = Vector3(-float(A["knee_bend"]) * (0.5 - 0.5 * cos(p_phase + 1.0)) * k, 0.0, 0.0)
 			pose["knee_r"] = Vector3(-float(A["knee_bend"]) * (0.5 - 0.5 * cos(p_phase + 1.0 + PI)) * k, 0.0, 0.0)
 			pose["ankle_l"] = Vector3(15.0 * maxf(0.0, swing) - 20.0 * maxf(0.0, -swing), 0.0, 0.0)   # gót chạm rồi đẩy mũi chân
@@ -108,6 +129,25 @@ func target_pose(st: String, p_phase: float, speed: float, vel_y: float, side: f
 			pose["knee_r"] = Vector3(-60.0, 0.0, 0.0)
 			pose["shoulder_l"] = Vector3(-55.0, 0.0, -10.0)
 			pose["head"] = Vector3(25.0, 0.0, 0.0)
+		"cover":    # núp: ngồi thấp bám cạnh vật che; ló ra (nhô lên) khi đang bắn
+			var peek: float = overlay_weight() if (not overlay.is_empty() and overlay["name"] == "shoot") else 0.0
+			pose["hips_y"] = Vector3(-float(A["bm_cover_drop"]) + float(A["bm_peek"]) * peek, 0.0, 0.0)
+			pose["spine"] = Vector3(-18.0 + 12.0 * peek, -10.0, 0.0)
+			pose["hip_l"] = Vector3(62.0 - 20.0 * peek, 0.0, 0.0)
+			pose["knee_l"] = Vector3(-105.0 + 30.0 * peek, 0.0, 0.0)
+			pose["hip_r"] = Vector3(48.0 - 14.0 * peek, 0.0, 0.0)
+			pose["knee_r"] = Vector3(-110.0 + 30.0 * peek, 0.0, 0.0)
+			pose["head"] = Vector3(14.0 - 14.0 * peek, 0.0, 0.0)
+			pose["shoulder_l"] = Vector3(-20.0, 0.0, -10.0)
+		"vault":    # bật qua vật cản: gập thân, co chân, tay chống tới trước
+			pose["hips_y"] = Vector3(0.05, 0.0, 0.0)
+			pose["spine"] = Vector3(-30.0, 0.0, 0.0)
+			pose["hip_l"] = Vector3(75.0, 0.0, 0.0)
+			pose["knee_l"] = Vector3(-95.0, 0.0, 0.0)
+			pose["hip_r"] = Vector3(15.0, 0.0, 0.0)
+			pose["knee_r"] = Vector3(-60.0, 0.0, 0.0)
+			pose["shoulder_l"] = Vector3(-85.0, 0.0, -10.0)
+			pose["head"] = Vector3(20.0, 0.0, 0.0)
 		"grapple":
 			pose["spine"] = Vector3(-8.0, 0.0, 0.0)
 			pose["shoulder_r"] = Vector3(160.0, 0.0, 0.0)
@@ -131,6 +171,12 @@ func _hold_weapon_arm(pose: Dictionary, st: String) -> void:
 	else:
 		pose["shoulder_r"] = Vector3(-15.0, 0.0, 6.0)
 		pose["elbow_r"] = Vector3(60.0, 0.0, 0.0)
+
+
+## Hướng đi cục bộ + tốc độ quay người (độ/giây, + = trái) cho dáng chạy theo hướng (M30). Chỉ hình ảnh.
+func set_motion(dir_local: Vector2, turn_deg_per_s: float) -> void:
+	move_dir = dir_local if dir_local.length() > 0.01 else Vector2(0.0, 1.0)
+	turn_rate = turn_deg_per_s
 
 
 ## Bắt đầu overlay chiến đấu. Overlay ưu tiên thấp không ngắt overlay ưu tiên cao đang chạy
@@ -298,16 +344,28 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 			o["hips_z"] = Vector3(-0.08 * snap * (1.0 - back), 0.0, 0.0)
 		"die":      # ngã ngửa ra sau, hông hạ xuống đất
 			var k4: float = _ease(p)
-			o["hips"] = Vector3(88.0 * k4, 0.0, 0.0)
+			# Kiểu ngã theo hướng đòn cuối (hệ cục bộ; z>0 = từ phía trước): trước -> ngửa, sau -> sấp, bên -> ngã nghiêng; đầu -> hất cổ, chân -> sụp gối.
+			var dd: Vector3 = data.get("direction", Vector3(0.0, 0.0, 1.0))
+			var dz: float = dd.z if absf(dd.z) > 0.01 else 1.0
+			var fall_x: float = 88.0 if dz >= -0.2 else -80.0
+			var fall_z: float = 0.0
+			if absf(dd.x) > 0.6:
+				fall_x = 40.0
+				fall_z = 62.0 * signf(dd.x)
+			o["hips"] = Vector3(fall_x * k4, 0.0, fall_z * k4)
 			o["hips_y"] = Vector3(-0.72 * k4 + 0.035 * sin(PI * clampf((p - 0.8) / 0.2, 0.0, 1.0)), 0.0, 0.0) # nảy nhẹ khi chạm đất
-			o["spine"] = Vector3(-8.0 * k4, 0.0, 0.0)
-			o["head"] = Vector3(-10.0 * k4, 0.0, 0.0)
+			o["spine"] = Vector3(-8.0 * k4 * signf(fall_x), 0.0, 0.0)
+			o["head"] = Vector3(-10.0 * k4 * signf(fall_x), 0.0, 0.0)
+			match String(data.get("zone", "torso")):
+				"head":
+					o["head"] = Vector3(-38.0 * k4 * signf(fall_x), 0.0, 0.0)
 			o["shoulder_l"] = Vector3(20.0 * k4, 0.0, -50.0 * k4)
 			o["shoulder_r"] = Vector3(20.0 * k4, 0.0, 50.0 * k4)
 			o["hip_l"] = Vector3(10.0 * k4, 0.0, -8.0 * k4)
 			o["hip_r"] = Vector3(-5.0 * k4, 0.0, 8.0 * k4)
-			o["knee_l"] = Vector3(-20.0 * k4, 0.0, 0.0)
-			o["knee_r"] = Vector3(-35.0 * k4, 0.0, 0.0)
+			var leg_extra: float = 40.0 if String(data.get("zone", "torso")) == "legs" else 0.0   # trúng chân: sụp gối
+			o["knee_l"] = Vector3(-(20.0 + leg_extra) * k4, 0.0, 0.0)
+			o["knee_r"] = Vector3(-(35.0 + leg_extra) * k4, 0.0, 0.0)
 	return o
 
 
@@ -315,8 +373,18 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name: String = "", side: float = 1.0) -> void:
 	_t += delta
 	anim_state = pick_state(speed, grounded, state_name)
+	var mr: Vector2 = Motion.damp(_md_s.x, move_dir.x, _md_v.x, 0.12, delta)
+	var mr2: Vector2 = Motion.damp(_md_s.y, move_dir.y, _md_v.y, 0.12, delta)
+	_md_s = Vector2(mr.x, mr2.x)
+	_md_v = Vector2(mr.y, mr2.y)
+	var tr: Vector2 = Motion.damp(_turn_s, turn_rate, _turn_v, 0.1, delta)
+	_turn_s = tr.x
+	_turn_v = tr.y
+	var sd: Vector2 = Motion.damp(_stride_dir, -1.0 if move_dir.y < -0.3 else 1.0, _stride_v, float(Global.ANIM["bm_stride_blend"]), delta)
+	_stride_dir = sd.x
+	_stride_v = sd.y
 	if anim_state == "run" or anim_state == "wallrun":
-		phase = fmod(phase + speed * delta * float(Global.ANIM["stride_rate"]), TAU)
+		phase = fmod(phase + speed * delta * float(Global.ANIM["stride_rate"]) * _stride_dir + TAU, TAU)
 	var pose: Dictionary = target_pose(anim_state, phase, speed, vel_y, side, _t)
 	# Nghiêng thân theo gia tốc: tăng tốc thì cúi về trước, phanh thì ngả ra sau (cùng một cách cho người chơi, bot, Titan).
 	var acc: float = clampf((speed - _prev_speed) / maxf(delta, 0.0001), -60.0, 60.0)
