@@ -35,6 +35,7 @@ var _destab: bool = false
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	preload("res://scripts/mannequin_gltf.gd").warm_up()   # nạp nền model bot trước khi wave đầu sinh bot
 	player = PLAYER_SCENE.instantiate()
 	add_child(player)
 	player.global_position = arena.spawn_point

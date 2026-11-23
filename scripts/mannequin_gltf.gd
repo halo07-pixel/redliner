@@ -40,6 +40,19 @@ const WEAPONS: Dictionary = {
 	"bomber": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.95, "grip": 0.45, "melee": false, "hold_deg": -90.0},
 }
 
+## Nạp trước model người que + vũ khí bằng luồng nền khi vào trận, để bot đầu tiên không làm giật khung (nạp lần đầu ~50-130 ms).
+## `load()` sau đó dùng bản đã cache (chờ nếu chưa xong). Thiếu asset thì bỏ qua (bot tự dùng hình nhân khối).
+static func warm_up() -> void:
+	var paths: Array = [MODEL_PATH]
+	for k in WEAPONS:
+		var f: String = String(WEAPONS[k]["file"])
+		if not paths.has(f):
+			paths.append(f)
+	for pth in paths:
+		if ResourceLoader.exists(pth):
+			ResourceLoader.load_threaded_request(pth)
+
+
 @export var color: Color = Color(0.85, 0.85, 0.9)
 var kind: String = "swordsman"
 ## Bám chân xuống mặt đất bằng IK (cùng API với mannequin.gd).
