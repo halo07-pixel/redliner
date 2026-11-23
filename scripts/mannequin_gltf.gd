@@ -224,6 +224,11 @@ func _apply_pose() -> void:
 		skeleton.set_bone_pose_rotation(i, (parent_g.inverse() * desired).get_rotation_quaternion())
 
 
+## Hướng đi cục bộ + tốc độ quay người (M30), chỉ hình ảnh; cùng animator với rig khối.
+func set_motion(dir_local: Vector2, turn_deg_per_s: float) -> void:
+	animator.set_motion(dir_local, turn_deg_per_s)
+
+
 func animate(delta: float, speed: float, grounded: bool, vel_y: float, state_name: String = "", side: float = 1.0) -> void:
 	animator.update(delta, speed, grounded, vel_y, state_name, side)
 	_apply_pose()

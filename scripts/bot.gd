@@ -69,6 +69,7 @@ var _hv: Vector3 = Vector3.ZERO     # vận tốc ngang đã làm mượt (gia t
 var _vault_cd: float = 0.0
 var _vault_push_t: float = 0.0
 var _vault_dir: Vector3 = Vector3.ZERO
+var _prev_yaw: float = 0.0
 var _cover_pt: Vector3 = Vector3.INF # điểm nấp đã chọn (INF = không nấp)
 var _cover_t: float = 0.0
 var _unstick_t: float = 0.0
@@ -258,7 +259,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_track_blocked(wish, delta)
 	mannequin.set_look_target(target.global_position + Vector3(0.0, 1.45, 0.0) if not target.dead else null)   # đầu/thân nhìn người chơi (IK, chỉ hiển thị)
-	mannequin.animate(delta, Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y)
+	_animate_body(delta)
 
 
 ## Làm mượt vận tốc ngang: tăng tốc dần, phanh nhanh hơn; `snap` (né) đặt thẳng.
@@ -711,6 +712,27 @@ func hit_zone(hit: Dictionary) -> String:
 	return "torso"
 
 
+## Chỉ hiển thị (M30): hướng đi cục bộ + quay người + trạng thái núp/vault cho animator. Không đổi vận tốc hay AI.
+func _animate_body(delta: float) -> void:
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var speed: float = flat.length()
+	var yaw: float = mannequin.global_rotation.y
+	var turn: float = rad_to_deg(angle_difference(_prev_yaw, yaw)) / maxf(delta, 0.0001)
+	_prev_yaw = yaw
+	if mannequin.has_method("set_motion"):
+		var dir := Vector2(0.0, 1.0)
+		if speed > 0.3:
+			var lv: Vector3 = mannequin.global_transform.basis.inverse() * flat
+			dir = Vector2(lv.x, -lv.z).normalized()
+		mannequin.set_motion(dir, clampf(turn, -720.0, 720.0))
+	var st: String = ""
+	if _vault_push_t > 0.0:
+		st = "vault"
+	elif _cover_t > 0.0 and _cover_pt != Vector3.INF and global_position.distance_to(_cover_pt) < 1.0:
+		st = "cover"
+	mannequin.animate(delta, speed, is_on_floor(), velocity.y, st)
+
+
 func _on_hurt(hit: Dictionary, _left: float) -> void:
 	_last_hit = hit
 	mannequin.flash()
@@ -732,7 +754,8 @@ func _on_died() -> void:
 	velocity = Vector3.ZERO
 	sound.emit("hit")
 	died.emit(self, info)
-	mannequin.play("die", float(Global.ANIM["die_time"]))
+	var die_dir: Vector3 = mannequin.global_transform.basis.inverse() * Vector3(_last_hit.get("direction", Vector3.ZERO))
+	mannequin.play("die", float(Global.ANIM["die_time"]), {"direction": die_dir, "zone": hit_zone(_last_hit)})
 	mannequin.fade_out(0.3)
 	var tw := create_tween()
 	tw.tween_interval(0.3)

@@ -245,6 +245,14 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - Model súng: thêm khối chi tiết (rãnh trượt, ray, đầu ruồi, tay cầm trước...) bằng khối code, KHÔNG tải asset mới.
 - Chưa kiểm bằng người: độ mượt, độ đẹp, cảm giác từng bước nạp. Chỉnh trong F4.
 
+## M30 (nhánh `feature/m30-bot-motion`: chuyển động bot theo hướng và tình huống)
+- Chỉ hình ảnh; không đổi vận tốc/nav/AI. Hằng số `Global.ANIM["bm_*"]` (có trong F4).
+- `rig_animator.set_motion(dir_local, turn_deg_per_s)` (qua `mannequin`/`mannequin_gltf`): hướng đi cục bộ (x phải, y tiến) + tốc độ quay người. Mặc định = đi thẳng nên người chơi/Titan không đổi.
+- Dáng chạy: lùi bước ngắn + ngả ra sau + bước chân đổi chiều; đi ngang hông xoay về hướng đi, vai giữ hướng nhìn, chân bắt chéo; quay người thì thân dẫn trước (hông trễ nhờ lò xo khớp).
+- Trạng thái mới `cover` (ngồi thấp, nhô lên khi bắn) và `vault`; `bot._animate_body` truyền tên trạng thái từ `_cover_pt/_cover_t` và `_vault_push_t` (không dùng get_parent).
+- `hurt` ĐÃ có hướng đòn + vùng trúng từ trước (M20); M30 thêm cho `die`: trước -> ngửa, sau -> sấp, bên -> nghiêng, trúng đầu hất cổ, trúng chân sụp gối (dữ liệu `{direction, zone}` từ `_last_hit`).
+- Chưa kiểm bằng người: độ tự nhiên của dáng chạy ngang/lùi, chiều bắt chéo chân (quy ước trục khớp chưa nhìn thấy trên GPU). Chỉnh ở F4.
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -280,7 +288,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (34 bộ, thêm test_m21..test_m29: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (35 bộ, thêm test_m21..test_m30: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 
