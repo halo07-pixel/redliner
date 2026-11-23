@@ -31,6 +31,16 @@ var _md_s: Vector2 = Vector2(0.0, 1.0)   # hướng đi đã làm mượt
 var _md_v: Vector2 = Vector2.ZERO
 var _turn_s: float = 0.0
 var _turn_v: float = 0.0
+# Lớp clip (M32): bật bởi mannequin_gltf khi có thư viện clip. Chỉ chân/thân/đầu (tay do code, trừ khi ac_arm > 0).
+const ClipLib = preload("res://scripts/clip_lib.gd")
+const MELEE_KINDS: Array = ["swordsman", "elite", "rusher"]
+var clips_enabled: bool = false
+var _clip_name: String = ""
+var _clip_t: float = 0.0
+var _clip_prev: String = ""
+var _clip_prev_t: float = 0.0
+var _clip_xf: float = 1.0
+var _clip_w: float = 0.0
 var _stride_dir: float = 1.0             # chiều bước chân (+1 tiến, -1 lùi), đổi mượt
 var _stride_v: float = 0.0
 
@@ -386,6 +396,8 @@ func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name
 	if anim_state == "run" or anim_state == "wallrun":
 		phase = fmod(phase + speed * delta * float(Global.ANIM["stride_rate"]) * _stride_dir + TAU, TAU)
 	var pose: Dictionary = target_pose(anim_state, phase, speed, vel_y, side, _t)
+	if clips_enabled:
+		_blend_clip(pose, speed, delta)
 	# Nghiêng thân theo gia tốc: tăng tốc thì cúi về trước, phanh thì ngả ra sau (cùng một cách cho người chơi, bot, Titan).
 	var acc: float = clampf((speed - _prev_speed) / maxf(delta, 0.0001), -60.0, 60.0)
 	_prev_speed = speed
@@ -435,6 +447,83 @@ func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name
 	hips.position.y = _hips_base_y + _hy
 	hips.position.z = _hz
 	_apply_ik(delta)
+
+
+## Chọn clip theo trạng thái: [tên clip, tốc độ chuẩn (m/s, 0 = phát 1:1), trọng số]. Rỗng = không dùng clip (code lo).
+func _pick_clip(speed: float) -> Array:
+	var A: Dictionary = Global.ANIM
+	var melee: bool = MELEE_KINDS.has(String(mannequin.get("kind")))
+	match anim_state:
+		"idle":
+			return ["Sword_Idle" if melee else "Pistol_Idle", 0.0, float(Global.ta("ac_idle"))]
+		"run":
+			# clip chỉ có chạy tiến: giảm dần khi lùi/đi ngang (dáng đó do code)
+			var fwd: float = clampf(_md_s.y, 0.0, 1.0) * (1.0 - 0.8 * absf(clampf(_md_s.x, -1.0, 1.0)))
+			var w: float = float(Global.ta("ac_run")) * fwd
+			if speed >= float(A["ac_sprint_min"]):
+				return ["Sprint", float(Global.ta("ac_sprint_speed")), w]
+			if speed > float(A["ac_walk_max"]):
+				return ["Jog_Fwd", float(Global.ta("ac_jog_speed")), w]
+			return ["Walk", float(Global.ta("ac_walk_speed")), w]
+		"cover":
+			return ["Crouch_Idle", 0.0, float(Global.ta("ac_cover"))]
+	return []
+
+
+## Trộn clip đã bake lên `pose` (trước overlay chiến đấu và lò xo): slerp theo từng khớp; lớp vào/ra mượt, đổi clip trộn chéo.
+func _blend_clip(pose: Dictionary, speed: float, delta: float) -> void:
+	var pick: Array = _pick_clip(speed) if float(Global.ta("ac_enabled")) > 0.5 else []
+	var want_w: float = 0.0
+	if not pick.is_empty():
+		var nm: String = pick[0]
+		want_w = float(pick[2])
+		if nm != _clip_name:
+			_clip_prev = _clip_name
+			_clip_prev_t = _clip_t
+			_clip_name = nm
+			_clip_t = 0.0
+			_clip_xf = 0.0 if _clip_prev != "" else 1.0
+		var rate: float = 1.0 if float(pick[1]) <= 0.0 else clampf(speed / float(pick[1]), 0.6, 1.7)
+		_clip_t += delta * rate
+		_clip_prev_t += delta * rate
+	_clip_xf = minf(_clip_xf + delta / maxf(float(Global.ta("ac_xfade")), 0.01), 1.0)
+	_clip_w = lerpf(_clip_w, want_w, 1.0 - exp(-delta / maxf(float(Global.ta("ac_fade")), 0.01)))
+	if _clip_w < 0.01 or _clip_name == "":
+		return
+	var cur: Dictionary = ClipLib.get_clip(_clip_name)
+	if cur.is_empty():
+		return
+	var s_cur: Dictionary = ClipLib.sample(cur, _clip_t)
+	var rot: Dictionary = s_cur["rot"]
+	var hy: float = float(s_cur["hips_y"])
+	if _clip_xf < 1.0 and _clip_prev != "":
+		var prev: Dictionary = ClipLib.get_clip(_clip_prev)
+		if not prev.is_empty():
+			var s_prev: Dictionary = ClipLib.sample(prev, _clip_prev_t)
+			var mix: Dictionary = {}
+			for j in ClipLib.JOINTS:
+				mix[j] = (s_prev["rot"][j] as Quaternion).slerp(rot[j] as Quaternion, _clip_xf)
+			rot = mix
+			hy = lerpf(float(s_prev["hips_y"]), hy, _clip_xf)
+	var jw: Dictionary = {
+		"hips": float(Global.ta("ac_hips")), "spine": float(Global.ta("ac_spine")), "head": float(Global.ta("ac_head")),
+		"hip_l": 1.0, "knee_l": 1.0, "ankle_l": 1.0, "hip_r": 1.0, "knee_r": 1.0, "ankle_r": 1.0,
+	}
+	var arm: float = float(Global.ta("ac_arm"))
+	if arm > 0.0:
+		for j in ["shoulder_l", "elbow_l", "hand_l", "shoulder_r", "elbow_r", "hand_r"]:
+			jw[j] = arm
+	for j in jw:
+		var w: float = float(jw[j]) * _clip_w
+		if w <= 0.0:
+			continue
+		var code: Vector3 = pose.get(j, Vector3.ZERO)
+		var qc: Quaternion = Basis.from_euler(Vector3(deg_to_rad(code.x), deg_to_rad(code.y), deg_to_rad(code.z))).get_rotation_quaternion()
+		var e: Vector3 = Basis(qc.slerp(rot[j] as Quaternion, w)).get_euler()
+		pose[j] = Vector3(rad_to_deg(e.x), rad_to_deg(e.y), rad_to_deg(e.z))
+	var hips_h: float = _hips_base_y * hy * float(Global.ta("ac_hips_y"))
+	var code_y: float = (pose["hips_y"] as Vector3).x if pose.has("hips_y") else 0.0
+	pose["hips_y"] = Vector3(lerpf(code_y, hips_h, _clip_w * float(Global.ta("ac_hips"))), 0.0, 0.0)
 
 
 ## Lớp IK chạy sau FK: bám chân xuống sàn, nhìn mục tiêu, tay trái đỡ báng. Bị tắt/giảm khi chết, choáng, clash.
