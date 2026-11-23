@@ -175,6 +175,12 @@ var _step_side: float = 1.0
 var _driven: bool = false                # update() đã được chủ nhân gọi trong frame này
 var _la: Array = [0.0, true, "", 0.0]    # tham số update() lần cuối (để tự chạy khi đứng một mình)
 var _sword_arm: Dictionary = {}
+var _sword_fingers: Array = []
+var _gun_fingers: Array = []
+var _sword_curl: float = 0.0             # bóp tay kiếm (mượt)
+var _gun_curl: float = 0.0
+var _anim_parts: Dictionary = {}         # id súng -> {node, pos, rot}: bộ phận chuyển động khi nạp (băng, ống trượt, khoá nòng, nắp)
+var _fall_speed: float = 0.0
 var _gun_arm: Dictionary = {}
 ## Hàng đợi đòn: lệnh chờ tới cửa sổ hủy của clip đang chạy. Kiểm bằng `pending_command` trong test/debug.
 var pending_command: String = ""
@@ -201,7 +207,7 @@ func _ready() -> void:
 	_part(sword_pivot, Vector3(0.016, 0.058, 0.86), Vector3(0.0, 0.0, -0.57), steel)          # lưỡi
 	_part(sword_pivot, Vector3(0.022, 0.014, 0.82), Vector3(0.0, 0.032, -0.56), steel_dark)   # sống lưỡi
 	_part(sword_pivot, Vector3(0.016, 0.058, 0.06), Vector3(0.0, 0.0, -1.03), steel, Vector3(0.0, 0.0, 0.0)) # mũi
-	_hand(sword_pivot, Vector3(0.0, 0.0, 0.0), glove, true)
+	_sword_fingers = _hand(sword_pivot, Vector3(0.0, 0.0, 0.0), glove, true)
 	_sword_arm = _make_arm(sword_pivot, Vector3(0.0, -0.02, 0.09), Vector3(V["sword_shoulder"]), Vector3(0.6, -1.0, 0.25), sleeve)
 
 	# ---- Súng lục (gốc = bàn tay cầm báng, nòng chỉ về -Z) ----
@@ -214,7 +220,13 @@ func _ready() -> void:
 	_part(pistol, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
 	_part(pistol, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
 	_part(pistol, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
-	_hand(gun_pivot, Vector3(0.0, -0.06, 0.02), glove, false)
+	_part(pistol, Vector3(0.058, 0.012, 0.2), Vector3(0.0, 0.074, -0.1), steel_dark)       # M29: rãnh trượt
+	_part(pistol, Vector3(0.012, 0.014, 0.05), Vector3(0.0, 0.076, 0.0), metal)            # khe ngắm sau
+	_part(pistol, Vector3(0.052, 0.02, 0.05), Vector3(0.0, -0.01, -0.17), gold)            # vòng khoá nòng
+	var pmag := _node("Mag", pistol, Vector3.ZERO)
+	_part(pmag, Vector3(0.04, 0.05, 0.045), Vector3(0.0, -0.135, 0.03), steel_dark, Vector3(12.0, 0.0, 0.0))  # băng đạn thò dưới báng
+	_anim_parts["pistol"] = {"node": pmag, "pos": pmag.position, "rot": pmag.rotation_degrees}
+	_gun_fingers = _hand(gun_pivot, Vector3(0.0, -0.06, 0.02), glove, false)
 	_gun_arm = _make_arm(gun_pivot, Vector3(0.0, -0.1, 0.07), Vector3(V["gun_shoulder"]), Vector3(-0.6, -1.0, 0.25), sleeve)
 	var fm := StandardMaterial3D.new()
 	fm.albedo_color = Color(1.0, 0.85, 0.4)
@@ -249,13 +261,22 @@ func _ready() -> void:
 	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(-0.02, 0.05, -0.3), metal)                  # nòng trái
 	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(0.02, 0.05, -0.3), metal)                   # nòng phải
 	_part(sg, Vector3(0.09, 0.05, 0.12), Vector3(0.0, 0.02, -0.02), metal_light)            # thân
-	_part(sg, Vector3(0.05, 0.035, 0.22), Vector3(0.0, 0.01, -0.2), wood)                   # ốp tay
+	var pump := _node("Pump", sg, Vector3.ZERO)
+	_part(pump, Vector3(0.05, 0.035, 0.22), Vector3(0.0, 0.01, -0.2), wood)                 # ốp tay (ống trượt)
+	_part(pump, Vector3(0.056, 0.012, 0.03), Vector3(0.0, 0.01, -0.1), steel_dark)          # M29: vòng ốp tay
+	_part(sg, Vector3(0.012, 0.012, 0.46), Vector3(0.0, 0.074, -0.3), metal_light)          # thanh ngắm giữa 2 nòng
+	_part(sg, Vector3(0.016, 0.016, 0.016), Vector3(0.0, 0.086, -0.52), gold)               # đầu ruồi
+	_anim_parts["shotgun"] = {"node": pump, "pos": pump.position, "rot": pump.rotation_degrees}
 	_part(sg, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.04), wood, Vector3(12.0, 0.0, 0.0)) # báng
 	_gun_models["shotgun"] = sg
 	_flash_z["shotgun"] = -0.6
 	var ln := _node("Launcher", gun_pivot, Vector3.ZERO)
 	_part(ln, Vector3(0.11, 0.11, 0.55), Vector3(0.0, 0.07, -0.22), metal_light)            # ống phóng
-	_part(ln, Vector3(0.13, 0.13, 0.06), Vector3(0.0, 0.07, -0.5), red)                     # miệng ống
+	var lcap := _node("Cap", ln, Vector3(0.0, 0.07, -0.5))
+	_part(lcap, Vector3(0.13, 0.13, 0.06), Vector3.ZERO, red)                               # miệng ống (nắp mở khi nạp)
+	_part(ln, Vector3(0.12, 0.016, 0.1), Vector3(0.0, 0.134, -0.3), steel_dark)             # M29: băng đạn / giá đỡ
+	_part(ln, Vector3(0.016, 0.1, 0.016), Vector3(0.0, 0.02, -0.12), metal)                 # tay cầm trước
+	_anim_parts["launcher"] = {"node": lcap, "pos": lcap.position, "rot": lcap.rotation_degrees}
 	_part(ln, Vector3(0.05, 0.1, 0.05), Vector3(0.0, -0.04, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
 	_part(ln, Vector3(0.03, 0.04, 0.1), Vector3(0.0, 0.15, -0.1), metal)                    # ngắm
 	_gun_models["launcher"] = ln
@@ -265,6 +286,12 @@ func _ready() -> void:
 	_part(sn, Vector3(0.06, 0.06, 0.3), Vector3(0.0, 0.02, -0.02), metal_light)             # thân
 	_part(sn, Vector3(0.05, 0.05, 0.22), Vector3(0.0, 0.11, -0.1), scope_mat)               # ống ngắm
 	_part(sn, Vector3(0.03, 0.04, 0.03), Vector3(0.0, 0.075, -0.05), metal)                 # chân ngắm
+	var bolt := _node("Bolt", sn, Vector3(0.04, 0.035, 0.0))
+	_part(bolt, Vector3(0.012, 0.012, 0.05), Vector3.ZERO, gold)                            # M29: khoá nòng
+	_part(bolt, Vector3(0.03, 0.012, 0.012), Vector3(0.015, 0.0, 0.02), gold)               # tay kéo
+	_part(sn, Vector3(0.04, 0.012, 0.18), Vector3(0.0, 0.052, -0.1), metal_light)           # thanh ray
+	_part(sn, Vector3(0.012, 0.012, 0.1), Vector3(0.0, 0.0, -0.78), steel_dark)             # chân hãm nòng
+	_anim_parts["sniper"] = {"node": bolt, "pos": bolt.position, "rot": bolt.rotation_degrees}
 	_part(sn, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.06), metal, Vector3(12.0, 0.0, 0.0)) # báng
 	_gun_models["sniper"] = sn
 	_flash_z["sniper"] = -0.82
@@ -288,11 +315,17 @@ func set_weapon(id: String, animate: bool = true) -> void:
 	weapon_id = id
 	if animate and is_inside_tree():
 		var up: float = float(Global.WEAPONS[id]["draw"]) if Global.WEAPONS.has(id) else 0.3
-		_gn.pos.x = _gun_rest_pos + Vector3(0.0, -0.3, 0.1)
-		_gn.rot.x = Vector3(-35.0, 0.0, 0.0)
+		var dr: Dictionary = Global.VIEWMODEL["weapon_draw"].get(id, Global.VIEWMODEL["weapon_draw"]["pistol"])
+		_gn.pos.x = _gun_rest_pos + Vector3(dr["pos"])
+		_gn.rot.x = Vector3(dr["rot"])
 		_gn.pos.v = Vector3.ZERO
 		_gn.rot.v = Vector3.ZERO
-		_gn.start("draw", [{"d": up, "base": true, "ease": "out", "k": float(Global.tv("draw_k"))}], 0.0)
+		var dk: float = float(Global.tv("draw_k"))
+		# Lên tới, vượt nhẹ ("over") rồi về nền; tổng thời gian = thời gian rút của súng.
+		_gn.start("draw", [
+			{"d": up * 0.7, "pos": _gun_rest_pos + Vector3(dr["over"]), "rot": Vector3.ZERO, "ease": "out", "k": dk},
+			{"d": up * 0.3, "base": true, "ease": "io", "k": dk},
+		], 0.0)
 		_apply()
 
 
@@ -331,12 +364,36 @@ func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, rot_deg: 
 
 
 ## Bàn tay bằng khối: lòng bàn tay + 4 ngón quấn quanh vật cầm + ngón cái.
-func _hand(parent: Node3D, at: Vector3, mat: Material, grip_thick: bool) -> void:
+## Trả về các ngón (4 ngón + ngón cái) để đổi dáng theo vật cầm / hành động (xem `_update_fingers`).
+func _hand(parent: Node3D, at: Vector3, mat: Material, grip_thick: bool) -> Array:
 	var w: float = 0.075 if grip_thick else 0.07
+	var fingers: Array = []
 	_part(parent, Vector3(w, 0.085, 0.08), at + Vector3(0.0, 0.0, 0.025), mat)               # lòng bàn tay
 	for i in 4:
-		_part(parent, Vector3(w + 0.012, 0.02, 0.026), at + Vector3(0.0, 0.03 - 0.021 * i, -0.03), mat)  # ngón tay
-	_part(parent, Vector3(0.026, 0.03, 0.06), at + Vector3(-0.045, 0.02, -0.01), mat, Vector3(0.0, 15.0, 0.0)) # ngón cái
+		fingers.append(_part(parent, Vector3(w + 0.012, 0.02, 0.026), at + Vector3(0.0, 0.03 - 0.021 * i, -0.03), mat))  # ngón tay
+	fingers.append(_part(parent, Vector3(0.026, 0.03, 0.06), at + Vector3(-0.045, 0.02, -0.01), mat, Vector3(0.0, 15.0, 0.0))) # ngón cái
+	for f in fingers:
+		(f as MeshInstance3D).set_meta("rest_rot", (f as MeshInstance3D).rotation_degrees)
+		(f as MeshInstance3D).set_meta("rest_pos", (f as MeshInstance3D).position)
+	return fingers
+
+
+## Bóp tay: curl 0 = nắm hờ, 1 = siết. Ngón trỏ tay súng duỗi sẵn (chạm cò) rồi bóp khi bắn; các ngón khác siết dần.
+func _update_fingers(fingers: Array, curl: float, trigger: bool) -> void:
+	var deg: float = float(Global.tv("grip_curl_deg"))
+	for i in fingers.size():
+		var f := fingers[i] as MeshInstance3D
+		var base: Vector3 = f.get_meta("rest_rot", Vector3.ZERO)
+		var shift: Vector3 = f.get_meta("rest_pos", Vector3.ZERO)
+		if i == 0 and trigger:
+			f.rotation_degrees = base + Vector3(-14.0 + (14.0 + deg) * curl, 0.0, 0.0)   # ngón trỏ: duỗi -> bóp cò
+			f.position = shift + Vector3(0.0, 0.0, -0.012 * (1.0 - curl))
+		elif i < 4:
+			f.rotation_degrees = base + Vector3(deg * curl * (0.7 + 0.1 * i), 0.0, 0.0)
+			f.position = shift
+		else:
+			f.rotation_degrees = base + Vector3(0.0, -deg * 0.5 * curl, 0.0)
+			f.position = shift
 
 
 ## Cánh tay hai khớp: vai cố định trong không gian viewmodel, cổ tay = điểm bám trên vật cầm (con của pivot).
@@ -455,7 +512,7 @@ func _compose_base(speed: float, grounded: bool, inten: float) -> Array:
 
 
 ## Gọi mỗi frame hiển thị. st: "" | "slide" | "dash" | "wallrun" | "grapple" (cùng quy ước hoạt ảnh thân).
-func update(delta: float, speed: float, grounded: bool, st: String = "", lateral: float = 0.0) -> void:
+func update(delta: float, speed: float, grounded: bool, st: String = "", lateral: float = 0.0, fall_speed: float = 0.0) -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	_driven = true
 	_la = [speed, grounded, st, lateral]
@@ -466,7 +523,10 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	bob_offset = Vector3(cos(_bob_phase * 0.5) * float(V["bob_side"]) * amp, absf(sin(_bob_phase * 0.5)) * float(V["bob_amp"]) * amp * -1.0, 0.0)
 	# Tiếp đất: đẩy một xung xuống, lò xo nảy lại.
 	if grounded and not _was_grounded:
-		_pos_spring.v.y -= float(Global.tv("land_impulse"))
+		# Rơi càng nhanh càng mạnh: tay đập xuống, nòng chúi theo (M29).
+		var hard: float = clampf(fall_speed / 12.0, 0.0, 2.0) * float(Global.tv("land_fall_gain"))
+		_pos_spring.v.y -= float(Global.tv("land_impulse")) * (1.0 + hard)
+		_rot_spring.v.x += 14.0 * hard
 	_was_grounded = grounded
 	# Trọng số trạng thái trượt mượt về 1 (trạng thái hiện tại) / 0 (còn lại): đổi trạng thái là cross-fade.
 	var fade: float = maxf(float(Global.tv("state_fade")), 0.01)
@@ -489,8 +549,16 @@ func update(delta: float, speed: float, grounded: bool, st: String = "", lateral
 	# Kiếm và súng: clip (nếu có) đặt đích, lò xo bám theo; hết clip thì đích = tư thế nền.
 	var sw_done: bool = _sw.step(delta, base[0], base[1])
 	_gn.step(delta, base[2], base[3])
-	var kk: float = pow(4.0 / maxf(float(V["kick_time"]), 0.02), 2.0)
+	var kk: float = pow(4.0 / maxf(float(V["kick_time"]) * float(_weapon_kick()["time"]), 0.02), 2.0)
 	_kick_spring.step(delta, Vector3.ZERO, kk, 2.0 * sqrt(kk) * float(Global.tv("kick_zeta")))
+	# Bóp tay theo hành động (mượt): súng siết theo độ giật, kiếm siết khi chém/đỡ.
+	var back_ref: float = maxf(float(Global.tv("kick_back")) * float(_weapon_kick()["back"]), 0.001)
+	var gt: float = clampf(_kick_spring.x.z / back_ref, 0.0, 1.0)
+	_gun_curl = lerpf(_gun_curl, maxf(gt, 0.5 if reloading else 0.0), 1.0 - exp(-delta * 25.0))
+	_sword_curl = lerpf(_sword_curl, 1.0 if _sw.active() else 0.15, 1.0 - exp(-delta * 18.0))
+	_update_fingers(_gun_fingers, _gun_curl, true)
+	_update_fingers(_sword_fingers, _sword_curl, false)
+	_update_parts(delta)
 	if sw_done or not _sw.active():
 		_run_queued()
 	elif _sw.queued.is_valid() and _sw.t >= _sw.cancel_from:
@@ -658,8 +726,9 @@ func kick() -> void:
 	if reloading:
 		return
 	var V: Dictionary = Global.VIEWMODEL
-	var back: float = float(Global.tv("kick_back"))
-	var pitch: float = float(Global.tv("kick_pitch"))
+	var wk: Dictionary = _weapon_kick()
+	var back: float = float(Global.tv("kick_back")) * float(wk["back"])
+	var pitch: float = float(Global.tv("kick_pitch")) * float(wk["pitch"])
 	_kick_spring.x = Vector3(minf(_kick_spring.x.x + pitch, pitch * 1.6), 0.0, minf(_kick_spring.x.z + back, back * 1.6))
 	_kick_spring.v = Vector3.ZERO
 	muzzle_flash.visible = true
@@ -671,28 +740,112 @@ func kick() -> void:
 	_apply()
 
 
-## Nạp đạn: hạ súng, nghiêng tháo băng, nhấn băng mới, lên nòng, nâng lại đúng thời gian nạp. on=false (xong/hủy) đưa về mượt.
+## Nạp đạn riêng từng súng (M29). Tổng thời gian các khoá = WEAPONS[id]["reload"] (không đổi nhịp chơi).
+## on=false (xong/hủy) đưa về mượt.
 func set_reloading(on: bool) -> void:
 	var V: Dictionary = Global.VIEWMODEL
 	if on:
 		reloading = true
 		var total: float = float(Global.WEAPONS[weapon_id]["reload"])
-		var down: float = float(V["reload_down_time"])
-		var up: float = float(V["reload_up_time"])
-		var hold: float = maxf(total - down - up, 0.0)
-		var low: Vector3 = _gun_rest_pos + Vector3(0.0, -0.35, 0.1)
-		var rk: float = float(Global.tv("reload_k"))
-		var keys: Array = [
-			{"d": down, "pos": low, "rot": Vector3(-40.0, 0.0, 25.0), "ease": "io", "k": rk},
-			{"d": hold * 0.35, "pos": low + Vector3(0.0, 0.02, 0.0), "rot": Vector3(-40.0, 0.0, 10.0), "ease": "io", "k": rk},
-			{"d": hold * 0.3, "pos": low + Vector3(0.0, -0.045, 0.0), "rot": Vector3(-46.0, 0.0, 20.0), "ease": "io", "k": rk * 1.6},
-			{"d": hold * 0.35, "pos": low, "rot": Vector3(-40.0, 0.0, 25.0), "ease": "io", "k": rk},
-			{"d": up, "base": true, "ease": "io", "k": rk},
-		]
-		_gn.start("reload", keys, 0.0)
+		_gn.start("reload", _reload_keys(weapon_id, total), 0.0)
 	else:
 		reloading = false
 		_gn.start("reload_cancel", [{"d": 0.12, "base": true, "ease": "out", "k": float(Global.tv("reload_k")) * 3.0}], 0.0)
+
+
+## Các bước nạp: [trọng số thời gian, lệch vị trí so với "low", góc, nhân độ cứng]. Bộ phận súng (băng/ống trượt/khoá nòng/nắp) chạy theo `_update_parts`.
+static func reload_steps(id: String) -> Array:
+	match id:
+		"shotgun":   # mở, nhét 2 viên, đóng, kéo ống trượt
+			return [
+				[0.2, Vector3(0.0, 0.03, 0.0), Vector3(-32.0, 0.0, 38.0), 1.0],
+				[0.2, Vector3(0.02, -0.03, 0.0), Vector3(-40.0, 0.0, 30.0), 1.5],
+				[0.2, Vector3(0.02, -0.03, 0.0), Vector3(-42.0, 0.0, 32.0), 1.5],
+				[0.15, Vector3(0.0, 0.04, 0.0), Vector3(-20.0, 0.0, 12.0), 1.0],
+				[0.25, Vector3(0.0, 0.06, -0.06), Vector3(-8.0, 0.0, 5.0), 1.4],
+			]
+		"launcher":  # mở nắp miệng ống, nhét đạn, đóng
+			return [
+				[0.25, Vector3(0.05, 0.1, 0.0), Vector3(-30.0, 0.0, 40.0), 1.0],
+				[0.35, Vector3(0.0, 0.12, 0.02), Vector3(-20.0, 0.0, 45.0), 1.2],
+				[0.2, Vector3(0.0, 0.06, 0.0), Vector3(-35.0, 0.0, 25.0), 1.0],
+				[0.2, Vector3(0.0, 0.0, 0.0), Vector3(-40.0, 0.0, 25.0), 1.0],
+			]
+		"sniper":    # nghiêng, kéo khoá, nhét đạn, đẩy khoá
+			return [
+				[0.2, Vector3(0.0, 0.04, 0.0), Vector3(-25.0, 0.0, 50.0), 1.0],
+				[0.25, Vector3(0.0, 0.05, 0.05), Vector3(-25.0, 0.0, 55.0), 1.3],
+				[0.3, Vector3(0.0, -0.03, 0.02), Vector3(-35.0, 0.0, 45.0), 1.5],
+				[0.25, Vector3(0.0, 0.0, 0.0), Vector3(-30.0, 0.0, 40.0), 1.0],
+			]
+	return [   # súng lục: tháo băng, nhét băng mới, lên nòng
+		[0.35, Vector3(0.0, 0.02, 0.0), Vector3(-40.0, 0.0, 10.0), 1.0],
+		[0.3, Vector3(0.0, -0.045, 0.0), Vector3(-46.0, 0.0, 20.0), 1.6],
+		[0.35, Vector3(0.0, 0.0, 0.0), Vector3(-40.0, 0.0, 25.0), 1.0],
+	]
+
+
+func _reload_keys(id: String, total: float) -> Array:
+	var V: Dictionary = Global.VIEWMODEL
+	var down: float = float(V["reload_down_time"])
+	var up: float = float(V["reload_up_time"])
+	var hold: float = maxf(total - down - up, 0.0)
+	var low: Vector3 = _gun_rest_pos + Vector3(0.0, -0.35, 0.1)
+	var rk: float = float(Global.tv("reload_k"))
+	var keys: Array = [{"d": down, "pos": low, "rot": Vector3(-40.0, 0.0, 25.0), "ease": "io", "k": rk}]
+	for st in reload_steps(id):
+		keys.append({"d": hold * float(st[0]), "pos": low + Vector3(st[1]), "rot": Vector3(st[2]), "ease": "io", "k": rk * float(st[3])})
+	keys.append({"d": up, "base": true, "ease": "io", "k": rk})
+	return keys
+
+
+## Cửa sổ trơn 0..1 trong [a, b] của tiến độ p.
+static func _win(p: float, a: float, b: float) -> float:
+	var u: float = clampf((p - a) / maxf(b - a, 0.0001), 0.0, 1.0)
+	return u * u * (3.0 - 2.0 * u)
+
+
+## Bộ phận chuyển động của súng đang cầm theo tiến độ nạp (0..1; âm = không nạp, về chỗ cũ).
+func _update_parts(delta: float) -> void:
+	var p: float = -1.0
+	if _gn.clip_name == "reload" and _gn.active():
+		p = clampf(_gn.t / maxf(_gn.total(), 0.001), 0.0, 1.0)
+	var k: float = 1.0 - exp(-delta * 30.0)
+	for id in _anim_parts:
+		var d: Dictionary = _anim_parts[id]
+		var n: Node3D = d["node"]
+		var pos: Vector3 = d["pos"]
+		var rot: Vector3 = d["rot"]
+		if p >= 0.0 and id == weapon_id:
+			match id:
+				"pistol":
+					pos.y += -0.14 * (_win(p, 0.18, 0.34) - _win(p, 0.5, 0.68))   # băng rơi xuống rồi nhét lại
+				"shotgun":
+					pos.z += 0.07 * (_win(p, 0.78, 0.88) - _win(p, 0.88, 0.98))  # ống trượt kéo lùi rồi đẩy tới
+				"launcher":
+					var o: float = _win(p, 0.1, 0.25) - _win(p, 0.75, 0.9)
+					rot.x += -75.0 * o
+					pos.y += 0.05 * o                                              # nắp miệng ống mở rồi đóng
+				"sniper":
+					var lift: float = _win(p, 0.2, 0.3) - _win(p, 0.82, 0.9)
+					var pull: float = _win(p, 0.3, 0.45) - _win(p, 0.7, 0.82)
+					rot.z += 70.0 * lift
+					pos.z += 0.08 * pull                                           # khoá nòng nâng, kéo lùi, đẩy tới, hạ
+		n.position = n.position.lerp(pos, k)
+		n.rotation_degrees = n.rotation_degrees.lerp(rot, k)
+
+
+## Hệ số giật của súng đang cầm.
+func _weapon_kick() -> Dictionary:
+	var wk: Dictionary = Global.VIEWMODEL["weapon_kick"]
+	return wk.get(weapon_id, wk["pistol"])
+
+
+## Leo gờ xong: vũ khí bị nhấc lên và nòng hất lên một nhịp (nối Signal ledge_climbed).
+func ledge() -> void:
+	var f: float = float(Global.tv("ledge_impulse"))
+	_pos_spring.v += Vector3(0.0, 0.6, 0.35) * f
+	_rot_spring.v.x += -35.0 * f
 
 
 ## Bị đánh: cả viewmodel bị đẩy lùi theo hướng đòn (direction theo hệ tọa độ camera), lò xo kéo về.
@@ -719,6 +872,12 @@ func reset() -> void:
 	_sw.rot.x = _sword_rest
 	_gn.pos.x = _gun_rest_pos
 	_gn.rot.x = Vector3.ZERO
+	_gun_curl = 0.0
+	_sword_curl = 0.0
+	for id in _anim_parts:
+		var d: Dictionary = _anim_parts[id]
+		(d["node"] as Node3D).position = d["pos"]
+		(d["node"] as Node3D).rotation_degrees = d["rot"]
 	for s in _w:
 		_w[s] = 0.0
 	pending_command = ""
