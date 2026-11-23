@@ -260,6 +260,14 @@ Mục tiêu: mọi hành động đọc được ngay trên màn hình. Chỉ l�
 - Cảnh báo "N ObjectDB instances leaked at exit" khi thoát là AudioStream của Sfx lúc tắt (có từ trước, vô hại, không phải rò trong trận).
 - Chưa kiểm bằng người: FPS thật, độ mượt (F3), cân bằng.
 
+## M32 (nhánh `feature/m32-clip-animations`: clip chuyển động cho bot gltf)
+- Asset: `assets/animations/ual/UAL1_Standard.glb` (Universal Animation Library [Standard], CC0; xem `docs/ASSETS.md`). Dùng 7 clip: Idle/Sword_Idle/Pistol_Idle, Walk, Jog_Fwd, Sprint, Crouch_Idle.
+- `scripts/clip_lib.gd` (static): nạp glb một lần, bake clip 30 fps thành quaternion local của 15 khớp proxy + `hips_y`; `sample(clip, t)`. Có `FLIP` (rig nhìn -Z, model +Z) và `STRAIGHTEN`.
+- `RigAnimator._blend_clip` chạy ngay sau `target_pose()`: chân/hông/thân/đầu theo clip (trọng số `ac_*`), tay giữ do code (`ac_arm`=0). Chọn clip theo tốc độ/loại vũ khí/núp; lùi/đi ngang giảm trọng số. Overlay chiến đấu (swing/parry/shoot/hurt/die) vẫn do code, thời gian không đổi.
+- Chỉ rig gltf (bot). Rig khối (Titan/dummy/player) không có clip. Thiếu asset thì tự về toàn code. Tắt: `ANIM["ac_enabled"]=0`; chỉnh nóng ở F4.
+- Chưa đo: tốc độ clip so với tốc độ bot (`ac_walk_speed/jog_speed/sprint_speed` là ước lượng, có thể trượt chân) — cần user xem trong game.
+- Test: `tools/tests/test_m32.gd`; ảnh: `docs/screenshots/m32/`.
+
 ## Sửa lỗi bot (đã gộp, nhánh `fix/bots-review`)
 Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dịch chuyển; theo dõi vị trí/vận tốc từng bot), không đoán mò:
 - **Bot sinh trùng chỗ bị đẩy văng** (lên cao hàng trăm mét, hoặc ra ngoài tường): wave lớn có nhiều bot hơn điểm sinh nên 2 bot trùng đúng một vị trí, engine đẩy chúng ra. `wave_manager.gd`: `_free_spot` xếp bot ra các vòng quanh điểm sinh (cách nhau `SPAWN_GAP` 1.3 m, tránh tường/người chơi bằng shape query). Lưới an toàn `_physics_process`: bot rơi dưới `void_y` hoặc ra ngoài biên thì đưa về điểm sinh (signal `bot_relocated`), vì trước đây bot rơi map thì wave không bao giờ kết thúc.
@@ -295,7 +303,7 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 
 ## Test / công cụ
-- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (36 bộ, thêm test_m21..test_m31: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
+- `godot --headless --path . --import` rồi `godot --headless --path . -s tools/tests/<tên>.gd` (37 bộ, thêm test_m21..test_m32: test_m18, test_polish, test_modes, test_bot_fixes, test_audio, test_smart_bots, test_feel, test_effects, test_maps, test_weapons, test_m9_movement, test_mannequin_gltf, test_movement, test_advanced_movement, test_combat, test_bots, test_menu_instability, test_materials, test_quality, test_mannequin, test_animation, test_combat_animation, test_viewmodel; đều xanh). Bench: `tools/bench/bench.gd`.
 - Ảnh: `xvfb-run -a -s "-screen 0 1280x720x24" godot --path . -s tools/screenshots/shoot*.gd -- <thư mục>`.
 - Pitfall test `-s`: không `preload` script dùng Global ở đầu file; chờ 2 frame sau teleport; `await process_frame` đầu `_run()`.
 

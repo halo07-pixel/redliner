@@ -222,6 +222,23 @@ const ANIM: Dictionary = {
 	"bm_cover_drop": 0.3,    # hạ hông khi núp (m)
 	"bm_peek": 0.2,          # nhô lên khi ló ra bắn (m)
 	"bm_stride_blend": 0.1,  # thời gian đổi chiều bước chân (s)
+	# Clip hoạt ảnh CC0 (M32): trộn lên tư thế sinh bằng code cho bot glTF. Đòn đánh/parry/bắn vẫn do code (thời gian không đổi).
+	"ac_enabled": 1.0,       # 0 = tắt hẳn clip (chạy toàn bằng code như trước M32)
+	"ac_idle": 0.85,         # trọng số clip khi đứng yên
+	"ac_run": 0.9,           # trọng số clip khi chạy (tự giảm khi lùi/đi ngang vì clip chỉ có chạy tiến)
+	"ac_cover": 0.7,         # trọng số clip khi núp
+	"ac_hips": 0.8,          # trọng số theo khớp: hông
+	"ac_spine": 0.7,         # thân
+	"ac_head": 0.5,          # đầu
+	"ac_arm": 0.0,           # tay (mặc định 0: tay do code lo để cầm vũ khí/IK; thử 0.3-0.6 nếu muốn tay đánh theo clip)
+	"ac_hips_y": 0.9,        # biên độ nhấp nhô hông của clip (nhân)
+	"ac_walk_speed": 1.6,    # tốc độ (m/s) clip Walk khớp 1:1 (tốc độ phát = tốc độ bot / giá trị này)
+	"ac_jog_speed": 4.8,     # clip Jog
+	"ac_sprint_speed": 7.5,  # clip Sprint
+	"ac_walk_max": 3.0,      # dưới mức này dùng Walk
+	"ac_sprint_min": 7.0,    # trên mức này dùng Sprint
+	"ac_fade": 0.12,         # thời gian vào/ra lớp clip (s)
+	"ac_xfade": 0.2,         # thời gian trộn khi đổi clip (s)
 	"lean_max": 12.0,
 	# Lò xo cho mỗi khớp: k = độ cứng, c = giảm chấn (c = 2*sqrt(k)*zeta; zeta < 1 thì có nảy nhẹ).
 	"joint_k": 260.0,
@@ -1220,7 +1237,7 @@ func ta(key: String) -> Variant:
 
 ## Các khoá hoạt ảnh cho phép chỉnh trong bộ chỉnh (anim_tuner.gd).
 const TUNABLE_VM: Array = ["spring_k", "spring_c", "rot_spring_k", "rot_spring_c", "sway_impulse", "state_fade", "step_impulse", "step_roll", "kick_zeta", "draw_k", "reload_k", "swing_windup_k", "swing_active_k", "swing_follow_k", "swing_recover_k", "guard_k", "guard_hold_k", "parry_fail_k", "clash_impulse", "land_impulse", "flinch_impulse", "kick_back", "kick_pitch", "grip_curl_deg", "ledge_impulse", "land_fall_gain"]
-const TUNABLE_ANIM: Array = ["bm_back_swing", "bm_back_lean", "bm_side_hip", "bm_side_cross", "bm_turn_lead", "bm_turn_max", "bm_cover_drop", "bm_peek", "bm_stride_blend", "pf_hitstop", "pf_hitstop_bullet", "pf_cam_kick", "pf_fov_punch", "pf_spark_cone", "pf_flash_energy", "pf_tell_lean", "pf_tell_time", "pf_miss_stumble", "cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
+const TUNABLE_ANIM: Array = ["ac_enabled", "ac_idle", "ac_run", "ac_cover", "ac_hips", "ac_spine", "ac_head", "ac_arm", "ac_hips_y", "ac_walk_speed", "ac_jog_speed", "ac_sprint_speed", "ac_fade", "ac_xfade", "bm_back_swing", "bm_back_lean", "bm_side_hip", "bm_side_cross", "bm_turn_lead", "bm_turn_max", "bm_cover_drop", "bm_peek", "bm_stride_blend", "pf_hitstop", "pf_hitstop_bullet", "pf_cam_kick", "pf_fov_punch", "pf_spark_cone", "pf_flash_energy", "pf_tell_lean", "pf_tell_time", "pf_miss_stumble", "cam_lunge", "cam_dip_per_speed", "cam_dip_max", "cam_fx_k", "cam_fx_c", "slide_tilt_deg", "look_max_yaw", "look_max_pitch", "look_rate", "support_hand", "joint_k", "joint_c", "overlay_in", "overlay_out"]
 
 
 func hurt_layer(team: int) -> int:

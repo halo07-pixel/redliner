@@ -6,6 +6,7 @@ extends Node3D
 ## `MannequinGltf.has_asset(kind)` cho biết có model không; thiếu asset thì chủ nhân dùng mannequin.gd.
 
 const AnimatorScript = preload("res://scripts/rig_animator.gd")
+const ClipLib = preload("res://scripts/clip_lib.gd")
 const MODEL_PATH: String = "res://assets/characters/godo/GodoDude.gltf"
 const HEIGHT: float = 1.8
 const JOINT_NAMES: Array = [
@@ -51,6 +52,7 @@ static func warm_up() -> void:
 	for pth in paths:
 		if ResourceLoader.exists(pth):
 			ResourceLoader.load_threaded_request(pth)
+	ClipLib.warm_up()
 
 
 @export var color: Color = Color(0.85, 0.85, 0.9)
@@ -90,6 +92,7 @@ func _ready() -> void:
 	_attach_weapon()
 	animator = AnimatorScript.new()
 	animator.setup(self)
+	animator.clips_enabled = ClipLib.available()   # M32: lớp clip CC0 (chân/thân/đầu); thiếu asset thì chạy toàn bằng code
 	reset_pose()
 
 
