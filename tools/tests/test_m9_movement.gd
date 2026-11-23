@@ -132,7 +132,8 @@ func _run() -> void:
 	await _frames(14)   # vận tốc xoay dần trong grapple_redirect_time (M26)
 	var after_dot: float = player.velocity.normalized().dot(-player.global_transform.basis.z)
 	_check(after_dot > before_dot + 0.3, "nhả móc: vận tốc bẻ theo hướng nhìn (cos %.2f -> %.2f)" % [before_dot, after_dot])
-	_check(player.velocity.length() >= spd - 0.5, "redirect giữ (hoặc tăng) độ lớn vận tốc (%.1f -> %.1f)" % [spd, player.velocity.length()])
+	# M33: phần vượt trần mềm grapple_soft_cap bị hãm dần, nên chỉ đòi giữ độ lớn tới mức trần
+	_check(player.velocity.length() >= minf(spd, float(C["grapple_soft_cap"])) - 0.5, "redirect giữ độ lớn vận tốc tới trần mềm (%.1f -> %.1f)" % [spd, player.velocity.length()])
 	player.head.rotation.x = 0.0
 
 	# ---------------- GROUND SLAM
