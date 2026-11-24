@@ -141,7 +141,15 @@ func _run() -> void:
 	ui.card_chosen.connect(func(i): picks.append(i))
 	ui.skipped.connect(func(): skips.append(1))
 	ui.open(4, Up.draw(["shared"], {}, 3, rng))
-	_check(ui.visible and ui.card_buttons.size() == 3 and ui.card_buttons[0].text.contains("Bậc 1 / "), "hiện 3 nút thẻ, ghi bậc")
+	_check(ui.visible and ui.card_buttons.size() == 3 and ui.card_buttons[0].text.contains("Bậc 1 / ") and ui.card_buttons[0].text.contains("●○"), "hiện 3 nút thẻ, ghi bậc")
+	var LU = load("res://scripts/level_up_ui.gd")
+	_check(LU.effect_text({"per": 0.12, "kind": "mult"}, 2) == "+24%" and LU.effect_text({"per": 15.0, "kind": "add"}, 2) == "+30" and LU.effect_text({"per": 0.5, "kind": "add"}, 3) == "+1.5", "chữ hiệu ứng: +24% / +30 / +1.5")
+	var all_cat: bool = true
+	for cid in pool:
+		all_cat = all_cat and LU.CATS.has(String(pool[cid].get("cat", "")))
+	_check(all_cat, "mọi thẻ có nhóm màu hợp lệ")
+	await create_timer(0.5).timeout
+	_check(ui.card_buttons[0].modulate.a > 0.99 and ui.card_buttons[2].scale.is_equal_approx(Vector2.ONE), "hiệu ứng trượt vào xong: thẻ hiện rõ, đúng cỡ")
 	ui.card_buttons[1].pressed.emit()
 	_check(picks == [ui.cards[1]["id"]], "bấm thẻ 2: phát card_chosen với đúng id")
 	ui.skip_button.pressed.emit()

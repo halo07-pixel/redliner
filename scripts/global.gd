@@ -673,19 +673,19 @@ const XP: Dictionary = {
 	"orb": {"default": 3, "titan": 40}, "orb_lifetime": 45.0, "magnet_base": 3.0, "orb_speed": 16.0,
 }
 ## Kho nâng cấp. Khoá = tên kho: "shared" (dùng chung); M38/M39 thêm "gun:<id>" và "sword".
-## Mỗi thẻ: stat (khoá thống kê), per (giá trị mỗi bậc), max (số bậc tối đa), kind ("mult": cộng vào hệ số 1+x; "add": cộng thẳng).
+## Mỗi thẻ: cat ("gun"/"survive"/"util": màu + nhãn trên thẻ), stat (khoá thống kê), per (giá trị mỗi bậc), max (số bậc tối đa), kind ("mult": cộng vào hệ số 1+x; "add": cộng thẳng).
 const UPGRADES: Dictionary = {
 	"shared": {
-		"damage": {"name": "Đạn mạnh", "desc": "+12% sát thương súng mỗi bậc", "stat": "damage", "per": 0.12, "max": 5, "kind": "mult"},
-		"fire_rate": {"name": "Bắn nhanh", "desc": "+10% tốc độ bắn mỗi bậc", "stat": "fire_rate", "per": 0.10, "max": 5, "kind": "mult"},
-		"mag": {"name": "Băng đạn lớn", "desc": "+20% cỡ băng đạn mỗi bậc", "stat": "mag", "per": 0.20, "max": 4, "kind": "mult"},
-		"reload": {"name": "Nạp nhanh", "desc": "+15% tốc độ nạp mỗi bậc", "stat": "reload", "per": 0.15, "max": 4, "kind": "mult"},
-		"max_hp": {"name": "Giáp dày", "desc": "+15 máu tối đa mỗi bậc", "stat": "max_hp", "per": 15.0, "max": 5, "kind": "add"},
-		"regen": {"name": "Tự hồi phục", "desc": "+0.5 máu mỗi giây mỗi bậc", "stat": "regen", "per": 0.5, "max": 4, "kind": "add"},
-		"speed": {"name": "Chân nhanh", "desc": "+4% tốc độ chạy mỗi bậc", "stat": "speed", "per": 0.04, "max": 4, "kind": "mult"},
-		"magnet": {"name": "Nam châm XP", "desc": "+2.5 m tầm hút XP mỗi bậc", "stat": "magnet", "per": 2.5, "max": 4, "kind": "add"},
-		"xp_gain": {"name": "Học nhanh", "desc": "+10% XP nhận được mỗi bậc", "stat": "xp_gain", "per": 0.10, "max": 5, "kind": "mult"},
-		"stamina": {"name": "Dẻo dai", "desc": "+20% tốc độ hồi stamina dash mỗi bậc", "stat": "stamina", "per": 0.20, "max": 3, "kind": "mult"},
+		"damage": {"name": "Đạn mạnh", "cat": "gun", "desc": "+12% sát thương súng mỗi bậc", "stat": "damage", "per": 0.12, "max": 5, "kind": "mult"},
+		"fire_rate": {"name": "Bắn nhanh", "cat": "gun", "desc": "+10% tốc độ bắn mỗi bậc", "stat": "fire_rate", "per": 0.10, "max": 5, "kind": "mult"},
+		"mag": {"name": "Băng đạn lớn", "cat": "gun", "desc": "+20% cỡ băng đạn mỗi bậc", "stat": "mag", "per": 0.20, "max": 4, "kind": "mult"},
+		"reload": {"name": "Nạp nhanh", "cat": "gun", "desc": "+15% tốc độ nạp mỗi bậc", "stat": "reload", "per": 0.15, "max": 4, "kind": "mult"},
+		"max_hp": {"name": "Giáp dày", "cat": "survive", "desc": "+15 máu tối đa mỗi bậc", "stat": "max_hp", "per": 15.0, "max": 5, "kind": "add"},
+		"regen": {"name": "Tự hồi phục", "cat": "survive", "desc": "+0.5 máu mỗi giây mỗi bậc", "stat": "regen", "per": 0.5, "max": 4, "kind": "add"},
+		"speed": {"name": "Chân nhanh", "cat": "survive", "desc": "+4% tốc độ chạy mỗi bậc", "stat": "speed", "per": 0.04, "max": 4, "kind": "mult"},
+		"magnet": {"name": "Nam châm XP", "cat": "util", "desc": "+2.5 m tầm hút XP mỗi bậc", "stat": "magnet", "per": 2.5, "max": 4, "kind": "add"},
+		"xp_gain": {"name": "Học nhanh", "cat": "util", "desc": "+10% XP nhận được mỗi bậc", "stat": "xp_gain", "per": 0.10, "max": 5, "kind": "mult"},
+		"stamina": {"name": "Dẻo dai", "cat": "util", "desc": "+20% tốc độ hồi stamina dash mỗi bậc", "stat": "stamina", "per": 0.20, "max": 3, "kind": "mult"},
 	},
 }
 ## Chế độ Vô Tận (M34). Bản đồ lưới `grid`x`grid` ô vuông `cell` m (6x50 = 300 m, gấp ~5 lần Khu phố về diện tích).
