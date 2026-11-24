@@ -47,6 +47,10 @@ var _pitch: float = 0.0
 var _last_speed: float = -1.0
 var _dash_cd: float = 0.0
 var _regen_delay_t: float = 0.0
+## Hệ số / chỉ số nâng cấp (M35; main áp từ RunProgress).
+var speed_mult: float = 1.0
+var stamina_regen_mult: float = 1.0
+var pickup_magnet: float = float(Global.XP["magnet_base"])
 var _last_charges: int = -1
 var _slide_boost_cd: float = 0.0
 var _slam_cd: float = 0.0
@@ -465,7 +469,7 @@ func _tick_timers(delta: float) -> void:
 	var cfg: Dictionary = Global.PLAYER
 	_regen_delay_t = maxf(_regen_delay_t - delta, 0.0)
 	if dash_stamina < float(cfg["dash_stamina_max"]) and _regen_delay_t <= 0.0 and not instability.destabilized:
-		dash_stamina = minf(dash_stamina + float(cfg["dash_regen"]) * delta, float(cfg["dash_stamina_max"]))
+		dash_stamina = minf(dash_stamina + float(cfg["dash_regen"]) * stamina_regen_mult * delta, float(cfg["dash_stamina_max"]))
 		_emit_dash()
 
 
@@ -511,13 +515,13 @@ func _move_normal(delta: float) -> void:
 		if _jump_requested():
 			# Frame nhảy KHÔNG bị ma sát -> giữ động lượng khi nhảy liên tục (bunny hop).
 			_do_jump()
-			_accelerate(wish_dir, cfg["walk_speed"], cfg["air_accel"], delta)
+			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
 		else:
 			_apply_friction(delta)
-			_accelerate(wish_dir, cfg["walk_speed"], cfg["ground_accel"], delta)
+			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["ground_accel"], delta)
 	else:
 		velocity.y -= float(cfg["gravity"]) * delta
-		_accelerate(wish_dir, cfg["walk_speed"], cfg["air_accel"], delta)
+		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
 		if _coyote_t > 0.0 and _jump_requested() and velocity.y <= 0.5:
 			_do_jump() # coyote: vừa rời mép sàn vẫn nhảy được
 		elif _try_ledge():
@@ -703,7 +707,7 @@ func _move_slide(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= float(cfg["gravity"]) * delta
-		_accelerate(wish_dir, cfg["walk_speed"], cfg["air_accel"], delta)
+		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
 		if _can_stand():
 			_exit_slide()
 		return
@@ -918,7 +922,7 @@ func _move_grapple(delta: float) -> void:
 			_grapple_taut = true
 	rope.set_tension(pull / float(cfg["grapple_pull_max"]) if reeling else 0.3)
 	velocity.y -= float(cfg["gravity"]) * 0.4 * delta
-	_accelerate(_wish_dir(), cfg["walk_speed"], cfg["air_accel"], delta)
+	_accelerate(_wish_dir(), float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
 
 
 ## M33: tốc độ ngang vượt trần mềm bị hãm dần (hàm mũ), không chặn cứng. Chạy trong _physics_process, trước move_and_slide.

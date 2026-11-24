@@ -320,6 +320,16 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 - **Chưa kiểm bằng người**: FPS thật trên bản đồ 300x300 (khuất tầm nhìn, 14 bot + shadow), cảm giác nhịp độ tầng, chỉ tiêu/cap bot, độ tương thích tốc độ chạy 300 m (cổng xa ~350 m đường chéo), navmesh đồng bộ chậm ~10 khung hình ngay sau khi dựng tầng (bot đi thẳng trong lúc đó). Nav bake đồng bộ có thể gây khựng ~0.1-0.2 s khi qua tầng trên máy yếu.
 - Pitfall: `await process_frame` đầu `_run()` ở script `-s`, nếu không `global_position` lên node mới thêm bị bỏ qua.
 
+## M35 (nhánh `feature/m35-xp-levelup`: XP, lên cấp, chọn nâng cấp — mốc 2/6 của Vô Tận)
+- **XP**: bot chết rơi `xp_orb.gd` (3 XP, Titan 40; `Global.XP.orb`), bay về người chơi trong tầm hút `player.pickup_magnet` (mặc định 3 m), hết hạn 45 s; chỉ phát `collected`. Cấp n->n+1 cần `10 + 6n` XP (`Global.XP`).
+- **`run_progress.gd`** (logic thuần + Signal `xp_changed/leveled_up/upgrade_chosen`): `add_xp` (nhân hệ số Học nhanh), nhiều cấp liền nhau xếp hàng `pending`, `choose(id)`, `skip()`, `pools` (hiện `["shared"]`; M38/M39 thêm `gun:<id>`/`sword`). XP/cấp/nâng cấp mất khi hết lượt.
+- **`upgrades.gd`**: `available/draw/stat` trên `Global.UPGRADES` (kho dùng chung 10 thẻ: sát thương súng, tốc độ bắn, băng đạn, nạp, máu tối đa, tự hồi, chạy, nam châm, học nhanh, stamina). `kind` "mult" -> 1+Σ, "add" -> Σ. Thêm thẻ = thêm một dòng dữ liệu.
+- **`level_up_ui.gd`**: 3 thẻ + Bỏ qua (hồi 25% máu, `Global.XP.skip_heal`), phím 1/2/3/4, chạy khi pause (ALWAYS), chỉ phát `card_chosen/skipped`.
+- **main.gd**: `_next_level_choice` (pause + hiện thẻ; hết thẻ thì tự Bỏ qua, không kẹt pause), `_apply_upgrades` áp hệ số lên `player.combat` (`damage_mult/fire_rate_mult/mag_mult/reload_mult`, áp ở `_hit` và tên lửa), `player.speed_mult/stamina_regen_mult/pickup_magnet`, `hurtbox.max_health`; tự hồi máu trong `_physics_process`.
+- HUD: thanh XP + cấp ở giữa dưới; la bàn (map lớn) chuyển xuống giữa dưới vì đè dòng wave/tầng ở giữa trên (lỗi bố cục có sẵn trên Khu phố).
+- Test: `test_m35` (48 kiểm tra). Ảnh `docs/screenshots/m35/`.
+- **Chưa kiểm bằng người**: nhịp lên cấp (tầng 1 ~3 cấp), pause khi lên cấp có gây khó chịu giữa trận không, độ mạnh từng thẻ. Thẻ sát thương chỉ tăng súng (kiếm có kho riêng ở M39). Tăng băng đạn chỉ đổi mức đầy khi nạp lại.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

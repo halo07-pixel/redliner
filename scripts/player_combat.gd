@@ -29,6 +29,12 @@ var ammo: int:
 	set(v):
 		_ammo[weapon] = v
 
+## Hệ số nâng cấp (M35; main áp từ RunProgress). 1.0 = không đổi.
+var damage_mult: float = 1.0
+var fire_rate_mult: float = 1.0
+var mag_mult: float = 1.0
+var reload_mult: float = 1.0
+
 var _ammo: Dictionary = {}
 var _head: Node3D
 var _body: Node3D
@@ -52,7 +58,7 @@ func cfg() -> Dictionary:
 
 
 func max_ammo() -> int:
-	return int(cfg()["mag"])
+	return maxi(roundi(float(cfg()["mag"]) * mag_mult), 1)
 
 
 func is_zooming() -> bool:
@@ -125,7 +131,7 @@ func _start_reload() -> void:
 	if reloading or ammo >= max_ammo():
 		return
 	reloading = true
-	_reload_t = float(cfg()["reload"])
+	_reload_t = float(cfg()["reload"]) / reload_mult
 	reloading_changed.emit(true)
 
 
@@ -137,7 +143,7 @@ func _shoot() -> void:
 		return
 	var c: Dictionary = cfg()
 	ammo -= 1
-	_shot_cd = float(c["cooldown"])
+	_shot_cd = float(c["cooldown"]) / fire_rate_mult
 	var from: Vector3 = _head.global_position
 	var dir: Vector3 = -_head.global_transform.basis.z
 	var muzzle: Vector3 = from + _head.global_transform.basis * Vector3(-0.3, -0.25, -0.7)
@@ -166,7 +172,7 @@ func _ray(from: Vector3, dir: Vector3, length: float, exclude: Array = []) -> Di
 func _hit(collider: Object, damage: float, dir: Vector3, extra: Dictionary = {}) -> bool:
 	if not collider.has_method("take_hit"):
 		return false
-	var h := {"damage": damage, "kind": "hitscan", "source": _body, "direction": dir}
+	var h := {"damage": damage * damage_mult, "kind": "hitscan", "source": _body, "direction": dir}
 	h.merge(extra, true)
 	return collider.take_hit(h)
 
@@ -238,5 +244,7 @@ func _launch_rocket(from: Vector3, dir: Vector3, c: Dictionary) -> void:
 	var r: Node3D = RocketScript.new()
 	_body.get_parent().add_child(r)
 	r.global_position = from + dir * 0.8
-	r.setup(_body, c, dir)
+	var rc: Dictionary = c.duplicate()
+	rc["damage"] = float(c["damage"]) * damage_mult
+	r.setup(_body, rc, dir)
 	r.exploded.connect(func(pos: Vector3, radius: float): exploded.emit(pos, radius))
