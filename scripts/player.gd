@@ -167,6 +167,7 @@ func _ready() -> void:
 	melee.hit_landed.connect(func(_hb, landed): if landed: instability.lose(Global.INSTABILITY["hit_relief"]))
 	instability.destabilized_changed.connect(_on_destabilized)
 	combat.shot_fired.connect(_on_shot_recoil)
+	combat.self_impulse.connect(func(v: Vector3): velocity += v)   # lỗi giật bật người của súng
 	hurtbox.hurt.connect(func(_h, _l): cancel_ledge())
 
 
@@ -515,13 +516,13 @@ func _move_normal(delta: float) -> void:
 		if _jump_requested():
 			# Frame nhảy KHÔNG bị ma sát -> giữ động lượng khi nhảy liên tục (bunny hop).
 			_do_jump()
-			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
+			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult * combat.move_mult, cfg["air_accel"], delta)
 		else:
 			_apply_friction(delta)
-			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["ground_accel"], delta)
+			_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult * combat.move_mult, cfg["ground_accel"], delta)
 	else:
 		velocity.y -= float(cfg["gravity"]) * delta
-		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
+		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult * combat.move_mult, cfg["air_accel"], delta)
 		if _coyote_t > 0.0 and _jump_requested() and velocity.y <= 0.5:
 			_do_jump() # coyote: vừa rời mép sàn vẫn nhảy được
 		elif _try_ledge():
@@ -707,7 +708,7 @@ func _move_slide(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= float(cfg["gravity"]) * delta
-		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
+		_accelerate(wish_dir, float(cfg["walk_speed"]) * speed_mult * combat.move_mult, cfg["air_accel"], delta)
 		if _can_stand():
 			_exit_slide()
 		return
@@ -922,7 +923,7 @@ func _move_grapple(delta: float) -> void:
 			_grapple_taut = true
 	rope.set_tension(pull / float(cfg["grapple_pull_max"]) if reeling else 0.3)
 	velocity.y -= float(cfg["gravity"]) * 0.4 * delta
-	_accelerate(_wish_dir(), float(cfg["walk_speed"]) * speed_mult, cfg["air_accel"], delta)
+	_accelerate(_wish_dir(), float(cfg["walk_speed"]) * speed_mult * combat.move_mult, cfg["air_accel"], delta)
 
 
 ## M33: tốc độ ngang vượt trần mềm bị hãm dần (hàm mũ), không chặn cứng. Chạy trong _physics_process, trước move_and_slide.

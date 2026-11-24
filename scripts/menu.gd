@@ -18,6 +18,9 @@ var mode_desc_label: Label
 var setup_panel: Control
 var fx_button: Button
 var quit_button: Button
+var shop_button: Button
+var shop_panel: Control
+var start_gun_button: Button
 var help_panel: Control
 var settings_button: Button
 var settings_panel: Control
@@ -40,30 +43,36 @@ func _ready() -> void:
 	stripe.color = Color(0.9, 0.1, 0.1, 0.8)
 	add_child(stripe)
 
-	var box := UIKit.center_box(self, 16)
-	box.add_child(UIKit.title("REDLINER", 96))
+	var box := UIKit.center_box(self, 10)
+	box.add_child(UIKit.title("REDLINER", 80))
 	box.add_child(UIKit.label("Đấu trường FPS tốc độ cao - kiếm, súng và parry", 22))
 	var ver := UIKit.label("Phiên bản %s  |  F3: hiện FPS" % Global.VERSION, 14)
 	ver.modulate = Color(1, 1, 1, 0.5)
 	box.add_child(ver)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0.0, 24.0)
+	spacer.custom_minimum_size = Vector2(0.0, 8.0)
 	box.add_child(spacer)
 	play_button = UIKit.button("Chơi")
 	help_button = UIKit.button("Hướng dẫn")
+	shop_button = UIKit.button("Cửa hàng")
 	settings_button = UIKit.button("Cài đặt")
 	quality_button = UIKit.quality_button()
 	fx_button = UIKit.fx_button()
 	quit_button = UIKit.button("Thoát")
-	for b in [play_button, help_button, settings_button, quality_button, fx_button, quit_button]:
+	for b in [play_button, shop_button, help_button, settings_button, quality_button, fx_button, quit_button]:
 		box.add_child(b)
 	play_button.pressed.connect(func(): setup_panel.visible = true)
 	help_button.pressed.connect(show_help)
+	shop_button.pressed.connect(func(): shop_panel.visible = true)
 	settings_button.pressed.connect(func(): settings_panel.visible = true)
 	quit_button.pressed.connect(func(): get_tree().quit())
 
 	_build_setup()
 	_build_help()
+	shop_panel = load("res://scripts/shop_menu.gd").new()
+	shop_panel.visible = false
+	add_child(shop_panel)
+	shop_panel.closed.connect(func(): shop_panel.visible = false)
 	settings_panel = load("res://scripts/settings_menu.gd").new()
 	settings_panel.visible = false
 	add_child(settings_panel)
@@ -86,6 +95,7 @@ func _build_setup() -> void:
 	map_button = UIKit.map_button()
 	difficulty_button = UIKit.difficulty_button()
 	start_wave_button = UIKit.start_wave_button()
+	start_gun_button = UIKit.start_gun_button()
 	mode_desc_label = UIKit.label("", 20)
 	mode_desc_label.custom_minimum_size = Vector2(640.0, 0.0)
 	mode_desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -93,7 +103,7 @@ func _build_setup() -> void:
 	best_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	start_button = UIKit.button("Bắt đầu")
 	setup_back_button = UIKit.button("Quay lại")
-	for c in [mode_button, map_button, difficulty_button, start_wave_button, mode_desc_label, best_label, start_button, setup_back_button]:
+	for c in [mode_button, map_button, difficulty_button, start_wave_button, start_gun_button, mode_desc_label, best_label, start_button, setup_back_button]:
 		box.add_child(c)
 	map_button.pressed.connect(_refresh_setup)
 	start_wave_button.pressed.connect(_refresh_setup)
@@ -111,6 +121,7 @@ func _refresh_setup() -> void:
 		mode_desc_label.text += " Khu phố có Titan từ wave 5."
 	start_wave_button.visible = Global.game_mode in ["survival", "timed"]
 	map_button.visible = Global.game_mode != "endless"
+	start_gun_button.visible = Global.game_mode == "endless"
 	if Global.game_mode == "training":
 		best_label.text = "Không tính điểm"
 	else:

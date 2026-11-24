@@ -12,6 +12,8 @@ signal hit_confirmed(landed: bool)
 signal reloading_changed(on: bool)
 signal weapon_changed(id: String, display_name: String)
 signal exploded(position: Vector3, radius: float)
+signal self_impulse(velocity_delta: Vector3)   # lỗi giật bật người: Player cộng vào vận tốc
+signal charge_changed(ratio: float)               # lỗi nạp ngắm: 0..1 (0 = không nạp)
 signal flaw_changed(spread_deg: float, max_deg: float)   # lỗi súng đang cầm đổi (HUD vẽ chấm ngắm nở)
 
 var want_attack: bool = false  # giữ
@@ -40,6 +42,10 @@ var reload_mult: float = 1.0
 ## Lỗi riêng của súng (M36) + hệ số riêng theo súng từ nâng cấp: "<id>_damage_mult", "<id>_pierce".
 var flaws = GunFlawsScript.new()
 var weapon_mods: Dictionary = {}
+var locked: bool = false          # Vô Tận: một súng mỗi lượt, tắt đổi súng
+var move_mult: float = 1.0        # hệ số tốc độ chạy do lỗi (nạp ngắm); Player nhân vào
+var _charge: float = 0.0
+var _charge_lock: bool = false
 var _last_spread: float = -1.0
 
 var _ammo: Dictionary = {}
@@ -93,6 +99,7 @@ func switch_to(id: String) -> void:
 	if reloading:
 		reloading = false
 		reloading_changed.emit(false)
+	_cancel_charge()
 	weapon = id
 	_last_spread = -1.0
 	_shot_cd = float(cfg()["draw"]) # thời gian rút súng
@@ -112,9 +119,9 @@ func _physics_process(delta: float) -> void:
 			ammo = max_ammo()
 			ammo_changed.emit(ammo, max_ammo())
 
-	if want_weapon >= 0 and want_weapon < Global.WEAPON_ORDER.size():
+	if want_weapon >= 0 and want_weapon < Global.WEAPON_ORDER.size() and not locked:
 		switch_to(Global.WEAPON_ORDER[want_weapon])
-	if want_cycle != 0:
+	if want_cycle != 0 and not locked:
 		var n: int = Global.WEAPON_ORDER.size()
 		var i: int = Global.WEAPON_ORDER.find(weapon)
 		switch_to(Global.WEAPON_ORDER[posmod(i + want_cycle, n)])
@@ -128,8 +135,7 @@ func _physics_process(delta: float) -> void:
 		_melee.try_swing()
 	if want_reload:
 		_start_reload()
-	if want_shoot and not blocked:
-		_shoot()
+	_handle_shoot(delta, blocked)
 	want_parry = false
 	want_reload = false
 	want_heavy = false
@@ -159,6 +165,50 @@ func _start_reload() -> void:
 	reloading_changed.emit(true)
 
 
+## Bắn theo súng: thường thì bắn khi giữ; súng có lỗi nạp ngắm thì phải giữ đủ thời gian (thả sớm = huỷ).
+func _handle_shoot(delta: float, blocked: bool) -> void:
+	var ct: float = flaws.charge_time(weapon)
+	if ct <= 0.0:
+		_cancel_charge()
+		if want_shoot and not blocked:
+			_shoot()
+		return
+	if not want_shoot:
+		_charge_lock = false
+		_cancel_charge()
+		return
+	if blocked or reloading or _charge_lock or _shot_cd > 0.0:
+		_cancel_charge()
+		return
+	if ammo <= 0:
+		_shoot()   # hết đạn: tự nạp
+		return
+	_charge += delta
+	move_mult = flaws.charge_move_mult(weapon)
+	charge_changed.emit(minf(_charge / ct, 1.0))
+	if _charge >= ct:
+		_cancel_charge()
+		_charge_lock = true   # phải thả chuột mới nạp phát sau
+		_shoot()
+
+
+func _cancel_charge() -> void:
+	if _charge > 0.0 or move_mult != 1.0:
+		_charge = 0.0
+		move_mult = 1.0
+		charge_changed.emit(0.0)
+
+
+## Đoạn tia laser khi đang nạp ngắm: từ nòng tới điểm trúng (hoặc hết tầm). Presentation đọc để vẽ.
+func laser_segment() -> PackedVector3Array:
+	var from: Vector3 = _head.global_position
+	var dir: Vector3 = -_head.global_transform.basis.z
+	var muzzle: Vector3 = from + _head.global_transform.basis * Vector3(-0.3, -0.25, -0.7)
+	var hit: Dictionary = _ray(from, dir, float(cfg()["range"]), [_body])
+	var to: Vector3 = hit["position"] if not hit.is_empty() else from + dir * float(cfg()["range"])
+	return PackedVector3Array([muzzle, to])
+
+
 func _shoot() -> void:
 	if reloading or _shot_cd > 0.0:
 		return
@@ -182,6 +232,9 @@ func _shoot() -> void:
 			to = _fire_hitscan(from, dir, c)
 	flaws.on_shot(weapon)
 	_emit_flaw()
+	var kick: Vector3 = flaws.knockback(weapon, dir, _body.is_on_floor() if _body.has_method("is_on_floor") else true)
+	if kick != Vector3.ZERO:
+		self_impulse.emit(kick)
 	shot_fired.emit(muzzle, to)
 	ammo_changed.emit(ammo, max_ammo())
 	if ammo == 0:
@@ -272,5 +325,6 @@ func _launch_rocket(from: Vector3, dir: Vector3, c: Dictionary) -> void:
 	r.global_position = from + dir * 0.8
 	var rc: Dictionary = c.duplicate()
 	rc["damage"] = float(c["damage"]) * damage_mult
+	rc["self_damage_mult"] = flaws.self_damage_mult(weapon, float(c["self_damage_mult"]))
 	r.setup(_body, rc, dir)
 	r.exploded.connect(func(pos: Vector3, radius: float): exploded.emit(pos, radius))

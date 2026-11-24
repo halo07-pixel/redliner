@@ -448,14 +448,14 @@ const WEAPONS: Dictionary = {
 		"range": 80.0, "recoil": 1.0, "draw": 0.25, "sfx": "shot", "flaw": "rhythm_recoil"},
 	"shotgun": {"name": "Shotgun", "kind": "pellets", "mag": 2, "cooldown": 0.6, "reload": 1.8, "damage": 12.0,
 		"pellets": 8, "spread_deg": 5.0, "falloff_range": 18.0, "min_falloff": 0.2,
-		"range": 40.0, "recoil": 3.0, "draw": 0.4, "sfx": "shotgun"},
+		"range": 40.0, "recoil": 3.0, "draw": 0.4, "sfx": "shotgun", "flaw": "self_knockback"},
 	"launcher": {"name": "Pháo nổ", "kind": "explosive", "mag": 2, "cooldown": 0.9, "reload": 2.2, "damage": 60.0,
 		"projectile_speed": 38.0, "gravity": 6.0, "blast_radius": 4.5, "min_falloff": 0.4,
 		"knockback": 16.0, "self_damage_mult": 0.15, "stagger": 0.6, "life": 4.0,
-		"range": 80.0, "recoil": 0.0, "draw": 0.5, "sfx": "launcher"},
+		"range": 80.0, "recoil": 0.0, "draw": 0.5, "sfx": "launcher", "flaw": "self_blast"},
 	"sniper": {"name": "Bắn tỉa", "kind": "hitscan", "mag": 3, "cooldown": 1.1, "reload": 2.2, "damage": 80.0,
 		"headshot_mult": 2.0, "headshot_height": 1.5, "pierce": 1, "pierce_mult": 0.6,
-		"range": 200.0, "recoil": 1.5, "draw": 0.5, "zoom_fov": 35.0, "sfx": "sniper"},
+		"range": 200.0, "recoil": 1.5, "draw": 0.5, "zoom_fov": 35.0, "sfx": "sniper", "flaw": "charge_shot"},
 }
 ## Lỗi riêng của từng súng (M36; chỉ bật ở Vô Tận). Mỗi súng trong WEAPONS có "flaw": id; con số + chữ hiện trên HUD ở đây.
 ## Nâng cấp chỉ làm nhẹ lỗi (hệ số trên các số này), không bao giờ gỡ hẳn.
@@ -463,7 +463,22 @@ const WEAPONS: Dictionary = {
 const FLAWS: Dictionary = {
 	"rhythm_recoil": {"name": "Giật theo nhịp", "hint": "Bắn dồn thì tia đạn lệch; bắn thong thả mới chuẩn",
 		"per_shot_deg": 0.6, "max_deg": 6.0, "recover_deg_per_s": 8.0},
+	"self_knockback": {"name": "Giật bật người", "hint": "Mỗi phát bắn đẩy bạn ngược hướng ngắm",
+		"speed": 6.0, "air_mult": 1.6},
+	"charge_shot": {"name": "Nạp ngắm", "hint": "Giữ chuột 0.8 s mới nổ, đi chậm và lộ tia laser",
+		"charge_time": 0.8, "move_mult": 0.5},
+	"self_blast": {"name": "Tự chịu nổ", "hint": "Vụ nổ gây 60% sát thương lên chính bạn",
+		"self_damage_mult": 0.6},
 }
+## Vàng (M37): tiền meta giữ lại giữa các lượt (lưu trong savegame). Qua tầng t: floor_base + floor_per_floor*t; mỗi bot hạ: per_kill; Titan: titan.
+## prices: giá mở khoá súng ở cửa hàng (súng lục miễn phí).
+const GOLD: Dictionary = {
+	"floor_base": 8, "floor_per_floor": 4, "per_kill": 1, "titan": 30,
+	"prices": {"shotgun": 150, "sniper": 300, "launcher": 500},
+}
+## self_knockback (shotgun): mỗi phát đẩy người chơi ngược hướng ngắm `speed` m/s (x`air_mult` khi đang trên không; ngắm xuống thì bật lên).
+## charge_shot (bắn tỉa): giữ `charge_time` s mới nổ, thả sớm thì huỷ; trong lúc nạp đi chậm còn `move_mult` và hiện tia laser.
+## self_blast (pháo nổ): vụ nổ gây `self_damage_mult` sát thương lên chính người chơi (mặc định súng là 0.15).
 ## Chém rộng (phím Q): quét rộng và xa hơn, chậm và để hở lâu hơn, sát thương cao hơn.
 const HEAVY_SLASH: Dictionary = {
 	"windup_mult": 1.7, "active_mult": 1.5, "recovery_mult": 1.8,
@@ -737,6 +752,11 @@ var anim_debug_text: String = ""   # viewmodel ghi mỗi frame khi anim_debug b�
 var difficulty: String = "normal"
 var game_mode: String = "survival"
 var _scores: Dictionary = {}
+signal gold_changed(total: int)
+signal start_gun_changed(id: String)
+var gold: int = 0                           # vàng lưu lâu dài (M37)
+var owned_guns: Array = ["pistol"]          # súng đã mở khoá
+var start_gun: String = "pistol"            # súng cầm khi bắt đầu lượt Vô Tận
 var _mode_scores: Dictionary = {} # "<chế_độ>_<mức>" -> điểm (sinh tồn dùng _scores/high_score như cũ)
 var settings: Dictionary = DEFAULT_SETTINGS.duplicate()
 var _default_bindings: Dictionary = {}
@@ -772,6 +792,9 @@ func load_save() -> void:
 	game_mode = "survival"
 	_scores = {}
 	_mode_scores = {}
+	gold = 0
+	owned_guns = ["pistol"]
+	start_gun = "pistol"
 	settings = DEFAULT_SETTINGS.duplicate()
 	if not FileAccess.file_exists(save_path):
 		return
@@ -785,6 +808,12 @@ func load_save() -> void:
 				continue
 			for lv in DIFFICULTY_LEVELS:
 				_mode_scores[md + "_" + lv] = maxi(int(_num(cf.get_value("progress", "high_score_%s_%s" % [md, lv], 0), 0.0)), 0)
+		gold = maxi(int(_num(cf.get_value("meta", "gold", 0), 0.0)), 0)
+		for g in str(cf.get_value("meta", "owned_guns", "pistol")).split(","):
+			if g in WEAPON_ORDER and not owned_guns.has(g):
+				owned_guns.append(g)
+		var sg: String = str(cf.get_value("meta", "start_gun", "pistol"))
+		start_gun = sg if owned_guns.has(sg) else "pistol"
 		var gm: String = str(cf.get_value("game", "mode", "survival"))
 		game_mode = gm if gm in MODES else "survival"
 		var dl: String = str(cf.get_value("game", "difficulty", "normal"))
@@ -811,6 +840,9 @@ func _write_save() -> void:
 	cf.set_value("progress", "high_score", int(_scores.get("normal", 0)))
 	for k in _mode_scores:
 		cf.set_value("progress", "high_score_" + k, int(_mode_scores[k]))
+	cf.set_value("meta", "gold", gold)
+	cf.set_value("meta", "owned_guns", ",".join(owned_guns))
+	cf.set_value("meta", "start_gun", start_gun)
 	cf.set_value("game", "mode", game_mode)
 	cf.set_value("game", "difficulty", difficulty)
 	cf.set_value("graphics", "quality", quality)
@@ -1043,6 +1075,52 @@ func set_mode(mode: String) -> void:
 	game_mode = mode
 	_write_save()
 	mode_changed.emit(mode)
+
+
+## Vàng thưởng khi qua tầng t.
+static func gold_for_floor(t: int) -> int:
+	return int(GOLD["floor_base"]) + int(GOLD["floor_per_floor"]) * maxi(t, 1)
+
+
+## Cộng (hoặc trừ) vàng và lưu ngay. Không để âm.
+func add_gold(n: int) -> void:
+	if n == 0:
+		return
+	gold = maxi(gold + n, 0)
+	_write_save()
+	gold_changed.emit(gold)
+
+
+func owns_gun(id: String) -> bool:
+	return owned_guns.has(id)
+
+
+## Mua súng: đủ vàng và chưa có thì trừ vàng, mở khoá, lưu. true nếu mua được.
+func buy_gun(id: String) -> bool:
+	var price: int = int(GOLD["prices"].get(id, -1))
+	if price < 0 or owns_gun(id) or gold < price:
+		return false
+	gold -= price
+	owned_guns.append(id)
+	_write_save()
+	gold_changed.emit(gold)
+	return true
+
+
+## Chọn súng khởi đầu (phải đã sở hữu).
+func set_start_gun(id: String) -> bool:
+	if not owns_gun(id):
+		return false
+	start_gun = id
+	_write_save()
+	start_gun_changed.emit(id)
+	return true
+
+
+## Xoay vòng súng khởi đầu qua các súng đã sở hữu (theo WEAPON_ORDER).
+func cycle_start_gun() -> void:
+	var list: Array = WEAPON_ORDER.filter(func(g): return owns_gun(g))
+	set_start_gun(list[(list.find(start_gun) + 1) % list.size()])
 
 
 func cycle_mode() -> void:

@@ -13,6 +13,7 @@ const PortalScript = preload("res://scripts/portal.gd")
 const RunProgressScript = preload("res://scripts/run_progress.gd")
 const XpOrbScript = preload("res://scripts/xp_orb.gd")
 const LevelUpScript = preload("res://scripts/level_up_ui.gd")
+const LaserScript = preload("res://scripts/laser_beam.gd")
 const RunStatsScript = preload("res://scripts/run_stats.gd")
 const Fx = preload("res://scripts/fx.gd")
 const MENU_SCENE := "res://scenes/menu.tscn"
@@ -32,6 +33,9 @@ var stats            # thống kê ván (run_stats.gd)
 var portal: Area3D   # Vô Tận: cổng ra tầng
 var progress: Node   # Vô Tận: XP / cấp / nâng cấp (run_progress.gd)
 var level_ui: CanvasLayer
+var run_gold: int = 0          # Vô Tận: vàng kiếm trong lượt (chưa/đã cộng vào Global)
+var _gold_flushed: int = 0
+var laser: Node3D              # lỗi nạp ngắm của bắn tỉa
 
 var _over: bool = false
 var _last_charges: int = 2
@@ -160,6 +164,14 @@ func _ready() -> void:
 		add_child(level_ui)
 		player.combat.flaws.enabled = true   # lỗi riêng của súng chỉ có ở Vô Tận
 		player.combat.weapon_changed.connect(func(id, _n): progress.set_weapon_pool(id))
+		player.combat.weapon_changed.connect(func(id, _n): hud.set_flaw_text(id))
+		player.combat.locked = true          # một súng mỗi lượt: súng khởi đầu đã chọn ở menu
+		player.combat.switch_to(Global.start_gun)
+		hud.set_flaw_text(player.combat.weapon)
+		hud.set_gold(0)
+		laser = LaserScript.new()
+		add_child(laser)
+		player.combat.charge_changed.connect(func(r): laser.set_charging(r > 0.0, r))
 		progress.xp_changed.connect(hud.set_xp)
 		progress.leveled_up.connect(func(_lv): _next_level_choice.call_deferred())
 		progress.upgrade_chosen.connect(func(_id, _tier): _apply_upgrades())
@@ -245,6 +257,18 @@ func _apply_upgrades() -> void:
 		player.hurtbox.heal(diff)
 
 
+## Vô Tận: cộng phần vàng chưa lưu vào Global (lưu ngay). Gọi lặp lại không cộng trùng.
+func _flush_gold() -> void:
+	if run_gold > _gold_flushed:
+		Global.add_gold(run_gold - _gold_flushed)
+		_gold_flushed = run_gold
+
+
+func _exit_tree() -> void:
+	if progress != null:
+		_flush_gold()   # thoát giữa chừng (về menu...) vẫn giữ vàng đã kiếm
+
+
 ## Vô Tận: đủ chỉ tiêu, mở cổng.
 func _on_portal_opened(_floor_n: int) -> void:
 	portal.set_open(true)
@@ -254,6 +278,9 @@ func _on_portal_opened(_floor_n: int) -> void:
 
 ## Vô Tận: sang tầng mới. Dựng bản đồ mới, đưa người chơi về chỗ xuất phát (giữ đồ, hồi một phần máu), bot tầng mới sinh quanh đó.
 func _on_floor_changed(floor_n: int, _quota: int) -> void:
+	run_gold += Global.gold_for_floor(floor_n - 1)   # thưởng tầng vừa qua
+	hud.set_gold(run_gold)
+	_flush_gold()
 	portal.set_open(false)
 	arena.load_floor(floor_n)
 	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
@@ -588,6 +615,9 @@ func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	if progress != null:
 		var orb: Area3D = XpOrbScript.spawn(self, bot.global_position, RunProgressScript.orb_value(String(bot.type_name)))
 		orb.collected.connect(progress.add_xp)
+	if progress != null:
+		run_gold += int(Global.GOLD["titan"]) if String(bot.type_name) == "titan" else int(Global.GOLD["per_kill"])
+		hud.set_gold(run_gold)
 	var gained: float = mode.on_kill(String(bot.type_name))
 	if gained > 0.0:
 		hud.flash("+%d s" % roundi(gained), Color(0.5, 0.9, 1.0))
@@ -644,6 +674,8 @@ func _end_run(title: String, won: bool) -> void:
 		Sfx.play("wave")
 	Sfx.set_intensity(0.0)
 	Sfx.play_music("menu")
+	if progress != null:
+		_flush_gold()
 	var prev_best: int = Global.best_score()
 	var final_score: int = mode.result_score(score.score, won)
 	var new_record: bool = Global.submit_mode_score(final_score)
@@ -664,6 +696,8 @@ func build_result(title: String, won: bool, final_score: int, prev_best: int, ne
 		lines.append("Tầng đạt được: %d   (%d / %d bot ở tầng này)" % [mode.floor_n, mode.floor_kills, mode.quota])
 	elif mode.mode == "timed":
 		lines.append("Mục tiêu: %d / %d bot      Còn lại: %s" % [mode.kills, mode.target, RunStatsScript.format_time(mode.time_left)])
+	if mode.mode == "endless":
+		lines.append("Vàng kiếm được: +%d   (tổng %d)" % [run_gold, Global.gold])
 	lines.append("Điểm: %d" % final_score)
 	if mode.mode != "timed":
 		lines.append("Bot đã hạ: %d" % kills)

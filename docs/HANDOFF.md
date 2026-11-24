@@ -338,6 +338,15 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 - Test: `test_m36` (40 kiểm tra, gồm đạn xuyên/sát thương thật qua 2 bia). Ảnh `docs/screenshots/m36/`. Pitfall test: đặt `player.use_input = false` thì mới tự điền `want_shoot`.
 - **Chưa kiểm bằng người**: cảm giác độ lệch (0.6°/phát, tối đa 6°, hồi 8°/s), vòng nở có đủ rõ khi bắn thật; cân bằng thẻ súng lục.
 
+## M37 (nhánh `feature/m37-gold-shop`: vàng, cửa hàng, súng khởi đầu, 3 lỗi súng — mốc 4/6 của Vô Tận)
+- **Vàng** (lưu lâu dài trong savegame mục `[meta]`: `gold`, `owned_guns`, `start_gun`): mỗi tầng `8 + 4*tầng`, +1/bot, +30/Titan (`Global.GOLD`). `main.gd` giữ `run_gold`; ghi vào `Global` khi đổi tầng, hết lượt và thoát (`_flush_gold` idempotent, không cộng trùng). Savegame hỏng (vàng âm, id lạ, súng khởi đầu chưa sở hữu) được làm sạch khi đọc.
+- **Cửa hàng**: nút "Cửa hàng" ở menu chính -> `shop_menu.gd` (Shotgun 150, Bắn tỉa 300, Pháo 500; súng lục miễn phí). Chỉ gọi `Global.buy_gun`. Màn Chuẩn bị có nút "Súng khởi đầu" (chỉ hiện ở Vô Tận) xoay vòng qua súng đã sở hữu.
+- **Vô Tận chỉ cầm súng khởi đầu + kiếm**: `combat.locked = true` chặn đổi súng.
+- **3 lỗi mới** (`Global.FLAWS`, logic ở `gun_flaws.gd`, chỉ bật ở Vô Tận): Shotgun "Giật bật người" (đẩy 6 m/s ngược hướng ngắm, x1.6 trên không, ngắm xuống thì bật lên; phát `self_impulse`, Player cộng vào velocity); Bắn tỉa "Nạp ngắm" (giữ 0.8 s mới nổ, thả sớm huỷ, đi 50% khi nạp, mỗi lần giữ một phát; `charge_changed` -> `laser_beam.gd` vẽ tia đỏ); Pháo "Tự chịu nổ" (tự sát thương 60% thay vì 15%).
+- Thêm súng: dữ liệu `flaw` + nhánh trong `gun_flaws.gd` + (M38) kho `gun:<id>`.
+- Test: `test_m37` (59 kiểm tra); `test_m36` sửa vì shotgun giờ có lỗi. Ảnh `docs/screenshots/m37/`. Menu chính thu gọn khoảng cách vì thêm nút thứ 7.
+- **Chưa kiểm bằng người**: giá súng, cảm giác giật shotgun/nạp bắn tỉa, laser nhìn thấy trên GPU thật. Bot không phản ứng với laser. Kho thẻ riêng của shotgun/bắn tỉa/pháo + SMG/revolver để M38.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

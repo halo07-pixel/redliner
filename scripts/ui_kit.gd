@@ -66,6 +66,20 @@ static func mode_button() -> Button:
 	return b
 
 
+## Nút xoay vòng súng khởi đầu (Vô Tận) qua các súng đã sở hữu.
+static func start_gun_button() -> Button:
+	var b := button("")
+	var refresh := func(): b.text = "Súng khởi đầu: %s" % Global.WEAPONS[Global.start_gun]["name"]
+	refresh.call()
+	b.pressed.connect(func():
+		Global.cycle_start_gun()
+		refresh.call())
+	Global.start_gun_changed.connect(func(_id):
+		if is_instance_valid(b):
+			refresh.call())
+	return b
+
+
 ## Nút xoay vòng mức độ khó; chữ theo Global.difficulty.
 static func difficulty_button() -> Button:
 	var b := button("")

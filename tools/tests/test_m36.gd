@@ -47,7 +47,7 @@ func _run() -> void:
 	fl.on_shot("pistol")
 	_check(fl.spread("pistol") == 0.0 and fl.aim("pistol", Vector3.FORWARD) == Vector3.FORWARD, "chưa bật: bắn không cộng lệch, hướng nguyên")
 	fl.enabled = true
-	_check(fl.flaw_of("pistol") == "rhythm_recoil" and fl.flaw_of("shotgun") == "", "bật: súng lục có lỗi, shotgun chưa có")
+	_check(fl.flaw_of("pistol") == "rhythm_recoil" and fl.flaw_of("shotgun") == "self_knockback", "bật: súng lục có lỗi giật theo nhịp, shotgun có lỗi giật bật người (M37)")
 	_check(fl.aim("pistol", Vector3.FORWARD) == Vector3.FORWARD, "phát đầu: chính xác tuyệt đối")
 	for i in 3:
 		fl.on_shot("pistol")
@@ -151,7 +151,7 @@ func _run() -> void:
 	await _frames(2)
 	if combat.weapon == "shotgun":
 		_check(combat._wmod("damage_mult", 1.0) == 1.0, "đổi sang shotgun: hệ số súng lục không áp")
-		_check(not sp_log.is_empty() and sp_log[sp_log.size() - 1] == [0.0, 0.0], "shotgun chưa có lỗi: flaw_changed về 0/0 để HUD ẩn vòng")
+		_check(not sp_log.is_empty() and sp_log[sp_log.size() - 1] == [0.0, 0.0], "shotgun không có độ lệch: flaw_changed về 0/0 để HUD ẩn vòng")
 	# Đạn xuyên + sát thương thật: 2 bia thẳng hàng trước mặt
 	combat.switch_to("pistol")
 	combat.flaws.enabled = false   # tách lỗi lệch khỏi phép đo sát thương
