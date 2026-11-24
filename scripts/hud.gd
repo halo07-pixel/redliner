@@ -20,6 +20,8 @@ var _grapple_dot: Label
 var _boss_bar: ProgressBar
 var _inst_bar: ProgressBar
 var _inst_label: Label
+var _xp_bar: ProgressBar
+var _xp_label: Label
 var _inst_fill: StyleBoxFlat
 var _vignette_red: TextureRect
 var _vignette_orange: TextureRect
@@ -342,6 +344,41 @@ func set_wave(wave: int, left: int) -> void:
 	_wave_label.text = "WAVE %d  -  còn %d bot" % [wave, left] if wave > 0 else "Chuẩn bị..."
 
 
+## Vô Tận: thanh XP + cấp (tạo lười ở lần gọi đầu; không dùng ở chế độ khác).
+func set_xp(level: int, xp: int, need: int) -> void:
+	if _xp_bar == null:
+		_xp_bar = ProgressBar.new()
+		_xp_bar.show_percentage = false
+		_xp_bar.anchor_left = 0.5
+		_xp_bar.anchor_right = 0.5
+		_xp_bar.anchor_top = 1.0
+		_xp_bar.anchor_bottom = 1.0
+		_xp_bar.offset_left = -220.0
+		_xp_bar.offset_right = 220.0
+		_xp_bar.offset_top = -48.0
+		_xp_bar.offset_bottom = -36.0
+		_xp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var xp_fill := StyleBoxFlat.new()
+		xp_fill.bg_color = Color(0.35, 0.85, 1.0)
+		_xp_bar.add_theme_stylebox_override("fill", xp_fill)
+		add_child(_xp_bar)
+		_xp_label = Label.new()
+		_xp_label.anchor_left = 0.5
+		_xp_label.anchor_right = 0.5
+		_xp_label.anchor_top = 1.0
+		_xp_label.anchor_bottom = 1.0
+		_xp_label.offset_left = -200.0
+		_xp_label.offset_right = 200.0
+		_xp_label.offset_top = -36.0
+		_xp_label.offset_bottom = -10.0
+		_xp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_outline(_xp_label, 16)
+		add_child(_xp_label)
+	_xp_bar.max_value = maxi(need, 1)
+	_xp_bar.value = xp
+	_xp_label.text = "CẤP %d   -   %d / %d XP" % [level + 1, xp, need]
+
+
 ## Vô Tận: dòng tầng (thay dòng wave).
 func set_floor(floor_n: int, left: int) -> void:
 	_wave_label.text = "TẦNG %d  -  %d bot đang truy lùng" % [floor_n, left]
@@ -365,8 +402,10 @@ func set_timer(left: float) -> void:
 func set_compass(on: bool, angle: float, dist: float) -> void:
 	if _compass_label == null:
 		_compass_label = Label.new()
-		_compass_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-		_compass_label.position.y = 14.0
+		# Giữa dưới (trên thanh XP): ở giữa trên la bàn đè dòng wave/tầng.
+		_compass_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		_compass_label.offset_top = -96.0
+		_compass_label.offset_bottom = -68.0
 		_compass_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		_compass_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_outline(_compass_label, 20)

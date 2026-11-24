@@ -10,6 +10,9 @@ const PauseScript = preload("res://scripts/pause_menu.gd")
 const GameOverScript = preload("res://scripts/game_over.gd")
 const GameModeScript = preload("res://scripts/game_mode.gd")
 const PortalScript = preload("res://scripts/portal.gd")
+const RunProgressScript = preload("res://scripts/run_progress.gd")
+const XpOrbScript = preload("res://scripts/xp_orb.gd")
+const LevelUpScript = preload("res://scripts/level_up_ui.gd")
 const RunStatsScript = preload("res://scripts/run_stats.gd")
 const Fx = preload("res://scripts/fx.gd")
 const MENU_SCENE := "res://scenes/menu.tscn"
@@ -27,6 +30,8 @@ var kills: int = 0
 var mode: Node       # luật chế độ chơi (game_mode.gd)
 var stats            # thống kê ván (run_stats.gd)
 var portal: Area3D   # Vô Tận: cổng ra tầng
+var progress: Node   # Vô Tận: XP / cấp / nâng cấp (run_progress.gd)
+var level_ui: CanvasLayer
 
 var _over: bool = false
 var _last_charges: int = 2
@@ -148,6 +153,16 @@ func _ready() -> void:
 		portal.entered.connect(mode.next_floor, CONNECT_DEFERRED)   # không đổi vật lý ngay trong callback va chạm
 		mode.portal_opened.connect(_on_portal_opened)
 		mode.floor_changed.connect(_on_floor_changed)
+		progress = RunProgressScript.new()
+		add_child(progress)
+		level_ui = LevelUpScript.new()
+		add_child(level_ui)
+		progress.xp_changed.connect(hud.set_xp)
+		progress.leveled_up.connect(func(_lv): _next_level_choice.call_deferred())
+		progress.upgrade_chosen.connect(func(_id, _tier): _apply_upgrades())
+		level_ui.card_chosen.connect(_on_card_chosen)
+		level_ui.skipped.connect(_on_level_skipped)
+		hud.set_xp(0, 0, RunProgressScript.need_for(0))
 	waves.practice_bot_killed.connect(_on_practice_bot_killed)
 	hud.set_mode_layout(mode.mode)
 	hud.set_objective(mode.objective_text())
@@ -170,6 +185,59 @@ func _start_mode() -> void:
 		_spawn_practice_bot()
 	else:
 		waves.start()
+
+
+## Vô Tận: hiện lần chọn nâng cấp kế tiếp (game pause), hoặc đóng màn và chơi tiếp nếu hết lần chờ.
+func _next_level_choice() -> void:
+	if _over or progress == null or level_ui.visible:
+		return
+	while progress.pending > 0:
+		var choices: Array = progress.draw_choices()
+		if not choices.is_empty():
+			level_ui.open(progress.level - progress.pending + 1, choices)
+			get_tree().paused = true
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			return
+		_on_level_skipped_silent()   # hết thẻ để lấy: tính như Bỏ qua
+	level_ui.close()
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _on_card_chosen(id: String) -> void:
+	if progress.choose(id):
+		Sfx.play("pickup")
+	level_ui.close()
+	_next_level_choice()
+
+
+func _on_level_skipped() -> void:
+	_on_level_skipped_silent()
+	level_ui.close()
+	_next_level_choice()
+
+
+func _on_level_skipped_silent() -> void:
+	if progress.skip():
+		player.hurtbox.heal(player.hurtbox.max_health * float(Global.XP["skip_heal"]))
+
+
+## Áp thống kê từ các nâng cấp đã lấy lên người chơi (call down).
+func _apply_upgrades() -> void:
+	var c = player.combat
+	c.damage_mult = progress.stat("damage")
+	c.fire_rate_mult = progress.stat("fire_rate")
+	c.mag_mult = progress.stat("mag")
+	c.reload_mult = progress.stat("reload")
+	c.ammo_changed.emit(c.ammo, c.max_ammo())
+	player.speed_mult = progress.stat("speed")
+	player.stamina_regen_mult = progress.stat("stamina")
+	player.pickup_magnet = float(Global.XP["magnet_base"]) + progress.stat("magnet")
+	var new_max: float = float(Global.COMBAT["player_health"]) + progress.stat("max_hp")
+	var diff: float = new_max - player.hurtbox.max_health
+	if diff > 0.0:
+		player.hurtbox.max_health = new_max
+		player.hurtbox.heal(diff)
 
 
 ## Vô Tận: đủ chỉ tiêu, mở cổng.
@@ -385,6 +453,10 @@ func _on_parried(hit: Dictionary) -> void:
 
 ## Lưới an toàn: rơi khỏi bản đồ thì mất 30 máu và quay về điểm xuất phát (không hồi máu).
 func _physics_process(delta: float) -> void:
+	if progress != null and not player.dead and player.hurtbox.health < player.hurtbox.max_health:
+		var regen: float = progress.stat("regen")
+		if regen > 0.0:
+			player.hurtbox.heal(regen * delta)
 	_update_compass()
 	if _over or player.dead:
 		return
@@ -508,6 +580,9 @@ func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	if randf() < float(Global.PICKUPS["drop_chance"]):
 		_drop_pickup(bot.global_position)
 	score.register_kill(info["score"], info) # trước mode.on_kill: phát hạ cuối có thể kết thúc ván ngay
+	if progress != null:
+		var orb: Area3D = XpOrbScript.spawn(self, bot.global_position, RunProgressScript.orb_value(String(bot.type_name)))
+		orb.collected.connect(progress.add_xp)
 	var gained: float = mode.on_kill(String(bot.type_name))
 	if gained > 0.0:
 		hud.flash("+%d s" % roundi(gained), Color(0.5, 0.9, 1.0))
