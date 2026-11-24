@@ -47,9 +47,11 @@ const CARD_SIZE := Vector2(270.0, 360.0)
 ## Chữ hiệu ứng một bậc: "+12%" (mult) hoặc "+15" (add), theo dữ liệu thẻ.
 static func effect_text(c: Dictionary, tier: int) -> String:
 	var v: float = float(c["per"]) * tier
+	var sign_s: String = "-" if v < 0.0 else "+"
+	v = absf(v)
 	if c["kind"] == "mult":
-		return "+%d%%" % roundi(v * 100.0)
-	return "+%s" % (str(snappedf(v, 0.1)) if v != floorf(v) else str(int(v)))
+		return "%s%d%%" % [sign_s, roundi(v * 100.0)]
+	return sign_s + (str(snappedf(v, 0.1)) if v != floorf(v) else str(int(v)))
 
 
 ## Hiện màn với danh sách thẻ (từ Upgrades.draw); `level` để hiện tiêu đề. Thẻ trượt vào lần lượt; rê chuột thì nở ra.

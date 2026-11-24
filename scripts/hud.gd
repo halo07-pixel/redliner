@@ -22,6 +22,9 @@ var _inst_bar: ProgressBar
 var _inst_label: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
+var _spread_ring: Control
+var _flaw_label: Label
+var _spread_deg: float = 0.0
 var _inst_fill: StyleBoxFlat
 var _vignette_red: TextureRect
 var _vignette_orange: TextureRect
@@ -244,9 +247,52 @@ func set_ammo(current: int, maximum: int) -> void:
 	_refresh_ammo()
 
 
-func set_weapon(_id: String, display_name: String) -> void:
+func set_weapon(id: String, display_name: String) -> void:
 	_weapon_name = display_name
+	_refresh_flaw(id)
 	_refresh_ammo()
+
+
+## Lỗi riêng của súng đang cầm (Vô Tận): dòng chữ nhỏ dưới tên súng. Chỉ hiện khi flaw_changed đã được phát (tức lỗi bật).
+func _refresh_flaw(id: String) -> void:
+	var fid: String = String(Global.WEAPONS.get(id, {}).get("flaw", ""))
+	if _flaw_label == null:
+		return
+	_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS[fid]["name"], Global.FLAWS[fid]["hint"]] if fid != "" and Global.FLAWS.has(fid) and _flaw_label.get_meta("on", false) else ""
+
+
+## Vô Tận: độ lệch hiện tại của súng (độ) -> vẽ vòng nở quanh tâm; ra khỏi chế độ có lỗi thì ẩn. Gọi từ Signal flaw_changed.
+func set_spread(deg: float, max_deg: float) -> void:
+	if _spread_ring == null:
+		if max_deg <= 0.0:
+			return
+		_spread_ring = SpreadRing.new()
+		_spread_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_spread_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_spread_ring)
+		_flaw_label = Label.new()
+		_flaw_label.anchor_left = 1.0
+		_flaw_label.anchor_right = 1.0
+		_flaw_label.anchor_top = 1.0
+		_flaw_label.anchor_bottom = 1.0
+		_flaw_label.offset_left = -520.0
+		_flaw_label.offset_right = -24.0
+		_flaw_label.offset_top = -82.0
+		_flaw_label.offset_bottom = -58.0
+		_flaw_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_flaw_label.set_meta("on", true)
+		_outline(_flaw_label, 15)
+		_flaw_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
+		add_child(_flaw_label)
+	_spread_deg = deg
+	_spread_ring.visible = max_deg > 0.0
+	_spread_ring.deg = deg
+	_spread_ring.max_deg = max_deg
+	_spread_ring.fov = float(Global.settings["fov"])
+	_spread_ring.queue_redraw()
+	_flaw_label.text = ""
+	if max_deg > 0.0:
+		_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS["rhythm_recoil"]["name"], Global.FLAWS["rhythm_recoil"]["hint"]]
 
 
 func set_reloading(on: bool) -> void:
@@ -504,6 +550,21 @@ class HitMarker extends Control:
 	func _draw() -> void:
 		var c := Vector2(150.0, 150.0)
 		draw_colored_polygon(PackedVector2Array([c + Vector2(0.0, -130.0), c + Vector2(-16.0, -100.0), c + Vector2(16.0, -100.0)]), Color(1.0, 0.1, 0.1))
+
+
+## Vòng độ lệch của lỗi "giật theo nhịp": bán kính khớp góc lệch thật trên màn hình; đỏ dần khi gần mức tối đa.
+class SpreadRing extends Control:
+	var deg: float = 0.0
+	var max_deg: float = 1.0
+	var fov: float = 75.0
+
+	func _draw() -> void:
+		if deg < 0.05:
+			return
+		var focal: float = size.y * 0.5 / tan(deg_to_rad(fov * 0.5))
+		var r: float = maxf(focal * tan(deg_to_rad(deg)), 6.0)
+		var k: float = clampf(deg / maxf(max_deg, 0.01), 0.0, 1.0)
+		draw_arc(size * 0.5, r, 0.0, TAU, 48, Color(1.0, 0.85 - 0.55 * k, 0.4 - 0.2 * k, 0.9), 2.0)
 
 
 ## Vòng parry quanh tâm ngắm: đầy = sẵn sàng, đang hồi thì vẽ phần đã hồi.
