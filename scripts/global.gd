@@ -658,12 +658,24 @@ const REMAPPABLE: Array = [
 ## Chế độ chơi (M16). Sinh tồn: wave vô hạn. Thời gian: hạ `target_kills` bot trước khi hết giờ, mỗi bot hạ
 ## cộng `kill_bonus` giây (tối đa `max_time`); thắng được cộng `win_bonus_per_sec` điểm cho mỗi giây còn lại.
 ## Tập luyện: bất tử, đạn vô hạn, bot tập sinh lần lượt, không tính điểm.
-const MODES: Array = ["survival", "timed", "training"]
-const MODE_NAMES: Dictionary = {"survival": "Sinh tồn", "timed": "Thử thách thời gian", "training": "Tập luyện"}
+const MODES: Array = ["survival", "timed", "training", "endless"]
+const MODE_NAMES: Dictionary = {"survival": "Sinh tồn", "timed": "Thử thách thời gian", "training": "Tập luyện", "endless": "Vô Tận"}
 const MODE_DESCRIPTIONS: Dictionary = {
 	"survival": "Chống lại các wave bot ngày càng mạnh cho tới khi gục. Điểm cao nhất được lưu.",
 	"timed": "Hạ đủ số bot trước khi hết giờ. Mỗi bot hạ được cộng thêm giây. Thắng càng sớm điểm càng cao.",
 	"training": "Bất tử, đạn vô hạn, có bot tập để thử vũ khí và di chuyển. Không tính điểm. Ở bản đồ Khu phố: phím T gọi / xoá một Titan để thử.",
+	"endless": "Vô Tận: bản đồ rất rộng, mỗi tầng một bản đồ mới. Hạ đủ bot để mở cổng, chạy tới cổng để sang tầng sau. Cứ 5 tầng có Titan. Bỏ qua lựa chọn bản đồ.",
+}
+## Chế độ Vô Tận (M34). Bản đồ lưới `grid`x`grid` ô vuông `cell` m (6x50 = 300 m, gấp ~5 lần Khu phố về diện tích).
+## Chỉ tiêu hạ bot mỗi tầng = quota_base + quota_per_floor*(tầng-1). Số bot sống cùng lúc = cap_base + cap_per_floor*(tầng-1), tối đa cap_max.
+## Bot sinh ở vòng `band` m quanh người chơi; xa hơn `despawn_dist` m thì bị gỡ (không tính hạ). Mọi con số đo/chỉnh ở đây.
+const ENDLESS: Dictionary = {
+	"cell": 50.0, "grid": 6, "inset": 8.0, "nav_cell": 0.5,
+	"building_h_min": 12.0, "building_h_max": 30.0,
+	"quota_base": 15, "quota_per_floor": 5,
+	"cap_base": 6, "cap_per_floor": 1, "cap_max": 14,
+	"spawn_interval": 1.2, "band": Vector2(40.0, 80.0), "despawn_dist": 130.0, "prune_interval": 1.0,
+	"titan_every": 5, "heal_on_floor": 0.3, "portal_radius": 4.0, "start_clear": 35.0,
 }
 const TIMED: Dictionary = {
 	"start_time": 90.0, "kill_bonus": 3.0, "max_time": 150.0, "target_kills": 25,
@@ -1017,7 +1029,7 @@ func best_score(mode: String = "", level: String = "") -> int:
 ## Nộp điểm cho chế độ (mặc định: đang chọn) ở mức độ khó hiện tại. true nếu phá kỷ lục.
 func submit_mode_score(value: int, mode: String = "") -> bool:
 	var m: String = mode if mode in MODES else game_mode
-	if start_wave > 1 and m != "training":
+	if start_wave > 1 and m in ["survival", "timed"]:
 		return false # chơi thử từ wave cao: không ghi kỷ lục
 	match m:
 		"survival":

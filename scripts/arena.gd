@@ -38,17 +38,43 @@ var titan_nav_map: RID = RID()
 var _titan_region: RID = RID()
 
 
+## Vô Tận: tầng hiện tại (map_id "endless") và vị trí cổng ra của tầng.
+var floor_n: int = 1
+var exit_point: Vector3 = Vector3.ZERO
+var _map_nodes: Array = []   # mọi node thuộc bản đồ (để dựng lại sang tầng khác)
+
+
 func _ready() -> void:
 	if map_id == "":
-		map_id = Global.selected_map
+		map_id = "endless" if Global.game_mode == "endless" else Global.selected_map
 	_build_environment()
 	_build_map(map_id)
 
 
 ## Dựng đấu trường từ dữ liệu Maps (sàn, 4 tường, các khối, bia tập). Phát map_loaded khi xong.
+func _add_map_node(n: Node) -> void:
+	add_child(n)
+	_map_nodes.append(n)
+
+
+## Vô Tận: xoá bản đồ cũ, dựng bản đồ của tầng `n`. Môi trường (trời, ánh sáng) giữ nguyên. Phát lại map_loaded.
+func load_floor(n: int) -> void:
+	floor_n = n
+	for node in _map_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	_map_nodes.clear()
+	props.clear()
+	dummies.clear()
+	nav_region = null
+	_free_titan_nav()
+	_build_map("endless")
+
+
 func _build_map(id: String) -> void:
-	var m: Dictionary = Maps.get_map(id)
+	var m: Dictionary = Maps.endless(floor_n) if id == "endless" else Maps.get_map(id)
 	map_id = id
+	exit_point = m.get("exit", Vector3.ZERO)
 	half = m["half"]
 	wall_h = float(m["wall_h"])
 	void_y = float(m["void_y"])
@@ -97,7 +123,7 @@ func _build_nav() -> void:
 	nav_bake_ms = Time.get_ticks_msec() - t0
 	nav_region = NavigationRegion3D.new()
 	nav_region.navigation_mesh = nm
-	add_child(nav_region)
+	_add_map_node(nav_region)
 	NavigationServer3D.map_force_update(nav_region.get_navigation_map())
 
 
@@ -125,10 +151,16 @@ func _build_titan_nav() -> void:
 
 
 func _exit_tree() -> void:
+	_free_titan_nav()
+
+
+func _free_titan_nav() -> void:
 	if _titan_region.is_valid():
 		NavigationServer3D.free_rid(_titan_region)
 	if titan_nav_map.is_valid():
 		NavigationServer3D.free_rid(titan_nav_map)
+	_titan_region = RID()
+	titan_nav_map = RID()
 
 
 ## Đường đi (điểm ngoặt) trên navmesh từ a tới b; rỗng nếu chưa có navmesh.
@@ -142,7 +174,7 @@ func _spawn_prop(pos: Vector3, kind: String) -> void:
 	var b: StaticBody3D = BreakableScript.new()
 	b.kind = kind
 	b.position = pos
-	add_child(b)
+	_add_map_node(b)
 	props.append(b)
 	b.exploded.connect(func(p: Vector3, r: float): explosion.emit(p, r))
 	b.broken.connect(func(p: Vector3, k: String): prop_broken.emit(p, k))
@@ -166,7 +198,7 @@ func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.
 	var mi := MeshInstance3D.new()
 	mi.mesh = bm
 	body.add_child(mi)
-	add_child(body)
+	_add_map_node(body)
 
 
 ## Vạch sáng mỏng ở chân 4 tường (chỉ hình ảnh, không va chạm) để nhìn ra biên đấu trường.
@@ -186,7 +218,7 @@ func _build_trim() -> void:
 		mi.mesh = bm
 		mi.position = sp[1]
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(mi)
+		_add_map_node(mi)
 
 
 func _spawn_dummy(pos: Vector3, color: Color) -> void:
@@ -194,7 +226,7 @@ func _spawn_dummy(pos: Vector3, color: Color) -> void:
 	d.color = color
 	d.position = pos
 	d.rotation.y = PI # quay mặt về phía điểm spawn
-	add_child(d)
+	_add_map_node(d)
 	dummies.append(d)
 
 

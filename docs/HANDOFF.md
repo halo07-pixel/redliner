@@ -307,6 +307,19 @@ Tìm bằng mô phỏng wave thật trên 3 map (người chơi bất tử, dị
 | Âm lượng, nhạc | `AUDIO`, `SOUNDS`, mục Cài đặt |
 | Mức đồ họa | `QUALITY` |
 
+## M34 (nhánh `feature/m34-endless-map`: chế độ Vô Tận, bản đồ lớn + vòng lặp tầng)
+Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn nâng cấp, M36 khung súng + lỗi riêng, M37 vàng + cửa hàng, M38 nâng cấp từng súng, M39 nâng cấp kiếm).
+- **Chế độ** `endless` (`Global.MODES`, menu: bỏ chọn bản đồ/wave khi chọn Vô Tận). Mọi con số ở `Global.ENDLESS` (ô 50 m, lưới 6x6 = 300x300 m, chỉ tiêu 15 + 5/tầng, bot tối đa 6 + 1/tầng tới 14, vòng sinh 40-80 m, gỡ bot xa > 130 m, Titan mỗi 5 tầng, hồi 30% máu khi sang tầng).
+- **Bản đồ** `Maps.endless(tầng)`: mỗi ô một mẫu ngẫu nhiên (1 toà, 2 toà, cụm cột, trống), hạt giống theo tầng; toà nhà lùi >= 8 m trong ô nên phố rộng >= 16 m, mọi ô thông nhau. Xuất phát một góc, cổng ở góc đối diện (ô trống). Chỉ toà nhà, cột, bệ móc; không bia/thùng.
+- **Arena**: `map_id "endless"`, `floor_n`, `exit_point`, `load_floor(n)` xoá node bản đồ cũ (theo dõi qua `_add_map_node`) + navmesh Titan rồi dựng lại; nav bake đồng bộ (~110-130 ms đo headless, cell 0.5 m).
+- **`portal.gd`**: Area3D cổng; khoá đỏ mờ, mở xanh + cột sáng 80 m; chỉ phát `entered`.
+- **`game_mode.gd`**: `floor_n`, `floor_kills`, `quota`, `portal_open`, `boss_pending`, signal `floor_changed`/`portal_opened`; `on_kill(type_name)` (Titan không tính vào chỉ tiêu nhưng phải hạ mới mở cổng); `next_floor()`.
+- **`wave_manager.gd`**: `stream = true` -> không wave; `begin_floor(n, có_titan)`, sinh dần tới `stream_cap` ở vòng quanh người chơi (dùng `spawn_band` sẵn có), `_prune_far` gỡ bot xa (không tính hạ, không điểm).
+- **main.gd**: nối Signal; `_on_floor_changed` dựng tầng mới, `player.teleport(...)` (giữ máu/đạn/đồ), xoá vật nhặt cũ. Vào cổng xử lý `CONNECT_DEFERRED` (không đổi vật lý trong callback va chạm).
+- Test: `test_m34` (hình học, luật tầng, navmesh có đường tới cổng 4 tầng, vòng sinh/gỡ bot, tích hợp main). `test_modes`, `test_m31` cập nhật cho chế độ thứ 4. Ảnh tĩnh `docs/screenshots/m34/`.
+- **Chưa kiểm bằng người**: FPS thật trên bản đồ 300x300 (khuất tầm nhìn, 14 bot + shadow), cảm giác nhịp độ tầng, chỉ tiêu/cap bot, độ tương thích tốc độ chạy 300 m (cổng xa ~350 m đường chéo), navmesh đồng bộ chậm ~10 khung hình ngay sau khi dựng tầng (bot đi thẳng trong lúc đó). Nav bake đồng bộ có thể gây khựng ~0.1-0.2 s khi qua tầng trên máy yếu.
+- Pitfall: `await process_frame` đầu `_run()` ở script `-s`, nếu không `global_position` lên node mới thêm bị bỏ qua.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

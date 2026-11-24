@@ -270,3 +270,84 @@ static func _district() -> Dictionary:
 		# map lớn: bot sinh trong vòng 35..60 m quanh người chơi (không sinh ở đầu kia bản đồ), có la bàn kẻ địch, navmesh ô thô hơn
 		"big": true, "titans": true, "spawn_band": Vector2(35.0, 60.0), "compass": true, "nav_cell": 0.25,
 	}
+
+
+# ------------------------------------------------------------------ Vô Tận (M34)
+
+## Bản đồ một tầng chế độ Vô Tận: lưới ô vuông, mỗi ô một mẫu ngẫu nhiên (hạt giống theo số tầng, cùng tầng cùng bản đồ).
+## Công trình luôn lùi vào `inset` m trong ô nên phố giữa các ô rộng >= 2*inset: mọi ô thông nhau, không cần kiểm tra thêm.
+## Xuất phát ở một góc (ô trống), cổng ra ở góc đối diện (ô trống). Ít vật thể: chỉ toà nhà và cột.
+static func endless(floor_n: int) -> Dictionary:
+	var E: Dictionary = Global.ENDLESS
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3400 + floor_n * 7919
+	var n: int = int(E["grid"])
+	var cell: float = float(E["cell"])
+	var half: float = n * cell * 0.5
+	var usable: float = cell * 0.5 - float(E["inset"])   # nửa bề rộng chỗ xây trong ô
+	var boxes: Array = []
+	var corner: int = rng.randi() % 4
+	var start_ij := Vector2i(0 if corner % 2 == 0 else n - 1, 0 if corner < 2 else n - 1)
+	var exit_ij := Vector2i(n - 1 - start_ij.x, n - 1 - start_ij.y)
+	for i in n:
+		for j in n:
+			var ij := Vector2i(i, j)
+			var c := Vector3(-half + cell * (i + 0.5), 0.0, -half + cell * (j + 0.5))
+			var roll: float = rng.randf()
+			if ij == start_ij or ij == exit_ij:
+				continue
+			if roll < 0.35:
+				_endless_building(boxes, rng, c, c + Vector3(rng.randf_range(-3.0, 3.0), 0.0, rng.randf_range(-3.0, 3.0)), rng.randf_range(14.0, 2.0 * usable - 2.0), rng.randf_range(14.0, 2.0 * usable - 2.0), usable)
+			elif roll < 0.60:
+				var along_x: bool = rng.randf() < 0.5
+				for s in [-1.0, 1.0]:
+					var off := Vector3(9.0 * s, 0.0, rng.randf_range(-3.0, 3.0)) if along_x else Vector3(rng.randf_range(-3.0, 3.0), 0.0, 9.0 * s)
+					_endless_building(boxes, rng, c, c + off, rng.randf_range(10.0, 14.0), rng.randf_range(10.0, 14.0), usable)
+			elif roll < 0.80:
+				var placed: Array = []
+				for k in rng.randi_range(3, 5):
+					var h: float = rng.randf_range(10.0, 20.0)
+					var pos := Vector3(c.x + rng.randf_range(-usable + 2.0, usable - 2.0), h * 0.5, c.z + rng.randf_range(-usable + 2.0, usable - 2.0))
+					var pb: Dictionary = _b(Vector3(2.5, h, 2.5), pos, "pillar")
+					if _overlaps(placed, _rect(pb), 5.0):
+						continue
+					placed.append(_rect(pb))
+					boxes.append(pb)
+					if rng.randf() < 0.5:
+						boxes.append(_b(Vector3(4.0, 0.5, 4.0), Vector3(pos.x, h + 0.25, pos.z), "grapple"))
+	var start_c := Vector3(-half + cell * (start_ij.x + 0.5), 0.1, -half + cell * (start_ij.y + 0.5))
+	var exit_c := Vector3(-half + cell * (exit_ij.x + 0.5), 0.0, -half + cell * (exit_ij.y + 0.5))
+	# Điểm sinh bot: dọc các phố (đường biên ô), cách nhau 25 m; bỏ những điểm sát chỗ xuất phát.
+	var seen: Dictionary = {}
+	var spawns: Array = []
+	for k in range(1, n):
+		var line: float = -half + cell * k
+		var t: float = -half + cell * 0.5
+		while t <= half - cell * 0.5 + 0.1:
+			for p in [Vector3(line, 0.1, t), Vector3(t, 0.1, line)]:
+				var key: Vector2i = Vector2i(roundi(p.x), roundi(p.z))
+				if not seen.has(key) and Vector2(p.x - start_c.x, p.z - start_c.z).length() >= float(E["start_clear"]):
+					seen[key] = true
+					spawns.append(p)
+			t += cell * 0.5
+	return {
+		"name": "Vô Tận - tầng %d" % floor_n, "desc": "Lưới %dx%d ô, mỗi tầng một bản đồ" % [n, n],
+		"half": Vector2(half, half), "wall_h": 40.0, "void_y": -40.0,
+		"boxes": boxes, "spawn": start_c, "bot_spawns": spawns,
+		"dummies": [], "barrels": [], "crates": [],
+		"big": true, "titans": true, "spawn_band": E["band"], "compass": true, "nav_cell": float(E["nav_cell"]),
+		"exit": exit_c, "endless": true, "floor": floor_n,
+	}
+
+
+## Một toà nhà tại `c` (tâm yêu cầu) trong ô có tâm `cc`: tâm bị kẹp để mép toà nhà không vượt `usable` (nửa bề rộng chỗ xây).
+static func _endless_building(boxes: Array, rng: RandomNumberGenerator, cc: Vector3, c: Vector3, w: float, d: float, usable: float) -> void:
+	var E: Dictionary = Global.ENDLESS
+	var hh: float = rng.randf_range(float(E["building_h_min"]), float(E["building_h_max"]))
+	var mx: float = maxf(usable - w * 0.5, 0.0)
+	var mz: float = maxf(usable - d * 0.5, 0.0)
+	var x: float = cc.x + clampf(c.x - cc.x, -mx, mx)
+	var z: float = cc.z + clampf(c.z - cc.z, -mz, mz)
+	boxes.append(_b(Vector3(w, hh, d), Vector3(x, hh * 0.5, z), "wall"))
+	if hh > 20.0:
+		boxes.append(_b(Vector3(4.0, 0.5, 4.0), Vector3(x, hh + 0.25, z), "grapple"))

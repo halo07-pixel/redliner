@@ -5,6 +5,8 @@ extends Node
 signal objective_changed(text: String)
 signal time_changed(left: float)            # chế độ thời gian: phát mỗi khi đổi 0.1 s
 signal finished(won: bool, info: Dictionary) # chỉ chế độ thời gian tự kết thúc (thắng / hết giờ)
+signal floor_changed(floor_n: int, quota: int)   # Vô Tận: sang tầng mới
+signal portal_opened(floor_n: int)               # Vô Tận: đủ chỉ tiêu, cổng mở
 
 var mode: String = "survival"
 var time_left: float = 0.0
@@ -12,6 +14,12 @@ var kills: int = 0
 var target: int = 0
 var active: bool = false
 var done: bool = false
+## Vô Tận: tầng, số bot đã hạ ở tầng này, chỉ tiêu, cổng đã mở, Titan (nếu có) đã hạ chưa.
+var floor_n: int = 1
+var floor_kills: int = 0
+var quota: int = 0
+var portal_open: bool = false
+var boss_pending: bool = false
 
 var _last_tick: int = -1
 
@@ -24,6 +32,36 @@ func setup(p_mode: String) -> void:
 	target = int(Global.TIMED["target_kills"]) if mode == "timed" else 0
 	time_left = float(Global.TIMED["start_time"]) if mode == "timed" else 0.0
 	_last_tick = -1
+	if mode == "endless":
+		floor_n = 1
+		_begin_floor()
+
+
+## Chỉ tiêu hạ bot của tầng n.
+static func quota_for(n: int) -> int:
+	return int(Global.ENDLESS["quota_base"]) + int(Global.ENDLESS["quota_per_floor"]) * (maxi(n, 1) - 1)
+
+
+## Tầng n có Titan không (cứ `titan_every` tầng).
+static func has_boss(n: int) -> bool:
+	return n >= int(Global.ENDLESS["titan_every"]) and n % int(Global.ENDLESS["titan_every"]) == 0
+
+
+func _begin_floor() -> void:
+	floor_kills = 0
+	quota = quota_for(floor_n)
+	portal_open = false
+	boss_pending = has_boss(floor_n)
+
+
+## Sang tầng kế (main gọi khi người chơi vào cổng đã mở).
+func next_floor() -> void:
+	if mode != "endless" or not portal_open:
+		return
+	floor_n += 1
+	_begin_floor()
+	floor_changed.emit(floor_n, quota)
+	objective_changed.emit(objective_text())
 
 
 func start() -> void:
@@ -43,14 +81,30 @@ func objective_text() -> String:
 			return "Hạ %d bot:  %d / %d" % [target, kills, target]
 		"training":
 			return "TẬP LUYỆN - không tính điểm"
+		"endless":
+			if portal_open:
+				return "TẦNG %d: CỔNG ĐÃ MỞ - chạy tới cột sáng xanh" % floor_n
+			if floor_kills >= quota and boss_pending:
+				return "TẦNG %d: hạ Titan để mở cổng" % floor_n
+			return "TẦNG %d: hạ %d / %d bot%s" % [floor_n, floor_kills, quota, " + Titan" if boss_pending else ""]
 	return "Sống sót qua các wave"
 
 
 ## Gọi mỗi khi người chơi hạ một bot. Trả về số giây được cộng (chế độ thời gian).
-func on_kill() -> float:
+func on_kill(type_name: String = "") -> float:
 	if not active or done:
 		return 0.0
 	kills += 1
+	if mode == "endless":
+		if type_name == "titan":
+			boss_pending = false
+		else:
+			floor_kills += 1
+		if not portal_open and floor_kills >= quota and not boss_pending:
+			portal_open = true
+			portal_opened.emit(floor_n)
+		objective_changed.emit(objective_text())
+		return 0.0
 	var gained: float = 0.0
 	if mode == "timed":
 		var before: float = time_left

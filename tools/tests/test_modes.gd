@@ -49,7 +49,7 @@ func _run() -> void:
 	var ModeScript = load("res://scripts/game_mode.gd")
 
 	print("[dữ liệu chế độ]")
-	_check(G.MODES == ["survival", "timed", "training"], "3 chế độ: sinh tồn, thời gian, tập luyện")
+	_check(G.MODES == ["survival", "timed", "training", "endless"], "4 chế độ: sinh tồn, thời gian, tập luyện, vô tận")
 	var named: bool = true
 	for m in G.MODES:
 		named = named and G.MODE_NAMES.has(m) and G.MODE_DESCRIPTIONS.has(m)
@@ -61,6 +61,8 @@ func _run() -> void:
 	_check(G.game_mode == "timed" and seen == ["timed"], "xoay vòng -> thời gian (phát signal)")
 	G.cycle_mode()
 	_check(G.game_mode == "training", "xoay vòng -> tập luyện")
+	G.cycle_mode()
+	_check(G.game_mode == "endless", "xoay vòng -> vô tận")
 	G.cycle_mode()
 	_check(G.game_mode == "survival", "xoay vòng -> về sinh tồn")
 	G.set_mode("khong_co")
