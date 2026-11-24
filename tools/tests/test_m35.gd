@@ -242,8 +242,9 @@ func _run() -> void:
 	await _frames(3)
 	_check(not main.level_ui.visible and not paused and main.progress.pending == 0, "chọn hết: màn đóng, game chạy lại")
 	# hết thẻ: tự bỏ qua
-	for id in pool:
-		main.progress.taken[id] = int(pool[id]["max"])
+	for pname in main.progress.pools:
+		for id in G.UPGRADES[pname]:
+			main.progress.taken[id] = int(G.UPGRADES[pname][id]["max"])
 	main.progress.add_xp(300)
 	await _frames(3)
 	_check(not main.level_ui.visible and not paused and main.progress.pending == 0, "hết thẻ để lấy: tự bỏ qua, không kẹt pause")
