@@ -50,6 +50,8 @@ func _ready() -> void:
 		map_id = "endless" if Global.game_mode == "endless" else Global.selected_map
 	_build_environment()
 	_build_map(map_id)
+	if map_id == "endless":
+		_apply_theme(false)
 
 
 ## Dựng đấu trường từ dữ liệu Maps (sàn, 4 tường, các khối, bia tập). Phát map_loaded khi xong.
@@ -74,6 +76,26 @@ func load_floor(n: int) -> void:
 	_nav_probe_ok = false
 	_free_titan_nav()
 	_build_map("endless")
+	_apply_theme(true)
+
+
+var _theme_tween: Tween
+
+
+## Vô Tận (P2): đưa trời / nắng / sương sang chủ đề của tầng hiện tại. smooth = chuyển mượt (không khi giảm hiệu ứng).
+func _apply_theme(smooth: bool) -> void:
+	if world_env == null or sun == null:
+		return
+	var to: Dictionary = EndlessLook.theme_env(EndlessLook.theme_index(floor_n))
+	to["fog_density"] = float(to["fog_density"]) * (0.6 if spawn_band != Vector2.ZERO else 1.0)   # như _build_environment
+	if _theme_tween != null and _theme_tween.is_valid():
+		_theme_tween.kill()
+	if not smooth or Global.reduced_fx or not is_inside_tree():
+		EndlessLook.blend_env(sun, world_env, to, to, 1.0)
+		return
+	var from: Dictionary = EndlessLook.read_env(sun, world_env)
+	_theme_tween = create_tween()
+	_theme_tween.tween_method(func(k: float) -> void: EndlessLook.blend_env(sun, world_env, from, to, k), 0.0, 1.0, EndlessLook.THEME_BLEND_SEC)
 
 
 func _build_map(id: String) -> void:
@@ -99,7 +121,7 @@ func _build_map(id: String) -> void:
 		if id == "endless":
 			EndlessLook.style_box(body, bx)
 	if id == "endless":
-		for deco in EndlessLook.dress(m):   # chỉ hình ảnh, không va chạm
+		for deco in EndlessLook.dress(m, EndlessLook.theme_index(floor_n)):   # chỉ hình ảnh, không va chạm
 			_add_map_node(deco)
 	_build_trim()
 	for dp in m["dummies"]:
