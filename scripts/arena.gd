@@ -9,6 +9,7 @@ const Quality = preload("res://scripts/quality.gd")
 
 const Maps = preload("res://scripts/maps.gd")
 const BreakableScript = preload("res://scripts/breakable.gd")
+const EndlessLook = preload("res://scripts/endless_look.gd")
 
 signal map_loaded(map_id: String)
 signal explosion(position: Vector3, radius: float) # thùng nổ phát nổ
@@ -60,6 +61,9 @@ func _add_map_node(n: Node) -> void:
 ## Vô Tận: xoá bản đồ cũ, dựng bản đồ của tầng `n`. Môi trường (trời, ánh sáng) giữ nguyên. Phát lại map_loaded.
 func load_floor(n: int) -> void:
 	floor_n = n
+	# Tắt vùng điều hướng cũ NGAY (queue_free chỉ xoá cuối khung): nếu không, khung đầu của tầng mới vẫn trả đường đi của tầng cũ.
+	if nav_region != null and is_instance_valid(nav_region):
+		nav_region.enabled = false
 	for node in _map_nodes:
 		if is_instance_valid(node):
 			node.queue_free()
@@ -67,6 +71,7 @@ func load_floor(n: int) -> void:
 	props.clear()
 	dummies.clear()
 	nav_region = null
+	_nav_probe_ok = false
 	_free_titan_nav()
 	_build_map("endless")
 
@@ -90,7 +95,12 @@ func _build_map(id: String) -> void:
 	_box(Vector3(1.0, wall_h, half.y * 2.0), Vector3(half.x + 0.5, wall_h * 0.5, 0.0), "wall")
 	_box(Vector3(1.0, wall_h, half.y * 2.0), Vector3(-half.x - 0.5, wall_h * 0.5, 0.0), "wall")
 	for bx in m["boxes"]:
-		_box(bx["size"], bx["pos"], bx["role"], bx["rot"])
+		var body: StaticBody3D = _box(bx["size"], bx["pos"], bx["role"], bx["rot"])
+		if id == "endless":
+			EndlessLook.style_box(body, bx)
+	if id == "endless":
+		for deco in EndlessLook.dress(m):   # chỉ hình ảnh, không va chạm
+			_add_map_node(deco)
 	_build_trim()
 	for dp in m["dummies"]:
 		_spawn_dummy(dp, Color(0.85, 0.2, 0.2))
@@ -163,9 +173,25 @@ func _free_titan_nav() -> void:
 	titan_nav_map = RID()
 
 
-## Đường đi (điểm ngoặt) trên navmesh từ a tới b; rỗng nếu chưa có navmesh.
+var _nav_probe_ok: bool = false
+
+
+## Navmesh của map hiện tại đã đồng bộ vào máy chủ điều hướng chưa. Máy chủ gộp vùng mới không đồng thời (đo: 0 tới >10 khung),
+## và trong lúc chờ nó trả đường đi sai (của tầng cũ hoặc cụt giữa chừng). Vô Tận: chỉ coi là sẵn sàng khi đường từ chỗ xuất phát tới
+## cổng (luôn thông, do bộ sinh bảo đảm) thật sự tới được cổng; kết quả đạt thì nhớ tới lần dựng map kế. Map khác: có vùng là dùng.
+func nav_ready() -> bool:
+	if nav_region == null or not is_instance_valid(nav_region):
+		return false
+	if map_id != "endless" or _nav_probe_ok:
+		return true
+	var p: PackedVector3Array = NavigationServer3D.map_get_path(nav_region.get_navigation_map(), spawn_point, exit_point, true)
+	_nav_probe_ok = p.size() >= 2 and p[p.size() - 1].distance_to(exit_point) < 4.0
+	return _nav_probe_ok
+
+
+## Đường đi (điểm ngoặt) trên navmesh từ a tới b; rỗng nếu chưa có navmesh hoặc nó chưa đồng bộ (bot dùng đường thẳng / lách tường).
 func nav_path(a: Vector3, b: Vector3) -> PackedVector3Array:
-	if nav_region == null:
+	if not nav_ready():
 		return PackedVector3Array()
 	return NavigationServer3D.map_get_path(nav_region.get_navigation_map(), a, b, true)
 
@@ -180,7 +206,7 @@ func _spawn_prop(pos: Vector3, kind: String) -> void:
 	b.broken.connect(func(p: Vector3, k: String): prop_broken.emit(p, k))
 
 
-func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.ZERO) -> void:
+func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.ZERO) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.collision_layer = Global.L_WORLD
 	body.collision_mask = 0
@@ -199,6 +225,7 @@ func _box(size: Vector3, pos: Vector3, role: String, rot_deg: Vector3 = Vector3.
 	mi.mesh = bm
 	body.add_child(mi)
 	_add_map_node(body)
+	return body
 
 
 ## Vạch sáng mỏng ở chân 4 tường (chỉ hình ảnh, không va chạm) để nhìn ra biên đấu trường.
