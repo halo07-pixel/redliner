@@ -35,6 +35,14 @@ var titans_enabled: bool = false
 var first_wave: int = 1
 
 
+## Vô Tận: bot sinh liên tục (không wave). `wave` = tầng (độ khó), `stream_cap` bot sống cùng lúc; bot quá xa bị gỡ.
+var stream: bool = false
+var stream_cap: int = 6
+var stream_boss: bool = false   # tầng có Titan: sinh 1 con ngay khi bắt đầu tầng
+var _stream_t: float = 0.0
+var _prune_t: float = 0.0
+
+
 func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> void:
 	_world = world
 	_spawns = spawn_points
@@ -43,8 +51,79 @@ func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> 
 
 func start() -> void:
 	_running = true
+	if stream:
+		begin_floor(maxi(first_wave, 1), false)
+		return
 	wave = maxi(first_wave, 1) - 1
 	_next_wave()
+
+
+## Vô Tận: bắt đầu tầng n. Gỡ bot cũ (không tính hạ), đặt số bot tối đa theo tầng, sinh Titan nếu tầng có Titan.
+func begin_floor(n: int, with_boss: bool) -> void:
+	for b in get_tree().get_nodes_in_group("bots"):
+		if is_instance_valid(b):
+			b.queue_free()
+	_alive = 0
+	alive_types.clear()
+	_used_spots.clear()
+	wave = n
+	var E: Dictionary = Global.ENDLESS
+	stream_cap = mini(int(E["cap_base"]) + int(E["cap_per_floor"]) * (n - 1), int(E["cap_max"]))
+	_stream_t = 0.0
+	_prune_t = 0.0
+	if with_boss:
+		_alive += 1
+		_spawn("titan")
+	enemies_left_changed.emit(_alive)
+
+
+## Loại bot tầng n: lấy ngẫu nhiên từ thành phần wave tương ứng (không có Titan: Titan sinh riêng).
+func stream_type(n: int) -> String:
+	var comp: Array = composition(n).filter(func(t): return t != "titan")
+	return comp[randi() % comp.size()]
+
+
+func _stream_tick(delta: float) -> void:
+	var E: Dictionary = Global.ENDLESS
+	_stream_t -= delta
+	if _stream_t <= 0.0 and _count_normal() < stream_cap:
+		_stream_t = float(E["spawn_interval"])
+		_used_spots.clear()   # chỉ cần tránh đè bot đang sống (do _spot_ok kiểm), không nhớ vị trí cũ
+		_alive += 1
+		_spawn(stream_type(wave))
+		enemies_left_changed.emit(_alive)
+	_prune_t -= delta
+	if _prune_t <= 0.0:
+		_prune_t = float(E["prune_interval"])
+		_prune_far(float(E["despawn_dist"]))
+
+
+func _count_normal() -> int:
+	var c: int = 0
+	for k in alive_types:
+		if k != "titan":
+			c += int(alive_types[k])
+	return c
+
+
+## Gỡ bot thường ở xa người chơi hơn `dist` m (không tính hạ, không điểm). Titan không bị gỡ.
+func _prune_far(dist: float) -> int:
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	if player == null:
+		return 0
+	var n: int = 0
+	for b in get_tree().get_nodes_in_group("bots"):
+		if b.dead or "is_titan" in b or b.is_queued_for_deletion():
+			continue
+		if (b as Node3D).global_position.distance_to(player.global_position) > dist:
+			var tn: String = String(b.type_name)
+			alive_types[tn] = maxi(int(alive_types.get(tn, 0)) - 1, 0)
+			_alive -= 1
+			b.queue_free()
+			n += 1
+	if n > 0:
+		enemies_left_changed.emit(_alive)
+	return n
 
 
 func stop() -> void:
@@ -220,9 +299,11 @@ func _spot_ok(c: Vector3) -> bool:
 
 
 ## Lưới an toàn: bot rơi khỏi map / văng ra ngoài biên thì đưa về một điểm sinh (không để wave kẹt).
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if _world == null or _spawns.is_empty():
 		return
+	if stream and _running:
+		_stream_tick(delta)
 	var void_y: Variant = _world.get("void_y")
 	var half: Variant = _world.get("half")
 	for b in get_tree().get_nodes_in_group("bots"):
@@ -245,6 +326,8 @@ func _on_bot_died(bot: Node3D, info: Dictionary) -> void:
 	_alive -= 1
 	bot_killed.emit(bot, info)
 	enemies_left_changed.emit(_alive)
+	if stream:
+		return   # Vô Tận: không có wave; hạ bot chỉ tính vào chỉ tiêu tầng
 	if _alive <= 0:
 		wave_cleared.emit(wave)
 		await get_tree().create_timer(break_time).timeout

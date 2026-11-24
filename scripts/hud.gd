@@ -342,6 +342,11 @@ func set_wave(wave: int, left: int) -> void:
 	_wave_label.text = "WAVE %d  -  còn %d bot" % [wave, left] if wave > 0 else "Chuẩn bị..."
 
 
+## Vô Tận: dòng tầng (thay dòng wave).
+func set_floor(floor_n: int, left: int) -> void:
+	_wave_label.text = "TẦNG %d  -  %d bot đang truy lùng" % [floor_n, left]
+
+
 ## Mục tiêu của chế độ chơi (dòng dưới số wave).
 func set_objective(text: String) -> void:
 	_objective_label.text = text

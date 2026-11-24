@@ -66,7 +66,7 @@ func _run() -> void:
 	for mode_id in G.MODES:
 		for map_id in G.MAP_IDS:
 			var main = await _enter(map_id, mode_id)
-			var ok: bool = is_instance_valid(main.player) and main.arena.map_id == map_id and main.mode != null
+			var ok: bool = is_instance_valid(main.player) and main.arena.map_id == ("endless" if mode_id == "endless" else map_id) and main.mode != null
 			main.waves.start()
 			await _frames(60)
 			ok = ok and main.waves.wave >= 1

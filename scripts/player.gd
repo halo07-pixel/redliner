@@ -337,6 +337,13 @@ func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount * (float(Global.FX["reduced_shake"]) if Global.reduced_fx else 1.0))
 
 
+## Dịch chuyển sang tầng mới (Vô Tận): giữ máu, đạn, đồ; chỉ đổi chỗ, dừng mọi đà và trạng thái chuyển động.
+func teleport(pos: Vector3) -> void:
+	global_position = pos
+	velocity = Vector3.ZERO
+	_set_state(State.NORMAL)
+
+
 func respawn(pos: Vector3) -> void:
 	dead = false
 	hurtbox.revive()

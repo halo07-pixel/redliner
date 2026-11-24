@@ -109,7 +109,8 @@ func _refresh_setup() -> void:
 	mode_desc_label.text = String(Global.MODE_DESCRIPTIONS[Global.game_mode])
 	if Global.selected_map == "district" and Global.game_mode != "training":
 		mode_desc_label.text += " Khu phố có Titan từ wave 5."
-	start_wave_button.visible = Global.game_mode != "training"
+	start_wave_button.visible = Global.game_mode in ["survival", "timed"]
+	map_button.visible = Global.game_mode != "endless"
 	if Global.game_mode == "training":
 		best_label.text = "Không tính điểm"
 	else:

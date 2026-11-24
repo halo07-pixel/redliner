@@ -9,6 +9,7 @@ const ScoreScript = preload("res://scripts/score_manager.gd")
 const PauseScript = preload("res://scripts/pause_menu.gd")
 const GameOverScript = preload("res://scripts/game_over.gd")
 const GameModeScript = preload("res://scripts/game_mode.gd")
+const PortalScript = preload("res://scripts/portal.gd")
 const RunStatsScript = preload("res://scripts/run_stats.gd")
 const Fx = preload("res://scripts/fx.gd")
 const MENU_SCENE := "res://scenes/menu.tscn"
@@ -25,6 +26,7 @@ var autostart_waves: bool = true # script chụp ảnh/test có thể tắt đ�
 var kills: int = 0
 var mode: Node       # luật chế độ chơi (game_mode.gd)
 var stats            # thống kê ván (run_stats.gd)
+var portal: Area3D   # Vô Tận: cổng ra tầng
 
 var _over: bool = false
 var _last_charges: int = 2
@@ -102,10 +104,12 @@ func _ready() -> void:
 	waves = WaveScript.new()
 	add_child(waves)
 	waves.titans_enabled = arena.titans
-	waves.first_wave = Global.start_wave if Global.game_mode != "training" else 1
+	var endless: bool = Global.game_mode == "endless"
+	waves.stream = endless
+	waves.first_wave = Global.start_wave if Global.game_mode in ["survival", "timed"] else 1
 	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
 	waves.wave_started.connect(_on_wave_started)
-	waves.enemies_left_changed.connect(func(left): hud.set_wave(waves.wave, left))
+	waves.enemies_left_changed.connect(func(left): hud.set_floor(waves.wave, left) if endless else hud.set_wave(waves.wave, left))
 	waves.enemies_left_changed.connect(_on_enemies_for_music)
 	waves.wave_cleared.connect(_on_wave_cleared)
 	waves.enemies_left_changed.connect(func(_l): hud.set_enemy_types(waves.alive_types))
@@ -137,6 +141,13 @@ func _ready() -> void:
 	mode.objective_changed.connect(hud.set_objective)
 	mode.time_changed.connect(hud.set_timer)
 	mode.finished.connect(_on_mode_finished)
+	if endless:
+		portal = PortalScript.new()
+		add_child(portal)
+		portal.global_position = arena.exit_point
+		portal.entered.connect(mode.next_floor, CONNECT_DEFERRED)   # không đổi vật lý ngay trong callback va chạm
+		mode.portal_opened.connect(_on_portal_opened)
+		mode.floor_changed.connect(_on_floor_changed)
 	waves.practice_bot_killed.connect(_on_practice_bot_killed)
 	hud.set_mode_layout(mode.mode)
 	hud.set_objective(mode.objective_text())
@@ -159,6 +170,31 @@ func _start_mode() -> void:
 		_spawn_practice_bot()
 	else:
 		waves.start()
+
+
+## Vô Tận: đủ chỉ tiêu, mở cổng.
+func _on_portal_opened(_floor_n: int) -> void:
+	portal.set_open(true)
+	Sfx.play("wave")
+	hud.flash("CỔNG ĐÃ MỞ", Color(0.4, 1.0, 0.6))
+
+
+## Vô Tận: sang tầng mới. Dựng bản đồ mới, đưa người chơi về chỗ xuất phát (giữ đồ, hồi một phần máu), bot tầng mới sinh quanh đó.
+func _on_floor_changed(floor_n: int, _quota: int) -> void:
+	portal.set_open(false)
+	arena.load_floor(floor_n)
+	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
+	player.teleport(arena.spawn_point)
+	portal.global_position = arena.exit_point
+	for child in get_children():
+		if child is Area3D and child.get_script() == PickupScript:
+			child.queue_free()
+	player.hurtbox.heal(player.hurtbox.max_health * float(Global.ENDLESS["heal_on_floor"]))
+	waves.begin_floor(floor_n, GameModeScript.has_boss(floor_n))
+	Sfx.play("wave")
+	hud.flash("TẦNG %d" % floor_n, Color(1.0, 0.85, 0.3))
+	if not _over and mode.mode == "endless":
+		Global.submit_mode_score(mode.result_score(score.score))
 
 
 ## Tập luyện: bất tử (hồi đầy sau mỗi đòn), đạn vô hạn.
@@ -472,7 +508,7 @@ func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	if randf() < float(Global.PICKUPS["drop_chance"]):
 		_drop_pickup(bot.global_position)
 	score.register_kill(info["score"], info) # trước mode.on_kill: phát hạ cuối có thể kết thúc ván ngay
-	var gained: float = mode.on_kill()
+	var gained: float = mode.on_kill(String(bot.type_name))
 	if gained > 0.0:
 		hud.flash("+%d s" % roundi(gained), Color(0.5, 0.9, 1.0))
 
@@ -540,9 +576,12 @@ func _end_run(title: String, won: bool) -> void:
 
 ## Nội dung màn tổng kết (tách riêng để test được).
 func build_result(title: String, won: bool, final_score: int, prev_best: int, new_record: bool) -> Dictionary:
-	var lines: Array = ["Chế độ: %s   -   %s   -   %s" % [Global.MODE_NAMES[mode.mode], Global.MAP_NAMES[Global.selected_map], Global.DIFFICULTY_NAMES[Global.difficulty]]]
+	var map_name: String = "Bản đồ lưới" if mode.mode == "endless" else String(Global.MAP_NAMES[Global.selected_map])
+	var lines: Array = ["Chế độ: %s   -   %s   -   %s" % [Global.MODE_NAMES[mode.mode], map_name, Global.DIFFICULTY_NAMES[Global.difficulty]]]
 	if mode.mode == "survival":
 		lines.append("Wave đạt được: %d" % waves.wave)
+	elif mode.mode == "endless":
+		lines.append("Tầng đạt được: %d   (%d / %d bot ở tầng này)" % [mode.floor_n, mode.floor_kills, mode.quota])
 	elif mode.mode == "timed":
 		lines.append("Mục tiêu: %d / %d bot      Còn lại: %s" % [mode.kills, mode.target, RunStatsScript.format_time(mode.time_left)])
 	lines.append("Điểm: %d" % final_score)
