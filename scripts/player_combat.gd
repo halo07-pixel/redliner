@@ -4,6 +4,7 @@ extends Node
 ## Input nằm ở các field want_* (Player điền từ Input; test headless tự điền).
 
 const RocketScript = preload("res://scripts/rocket.gd")
+const GunFlawsScript = preload("res://scripts/gun_flaws.gd")
 
 signal ammo_changed(current: int, maximum: int)
 signal shot_fired(from: Vector3, to: Vector3)
@@ -11,6 +12,7 @@ signal hit_confirmed(landed: bool)
 signal reloading_changed(on: bool)
 signal weapon_changed(id: String, display_name: String)
 signal exploded(position: Vector3, radius: float)
+signal flaw_changed(spread_deg: float, max_deg: float)   # lỗi súng đang cầm đổi (HUD vẽ chấm ngắm nở)
 
 var want_attack: bool = false  # giữ
 var want_shoot: bool = false   # giữ
@@ -34,6 +36,11 @@ var damage_mult: float = 1.0
 var fire_rate_mult: float = 1.0
 var mag_mult: float = 1.0
 var reload_mult: float = 1.0
+
+## Lỗi riêng của súng (M36) + hệ số riêng theo súng từ nâng cấp: "<id>_damage_mult", "<id>_pierce".
+var flaws = GunFlawsScript.new()
+var weapon_mods: Dictionary = {}
+var _last_spread: float = -1.0
 
 var _ammo: Dictionary = {}
 var _head: Node3D
@@ -87,6 +94,7 @@ func switch_to(id: String) -> void:
 		reloading = false
 		reloading_changed.emit(false)
 	weapon = id
+	_last_spread = -1.0
 	_shot_cd = float(cfg()["draw"]) # thời gian rút súng
 	weapon_changed.emit(id, String(cfg()["name"]))
 	ammo_changed.emit(ammo, max_ammo())
@@ -94,6 +102,8 @@ func switch_to(id: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	_shot_cd = maxf(_shot_cd - delta, 0.0)
+	flaws.tick(delta)
+	_emit_flaw()
 	if reloading:
 		_reload_t -= delta
 		if _reload_t <= 0.0:
@@ -127,6 +137,20 @@ func _physics_process(delta: float) -> void:
 	want_cycle = 0
 
 
+## Phát flaw_changed khi độ lệch đổi (làm tròn 0.05 độ để không phát mỗi khung hình khi đứng yên).
+func _emit_flaw() -> void:
+	var sp: float = snappedf(flaws.spread(weapon), 0.05)
+	if is_equal_approx(sp, _last_spread):
+		return
+	_last_spread = sp
+	flaw_changed.emit(sp, flaws.max_spread(weapon))
+
+
+## Hệ số / giá trị nâng cấp riêng của súng đang cầm (vd "damage_mult" -> weapon_mods["pistol_damage_mult"]).
+func _wmod(key: String, default: float) -> float:
+	return float(weapon_mods.get(weapon + "_" + key, default))
+
+
 func _start_reload() -> void:
 	if reloading or ammo >= max_ammo():
 		return
@@ -145,7 +169,7 @@ func _shoot() -> void:
 	ammo -= 1
 	_shot_cd = float(c["cooldown"]) / fire_rate_mult
 	var from: Vector3 = _head.global_position
-	var dir: Vector3 = -_head.global_transform.basis.z
+	var dir: Vector3 = flaws.aim(weapon, -_head.global_transform.basis.z)
 	var muzzle: Vector3 = from + _head.global_transform.basis * Vector3(-0.3, -0.25, -0.7)
 	var to: Vector3 = from + dir * float(c["range"])
 	match String(c["kind"]):
@@ -156,6 +180,8 @@ func _shoot() -> void:
 			to = from + dir * 3.0
 		_:
 			to = _fire_hitscan(from, dir, c)
+	flaws.on_shot(weapon)
+	_emit_flaw()
 	shot_fired.emit(muzzle, to)
 	ammo_changed.emit(ammo, max_ammo())
 	if ammo == 0:
@@ -179,8 +205,8 @@ func _hit(collider: Object, damage: float, dir: Vector3, extra: Dictionary = {})
 
 ## Súng lục / bắn tỉa. Bắn tỉa: headshot nhân sát thương, xuyên 1 mục tiêu với sát thương giảm.
 func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
-	var damage: float = float(c["damage"])
-	var pierce: int = int(c.get("pierce", 0))
+	var damage: float = float(c["damage"]) * _wmod("damage_mult", 1.0)
+	var pierce: int = int(c.get("pierce", 0)) + int(_wmod("pierce", 0.0))
 	var exclude: Array = []
 	var end: Vector3 = from + dir * float(c["range"])
 	var any_landed: bool = false
@@ -204,7 +230,7 @@ func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 		if _hit(col, d, dir, {"headshot": head, "point": hit["position"]}):
 			any_landed = true
 		exclude.append(col.get_rid())
-		damage *= float(c.get("pierce_mult", 1.0))
+		damage *= float(c.get("pierce_mult", 0.7 if int(_wmod("pierce", 0.0)) > 0 else 1.0))
 	if any_target:
 		hit_confirmed.emit(any_landed)
 	return end

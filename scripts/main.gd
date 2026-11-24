@@ -75,6 +75,7 @@ func _ready() -> void:
 	player.combat.reloading_changed.connect(hud.set_reloading)
 	player.combat.shot_fired.connect(_on_shot_fired)
 	player.combat.weapon_changed.connect(hud.set_weapon)
+	player.combat.flaw_changed.connect(hud.set_spread)
 	player.combat.weapon_changed.connect(func(id, _n): player.viewmodel.set_weapon(id))
 	player.combat.weapon_changed.connect(func(_id, _n): Sfx.play("switch"))
 	player.combat.reloading_changed.connect(func(on: bool):
@@ -157,6 +158,8 @@ func _ready() -> void:
 		add_child(progress)
 		level_ui = LevelUpScript.new()
 		add_child(level_ui)
+		player.combat.flaws.enabled = true   # lỗi riêng của súng chỉ có ở Vô Tận
+		player.combat.weapon_changed.connect(func(id, _n): progress.set_weapon_pool(id))
 		progress.xp_changed.connect(hud.set_xp)
 		progress.leveled_up.connect(func(_lv): _next_level_choice.call_deferred())
 		progress.upgrade_chosen.connect(func(_id, _tier): _apply_upgrades())
@@ -230,6 +233,8 @@ func _apply_upgrades() -> void:
 	c.mag_mult = progress.stat("mag")
 	c.reload_mult = progress.stat("reload")
 	c.ammo_changed.emit(c.ammo, c.max_ammo())
+	c.flaws.mods = {"rhythm_per_shot_mult": progress.stat("rhythm_per_shot"), "rhythm_recover_mult": progress.stat("rhythm_recover")}
+	c.weapon_mods = {"pistol_damage_mult": progress.stat("pistol_damage"), "pistol_pierce": progress.stat("pistol_pierce")}
 	player.speed_mult = progress.stat("speed")
 	player.stamina_regen_mult = progress.stat("stamina")
 	player.pickup_magnet = float(Global.XP["magnet_base"]) + progress.stat("magnet")

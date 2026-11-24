@@ -330,6 +330,14 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 - Test: `test_m35` (48 kiểm tra). Ảnh `docs/screenshots/m35/`.
 - **Chưa kiểm bằng người**: nhịp lên cấp (tầng 1 ~3 cấp), pause khi lên cấp có gây khó chịu giữa trận không, độ mạnh từng thẻ. Thẻ sát thương chỉ tăng súng (kiếm có kho riêng ở M39). Tăng băng đạn chỉ đổi mức đầy khi nạp lại.
 
+## M36 (nhánh `feature/m36-gun-flaws`: khung lỗi riêng của súng + súng lục — mốc 3/6 của Vô Tận)
+- **Khung lỗi**: mỗi súng trong `Global.WEAPONS` có `"flaw": id`; số liệu + tên + gợi ý ở `Global.FLAWS`. `gun_flaws.gd` (RefCounted, logic thuần): `enabled` (chỉ bật ở Vô Tận, main đặt), `mods` (hệ số nâng cấp), `tick`, `aim(weapon, dir)`, `on_shot`, `spread`. `player_combat.gd` giữ `flaws`, `weapon_mods` (`"<id>_damage_mult"`, `"<id>_pierce"`), phát `flaw_changed(spread_deg, max_deg)`; HUD nghe Signal (`set_spread`: vòng nở khớp góc thật theo FOV + dòng chữ tên lỗi). Ngoài Vô Tận không có lỗi, bắn như cũ.
+- **Lỗi súng lục "Giật theo nhịp"** (`rhythm_recoil`): phát đầu chuẩn tuyệt đối; mỗi phát +0.6° (tối đa 6°), hồi 8°/s; hướng bắn lệch ngẫu nhiên trong hình nón bán kính = độ lệch hiện tại. Nâng cấp chỉ nhân hệ số, không gỡ lỗi (test: dù 3 bậc Nhịp ổn định, spam vẫn lên 6°).
+- **Kho `gun:pistol`** (4 thẻ): Nhịp ổn định (-20% lệch/phát, 3 bậc), Hồi tay (+30% hồi, 3), Đạn xuyên (+1 mục tiêu, còn 70%, 2 bậc), Nòng nặng (+20% sát thương, 3). `RunProgress.set_weapon_pool(id)` đổi kho theo súng đang cầm (main nối `weapon_changed`); súng chưa có kho chỉ rút từ kho chung. Thẻ đã lấy vẫn áp khi đổi súng nhưng chỉ có tác dụng khi cầm đúng súng đó. Hiệu ứng thẻ âm hiện "-40%".
+- Thêm súng khác ở M37/M38: thêm `flaw` + nhánh trong `gun_flaws.gd` + kho `gun:<id>` + khoá `weapon_mods` tương ứng.
+- Test: `test_m36` (40 kiểm tra, gồm đạn xuyên/sát thương thật qua 2 bia). Ảnh `docs/screenshots/m36/`. Pitfall test: đặt `player.use_input = false` thì mới tự điền `want_shoot`.
+- **Chưa kiểm bằng người**: cảm giác độ lệch (0.6°/phát, tối đa 6°, hồi 8°/s), vòng nở có đủ rõ khi bắn thật; cân bằng thẻ súng lục.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

@@ -11,7 +11,7 @@ const UpgradesScript = preload("res://scripts/upgrades.gd")
 var level: int = 0
 var xp: int = 0
 var taken: Dictionary = {}
-var pools: Array = ["shared"]   # M38/M39: thêm kho của súng đang cầm / kiếm
+var pools: Array = ["shared", "gun:pistol"]   # + kho của súng đang cầm (set_weapon_pool); M39 thêm "sword"
 var pending: int = 0            # số lần lên cấp đang chờ chọn
 var rng := RandomNumberGenerator.new()
 
@@ -44,6 +44,13 @@ func add_xp(amount: int) -> void:
 		pending += 1
 		leveled_up.emit(level)
 	xp_changed.emit(level, xp, need_for(level))
+
+
+## Đổi kho thẻ riêng theo súng đang cầm (không có kho thì chỉ còn kho dùng chung và kho kiếm nếu có).
+func set_weapon_pool(weapon_id: String) -> void:
+	pools = pools.filter(func(p): return not String(p).begins_with("gun:"))
+	if Global.UPGRADES.has("gun:" + weapon_id):
+		pools.append("gun:" + weapon_id)
 
 
 ## Rút các thẻ cho lần chọn hiện tại.

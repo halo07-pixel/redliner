@@ -445,7 +445,7 @@ const COMBAT: Dictionary = {
 const WEAPON_ORDER: Array = ["pistol", "shotgun", "launcher", "sniper"]
 const WEAPONS: Dictionary = {
 	"pistol": {"name": "Súng lục", "kind": "hitscan", "mag": 6, "cooldown": 0.35, "reload": 1.1, "damage": 25.0,
-		"range": 80.0, "recoil": 1.0, "draw": 0.25, "sfx": "shot"},
+		"range": 80.0, "recoil": 1.0, "draw": 0.25, "sfx": "shot", "flaw": "rhythm_recoil"},
 	"shotgun": {"name": "Shotgun", "kind": "pellets", "mag": 2, "cooldown": 0.6, "reload": 1.8, "damage": 12.0,
 		"pellets": 8, "spread_deg": 5.0, "falloff_range": 18.0, "min_falloff": 0.2,
 		"range": 40.0, "recoil": 3.0, "draw": 0.4, "sfx": "shotgun"},
@@ -456,6 +456,13 @@ const WEAPONS: Dictionary = {
 	"sniper": {"name": "Bắn tỉa", "kind": "hitscan", "mag": 3, "cooldown": 1.1, "reload": 2.2, "damage": 80.0,
 		"headshot_mult": 2.0, "headshot_height": 1.5, "pierce": 1, "pierce_mult": 0.6,
 		"range": 200.0, "recoil": 1.5, "draw": 0.5, "zoom_fov": 35.0, "sfx": "sniper"},
+}
+## Lỗi riêng của từng súng (M36; chỉ bật ở Vô Tận). Mỗi súng trong WEAPONS có "flaw": id; con số + chữ hiện trên HUD ở đây.
+## Nâng cấp chỉ làm nhẹ lỗi (hệ số trên các số này), không bao giờ gỡ hẳn.
+## rhythm_recoil (súng lục): mỗi phát cộng per_shot_deg độ lệch (tối đa max_deg), hồi recover_deg_per_s độ/giây: bắn thong thả thì chuẩn, bắn dồn thì lệch.
+const FLAWS: Dictionary = {
+	"rhythm_recoil": {"name": "Giật theo nhịp", "hint": "Bắn dồn thì tia đạn lệch; bắn thong thả mới chuẩn",
+		"per_shot_deg": 0.6, "max_deg": 6.0, "recover_deg_per_s": 8.0},
 }
 ## Chém rộng (phím Q): quét rộng và xa hơn, chậm và để hở lâu hơn, sát thương cao hơn.
 const HEAVY_SLASH: Dictionary = {
@@ -675,6 +682,12 @@ const XP: Dictionary = {
 ## Kho nâng cấp. Khoá = tên kho: "shared" (dùng chung); M38/M39 thêm "gun:<id>" và "sword".
 ## Mỗi thẻ: cat ("gun"/"survive"/"util": màu + nhãn trên thẻ), stat (khoá thống kê), per (giá trị mỗi bậc), max (số bậc tối đa), kind ("mult": cộng vào hệ số 1+x; "add": cộng thẳng).
 const UPGRADES: Dictionary = {
+	"gun:pistol": {
+		"pistol_steady": {"name": "Nhịp ổn định", "cat": "gun", "desc": "-20% độ lệch cộng thêm mỗi phát (lỗi Giật theo nhịp)", "stat": "rhythm_per_shot", "per": -0.2, "max": 3, "kind": "mult"},
+		"pistol_recover": {"name": "Hồi tay", "cat": "gun", "desc": "+30% tốc độ giảm lệch (lỗi Giật theo nhịp)", "stat": "rhythm_recover", "per": 0.3, "max": 3, "kind": "mult"},
+		"pistol_pierce": {"name": "Đạn xuyên", "cat": "gun", "desc": "Đạn súng lục xuyên thêm 1 mục tiêu (còn 70% sát thương)", "stat": "pistol_pierce", "per": 1.0, "max": 2, "kind": "add"},
+		"pistol_heavy": {"name": "Nòng nặng", "cat": "gun", "desc": "+20% sát thương súng lục", "stat": "pistol_damage", "per": 0.2, "max": 3, "kind": "mult"},
+	},
 	"shared": {
 		"damage": {"name": "Đạn mạnh", "cat": "gun", "desc": "+12% sát thương súng mỗi bậc", "stat": "damage", "per": 0.12, "max": 5, "kind": "mult"},
 		"fire_rate": {"name": "Bắn nhanh", "cat": "gun", "desc": "+10% tốc độ bắn mỗi bậc", "stat": "fire_rate", "per": 0.10, "max": 5, "kind": "mult"},
