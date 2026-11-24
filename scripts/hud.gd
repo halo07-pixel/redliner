@@ -24,6 +24,7 @@ var _xp_bar: ProgressBar
 var _xp_label: Label
 var _spread_ring: Control
 var _flaw_label: Label
+var _gold_label: Label
 var _spread_deg: float = 0.0
 var _inst_fill: StyleBoxFlat
 var _vignette_red: TextureRect
@@ -249,16 +250,7 @@ func set_ammo(current: int, maximum: int) -> void:
 
 func set_weapon(id: String, display_name: String) -> void:
 	_weapon_name = display_name
-	_refresh_flaw(id)
 	_refresh_ammo()
-
-
-## Lỗi riêng của súng đang cầm (Vô Tận): dòng chữ nhỏ dưới tên súng. Chỉ hiện khi flaw_changed đã được phát (tức lỗi bật).
-func _refresh_flaw(id: String) -> void:
-	var fid: String = String(Global.WEAPONS.get(id, {}).get("flaw", ""))
-	if _flaw_label == null:
-		return
-	_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS[fid]["name"], Global.FLAWS[fid]["hint"]] if fid != "" and Global.FLAWS.has(fid) and _flaw_label.get_meta("on", false) else ""
 
 
 ## Vô Tận: độ lệch hiện tại của súng (độ) -> vẽ vòng nở quanh tâm; ra khỏi chế độ có lỗi thì ẩn. Gọi từ Signal flaw_changed.
@@ -270,29 +262,50 @@ func set_spread(deg: float, max_deg: float) -> void:
 		_spread_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_spread_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_spread_ring)
-		_flaw_label = Label.new()
-		_flaw_label.anchor_left = 1.0
-		_flaw_label.anchor_right = 1.0
-		_flaw_label.anchor_top = 1.0
-		_flaw_label.anchor_bottom = 1.0
-		_flaw_label.offset_left = -520.0
-		_flaw_label.offset_right = -24.0
-		_flaw_label.offset_top = -82.0
-		_flaw_label.offset_bottom = -58.0
-		_flaw_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_flaw_label.set_meta("on", true)
-		_outline(_flaw_label, 15)
-		_flaw_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
-		add_child(_flaw_label)
 	_spread_deg = deg
 	_spread_ring.visible = max_deg > 0.0
 	_spread_ring.deg = deg
 	_spread_ring.max_deg = max_deg
 	_spread_ring.fov = float(Global.settings["fov"])
 	_spread_ring.queue_redraw()
-	_flaw_label.text = ""
-	if max_deg > 0.0:
-		_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS["rhythm_recoil"]["name"], Global.FLAWS["rhythm_recoil"]["hint"]]
+
+
+## Vô Tận: dòng chữ nhỏ tên + gợi ý lỗi của súng `weapon_id` (dưới tên súng); súng không có lỗi thì để trống.
+func set_flaw_text(weapon_id: String) -> void:
+	if _flaw_label == null:
+		_flaw_label = Label.new()
+		_flaw_label.anchor_left = 1.0
+		_flaw_label.anchor_right = 1.0
+		_flaw_label.anchor_top = 1.0
+		_flaw_label.anchor_bottom = 1.0
+		_flaw_label.offset_left = -560.0
+		_flaw_label.offset_right = -24.0
+		_flaw_label.offset_top = -82.0
+		_flaw_label.offset_bottom = -58.0
+		_flaw_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_outline(_flaw_label, 15)
+		_flaw_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
+		_flaw_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_flaw_label)
+	var fid: String = String(Global.WEAPONS.get(weapon_id, {}).get("flaw", ""))
+	_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS[fid]["name"], Global.FLAWS[fid]["hint"]] if Global.FLAWS.has(fid) else ""
+
+
+## Vô Tận: vàng kiếm được trong lượt (góc phải, dưới "Cao nhất").
+func set_gold(n: int) -> void:
+	if _gold_label == null:
+		_gold_label = Label.new()
+		_gold_label.anchor_left = 1.0
+		_gold_label.anchor_right = 1.0
+		_gold_label.offset_left = -300.0
+		_gold_label.offset_right = -24.0
+		_gold_label.offset_top = 92.0
+		_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_gold_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_outline(_gold_label, 22)
+		_gold_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		add_child(_gold_label)
+	_gold_label.text = "Vàng: +%d" % n
 
 
 func set_reloading(on: bool) -> void:

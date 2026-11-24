@@ -56,5 +56,28 @@ func on_shot(weapon_id: String) -> void:
 	_spread[weapon_id] = minf(float(_spread.get(weapon_id, 0.0)) + float(f["per_shot_deg"]) * float(mods.get("rhythm_per_shot_mult", 1.0)), float(f["max_deg"]))
 
 
+## Xung đẩy người chơi sau một phát bắn (lỗi self_knockback); Vector3.ZERO nếu súng không có lỗi này.
+func knockback(weapon_id: String, aim_dir: Vector3, grounded: bool) -> Vector3:
+	if flaw_of(weapon_id) != "self_knockback":
+		return Vector3.ZERO
+	var f: Dictionary = Global.FLAWS["self_knockback"]
+	return -aim_dir.normalized() * float(f["speed"]) * (1.0 if grounded else float(f["air_mult"]))
+
+
+## Thời gian giữ để nổ phát (lỗi charge_shot); 0 nếu súng không có lỗi này.
+func charge_time(weapon_id: String) -> float:
+	return float(Global.FLAWS["charge_shot"]["charge_time"]) if flaw_of(weapon_id) == "charge_shot" else 0.0
+
+
+## Hệ số tốc độ chạy khi đang nạp (1.0 nếu không có lỗi).
+func charge_move_mult(weapon_id: String) -> float:
+	return float(Global.FLAWS["charge_shot"]["move_mult"]) if flaw_of(weapon_id) == "charge_shot" else 1.0
+
+
+## Hệ số sát thương nổ lên chính người chơi (lỗi self_blast), hoặc `default_mult` nếu không có lỗi.
+func self_damage_mult(weapon_id: String, default_mult: float) -> float:
+	return float(Global.FLAWS["self_blast"]["self_damage_mult"]) if flaw_of(weapon_id) == "self_blast" else default_mult
+
+
 func reset() -> void:
 	_spread.clear()
