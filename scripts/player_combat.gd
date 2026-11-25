@@ -13,7 +13,9 @@ signal reloading_changed(on: bool)
 signal weapon_changed(id: String, display_name: String)
 signal exploded(position: Vector3, radius: float)
 signal self_impulse(velocity_delta: Vector3)   # lỗi giật bật người: Player cộng vào vận tốc
-signal charge_changed(ratio: float)               # lỗi nạp ngắm: 0..1 (0 = không nạp)
+signal charge_changed(ratio: float)
+signal sword_rebounded                       # M39: kiếm bị dội khi chém bot đang đỡ
+signal sword_lunged(direction: Vector3, speed: float)   # M39: bắt đầu lao tới               # lỗi nạp ngắm: 0..1 (0 = không nạp)
 signal flaw_changed(spread_deg: float, max_deg: float)   # lỗi súng đang cầm đổi (HUD vẽ chấm ngắm nở)
 
 var want_attack: bool = false  # giữ
@@ -50,6 +52,10 @@ var _last_spread: float = -1.0
 var _air_time: float = 0.0        # M38 Nạp bằng cú nhảy: giây đã bay liên tục
 var _marks: Dictionary = {}       # M38 Tia đánh dấu: hurtbox -> giây còn lại
 var _chain_t: float = 0.0         # M38 Săn liên hoàn: giây còn được bắn không cần nạp ngắm
+var _combo: int = 0               # M39 Vòng chém: số cú chém liên tiếp
+var _combo_t: float = 0.0
+var _lunge_cd: float = 0.0        # M39 Lưỡi kiếm lao: hồi
+var _lunge_pending: bool = false  # đang trong cú lao: hết đòn thì hở một nhịp
 var _super: bool = false          # M38 Nạp thêm: phát đang bắn là siêu đạn
 
 var _ammo: Dictionary = {}
@@ -68,6 +74,9 @@ func setup(p_body: Node3D, p_head: Node3D, p_melee: Node, p_parry: Node) -> void
 	_parry = p_parry
 	for id in Global.WEAPON_ORDER:
 		_ammo[id] = int(Global.WEAPONS[id]["mag"])
+	_melee.swing_started.connect(_on_swing_started)
+	_melee.rebounded.connect(_on_sword_rebound)
+	_parry.parried.connect(_on_player_parried)
 
 
 func cfg() -> Dictionary:
@@ -137,6 +146,8 @@ func _physics_process(delta: float) -> void:
 	if want_heavy and not blocked:
 		_melee.try_swing(true)
 	elif want_attack and not blocked:
+		_try_lunge()
+		_melee.whirl_next = _smod("whirl") > 0.0 and _combo >= int(Global.PERKS["whirl_every"]) - 1 and _melee.can_swing()
 		_melee.try_swing()
 	if want_reload:
 		_start_reload()
@@ -165,9 +176,82 @@ func _sliding() -> bool:
 	return "state" in _body and _body.state == _body.State.SLIDE
 
 
+func _smod(key: String) -> float:
+	return float(weapon_mods.get("sword_" + key, 0.0))
+
+
+## Kiếm (M39): chép hệ số vào thành phần kiếm, đếm combo / hồi lao, hở sau cú lao.
+func _tick_sword(delta: float) -> void:
+	_melee.guard_rebound = float(Global.FLAWS["guard_rebound"]["extra_stagger"]) if flaws.enabled else 0.0
+	_melee.pierce_guard = minf(_smod("pierce"), 1.0)
+	_melee.riposte_mult = float(Global.PERKS["riposte_mult"])
+	_lunge_cd = maxf(_lunge_cd - delta, 0.0)
+	_combo_t = maxf(_combo_t - delta, 0.0)
+	if _combo_t <= 0.0:
+		_combo = 0
+	if _lunge_pending and _melee.phase == _melee.Phase.IDLE:
+		_lunge_pending = false
+		_melee.stagger(float(Global.PERKS["lunge_exposed"]))   # lao xong hở một nhịp
+
+
+func _on_swing_started(_w: float, _a: float, _r: float) -> void:
+	_combo_t = float(Global.PERKS["combo_window"])
+	_combo = 0 if _melee._whirl else _combo + 1
+
+
+func _on_sword_rebound(direction: Vector3) -> void:
+	self_impulse.emit(direction * float(Global.FLAWS["guard_rebound"]["push"]))
+	sword_rebounded.emit()
+
+
+## Parry thành công (bất kể đòn gì): mở cửa sổ phản đòn nếu có thẻ Nhịp phản đòn.
+func _on_player_parried(_hit: Dictionary) -> void:
+	if _smod("riposte") > 0.0:
+		_melee.riposte_t = float(Global.PERKS["riposte_window"])
+
+
+## Lưỡi kiếm lao: có bot phía trước trong tầm lao (và xa hơn tầm chém) thì lao tới. Trả true nếu đã lao.
+func _try_lunge() -> bool:
+	if _smod("lunge") <= 0.0 or _lunge_cd > 0.0 or not _melee.can_swing():
+		return false
+	var fwd: Vector3 = -_head.global_transform.basis.z
+	fwd.y = 0.0
+	if fwd.length() < 0.01:
+		return false
+	fwd = fwd.normalized()
+	var best: Node3D = null
+	var best_d: float = INF
+	for b in _body.get_tree().get_nodes_in_group("bots"):
+		if not (b is Node3D) or ("dead" in b and b.dead):
+			continue
+		var to: Vector3 = b.global_position - _body.global_position
+		to.y = 0.0
+		var d: float = to.length()
+		if d > float(Global.PERKS["lunge_range"]) or d <= float(Global.COMBAT["sword_reach"]) * 0.8:
+			continue
+		if to.normalized().dot(fwd) < float(Global.PERKS["lunge_cone"]):
+			continue
+		if d < best_d:
+			best_d = d
+			best = b
+	if best == null:
+		return false
+	var dir: Vector3 = best.global_position - _body.global_position
+	dir.y = 0.0
+	dir = dir.normalized()
+	# ma sát mặt đất làm tốc độ giảm theo hàm mũ: quãng trượt ~ tốc độ đầu / ma sát
+	var speed: float = (best_d - float(Global.PERKS["lunge_stop"])) * float(Global.PLAYER["ground_friction"])
+	_lunge_cd = float(Global.PERKS["lunge_cd"])
+	_lunge_pending = true
+	self_impulse.emit(dir * speed)
+	sword_lunged.emit(dir, speed)
+	return true
+
+
 ## Thẻ có hiệu ứng theo thời gian: nạp bằng cú nhảy, hết hạn đánh dấu, cửa sổ săn liên hoàn.
 func _tick_perks(delta: float) -> void:
 	_chain_t = maxf(_chain_t - delta, 0.0)
+	_tick_sword(delta)
 	for hb in _marks.keys():
 		if not is_instance_valid(hb):
 			_marks.erase(hb)

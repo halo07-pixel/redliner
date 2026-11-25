@@ -469,6 +469,9 @@ const FLAWS: Dictionary = {
 		"charge_time": 0.8, "move_mult": 0.5},
 	"self_blast": {"name": "Tự chịu nổ", "hint": "Vụ nổ gây 60% sát thương lên chính bạn",
 		"self_damage_mult": 0.6},
+	# Lỗi của kiếm (M39): chém trúng bot đang đỡ đòn thì kiếm bị dội lại. Chỉ bật ở Vô Tận, chỉ áp lên người chơi.
+	"guard_rebound": {"name": "Phá thế đỡ", "hint": "Chém trúng bot đang đỡ: kiếm bị dội, khựng thêm 0.4 s và bạn bị đẩy lùi",
+		"extra_stagger": 0.4, "push": 6.0},
 }
 ## Thông số thẻ riêng của súng (M38; chỉnh tại đây).
 const PERKS: Dictionary = {
@@ -481,6 +484,10 @@ const PERKS: Dictionary = {
 	"cluster_count": 3, "cluster_spread_deg": 7.0, "cluster_damage": 0.45, "cluster_radius": 0.7,
 	"sticky_fuse": 1.0,
 	"chain_damage": 0.5, "chain_radius": 0.5, "chain_depth": 3,
+	# Kiếm (M39)
+	"riposte_window": 2.0, "riposte_mult": 1.8,
+	"lunge_range": 6.0, "lunge_cd": 3.0, "lunge_exposed": 0.3, "lunge_stop": 1.6, "lunge_cone": 0.3,
+	"whirl_every": 3, "whirl_radius": 2.5, "whirl_damage": 0.6, "whirl_push": 8.0, "combo_window": 1.5,
 }
 ## Vàng (M37): tiền meta giữ lại giữa các lượt (lưu trong savegame). Qua tầng t: floor_base + floor_per_floor*t; mỗi bot hạ: per_kill; Titan: titan.
 ## prices: giá mở khoá súng ở cửa hàng (súng lục miễn phí).
@@ -717,6 +724,12 @@ const UPGRADES: Dictionary = {
 	},
 	# M38: thẻ riêng của shotgun / bắn tỉa / pháo, đổi cách chơi (không chỉ cộng %). "effect" = chữ hiện thay cho "+x%".
 	# Khoá stat có tiền tố id súng; main chép mọi stat của kho "gun:*" vào combat.weapon_mods. Thẻ không gỡ lỗi gốc.
+	"sword": {
+		"sword_pierce": {"name": "Mũi nhọn xuyên giáp", "cat": "sword", "desc": "Chém trúng bot đang đỡ đòn: bot vẫn nhận 50% sát thương mỗi bậc (lỗi dội lại vẫn xảy ra)", "stat": "sword_pierce", "per": 0.5, "max": 2, "kind": "add", "effect": "+50% xuyên đỡ"},
+		"sword_riposte": {"name": "Nhịp phản đòn", "cat": "sword", "desc": "Parry thành công: cú chém kế tiếp trong 2 s gây +80% sát thương và không bị dội", "stat": "sword_riposte", "per": 1.0, "max": 1, "kind": "add", "effect": "Phản đòn +80%"},
+		"sword_lunge": {"name": "Lưỡi kiếm lao", "cat": "sword", "desc": "Giữ chém: lao tới bot gần nhất trong 6 m phía trước rồi chém. Hồi 3 s, lao xong hở 0.3 s", "stat": "sword_lunge", "per": 1.0, "max": 1, "kind": "add", "effect": "Lao tới 6 m"},
+		"sword_whirl": {"name": "Vòng chém", "cat": "sword", "desc": "Cú chém thứ ba liên tiếp quét cả vòng 360 độ trong 2.5 m, 60% sát thương, hất lùi bot trúng", "stat": "sword_whirl", "per": 1.0, "max": 1, "kind": "add", "effect": "Quét 360 độ"},
+	},
 	"gun:shotgun": {
 		"shotgun_airkick": {"name": "Cú đá đôi", "cat": "gun", "desc": "Phát bắn khi đang bay trên không: +25% sát thương mỗi bậc (bắn xuống đất để bật lên rồi bắn tiếp)", "stat": "shotgun_airkick", "per": 0.25, "max": 3, "kind": "add", "effect": "+25% khi bay"},
 		"shotgun_shockwave": {"name": "Sóng xung kích", "cat": "gun", "desc": "Mỗi phát bắn hất lùi mọi bot trong 4 m phía trước", "stat": "shotgun_shockwave", "per": 1.0, "max": 1, "kind": "add", "effect": "Hất lùi bot"},

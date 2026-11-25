@@ -11,7 +11,7 @@ const UpgradesScript = preload("res://scripts/upgrades.gd")
 var level: int = 0
 var xp: int = 0
 var taken: Dictionary = {}
-var pools: Array = ["shared", "gun:pistol"]   # + kho của súng đang cầm (set_weapon_pool); M39 thêm "sword"
+var pools: Array = ["shared", "sword", "gun:pistol"]   # kho chung + kho kiếm + kho của súng đang cầm (set_weapon_pool)
 var pending: int = 0            # số lần lên cấp đang chờ chọn
 var rng := RandomNumberGenerator.new()
 

@@ -280,15 +280,18 @@ func set_flaw_text(weapon_id: String) -> void:
 		_flaw_label.anchor_bottom = 1.0
 		_flaw_label.offset_left = -560.0
 		_flaw_label.offset_right = -24.0
-		_flaw_label.offset_top = -82.0
+		_flaw_label.offset_top = -108.0
 		_flaw_label.offset_bottom = -58.0
 		_flaw_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_flaw_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		_outline(_flaw_label, 15)
 		_flaw_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
 		_flaw_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_flaw_label)
 	var fid: String = String(Global.WEAPONS.get(weapon_id, {}).get("flaw", ""))
-	_flaw_label.text = "LỖI: %s - %s" % [Global.FLAWS[fid]["name"], Global.FLAWS[fid]["hint"]] if Global.FLAWS.has(fid) else ""
+	var sw: Dictionary = Global.FLAWS["guard_rebound"]
+	var gun_line: String = "LỖI: %s - %s\n" % [Global.FLAWS[fid]["name"], Global.FLAWS[fid]["hint"]] if Global.FLAWS.has(fid) else ""
+	_flaw_label.text = gun_line + "KIẾM: %s - %s" % [sw["name"], sw["hint"]]
 
 
 ## Vô Tận: vàng kiếm được trong lượt (góc phải, dưới "Cao nhất").
