@@ -247,6 +247,11 @@ func _apply_upgrades() -> void:
 	c.ammo_changed.emit(c.ammo, c.max_ammo())
 	c.flaws.mods = {"rhythm_per_shot_mult": progress.stat("rhythm_per_shot"), "rhythm_recover_mult": progress.stat("rhythm_recover")}
 	c.weapon_mods = {"pistol_damage_mult": progress.stat("pistol_damage"), "pistol_pierce": progress.stat("pistol_pierce")}
+	for pool in Global.UPGRADES:
+		if String(pool).begins_with("gun:") and pool != "gun:pistol":
+			for id in Global.UPGRADES[pool]:
+				var st: String = Global.UPGRADES[pool][id]["stat"]
+				c.weapon_mods[st] = progress.stat(st)
 	player.speed_mult = progress.stat("speed")
 	player.stamina_regen_mult = progress.stat("stamina")
 	player.pickup_magnet = float(Global.XP["magnet_base"]) + progress.stat("magnet")

@@ -46,6 +46,8 @@ const CARD_SIZE := Vector2(270.0, 360.0)
 
 ## Chữ hiệu ứng một bậc: "+12%" (mult) hoặc "+15" (add), theo dữ liệu thẻ.
 static func effect_text(c: Dictionary, tier: int) -> String:
+	if c.has("effect"):
+		return String(c["effect"])
 	var v: float = float(c["per"]) * tier
 	var sign_s: String = "-" if v < 0.0 else "+"
 	v = absf(v)

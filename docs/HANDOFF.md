@@ -347,6 +347,15 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 - Test: `test_m37` (59 kiểm tra); `test_m36` sửa vì shotgun giờ có lỗi. Ảnh `docs/screenshots/m37/`. Menu chính thu gọn khoảng cách vì thêm nút thứ 7.
 - **Chưa kiểm bằng người**: giá súng, cảm giác giật shotgun/nạp bắn tỉa, laser nhìn thấy trên GPU thật. Bot không phản ứng với laser. Kho thẻ riêng của shotgun/bắn tỉa/pháo + SMG/revolver để M38.
 
+## M38 (nhánh `feature/m38-gun-pools`: kho thẻ riêng shotgun / bắn tỉa / pháo — mốc 5/6 của Vô Tận)
+- 12 thẻ đổi cách chơi (không chỉ cộng %), dữ liệu ở `Global.UPGRADES["gun:<id>"]`, thông số ở `Global.PERKS`. Thẻ cờ có `"effect"` (chữ hiện thay "+x%", `level_up_ui.effect_text`). `main._apply_upgrades` chép mọi stat của kho `gun:*` (trừ pistol) vào `combat.weapon_mods`; combat đọc bằng `_wmod("<khoá không tiền tố>")`. Lỗi gốc không bao giờ bị gỡ.
+- **Shotgun**: Cú đá đôi (+25%/bậc sát thương khi đang bay, 3 bậc), Sóng xung kích (hất lùi bot trong nón 4 m phía trước, `_shockwave`), Đạn dội (mảnh trúng tường nảy 1 lần, 60%), Nạp bằng cú nhảy (+1 viên / 2 s bay, `_tick_perks`).
+- **Bắn tỉa**: Nạp thêm (giữ đủ nạp + 0.6 s = siêu đạn x2, xuyên hết; thả sau khi đủ nạp = phát thường), Tia đánh dấu (laser quét bot lúc nạp -> `hurtbox.damage_taken_mult = 1.4` trong 5 s, mọi nguồn sát thương), Săn liên hoàn (hạ gục bằng bắn tỉa -> 3 s không cần nạp), Nạp trượt (khi `state == SLIDE`: không chậm, nạp -15%/bậc).
+- **Pháo**: Nhảy nổ (xung hất bản thân x1.8, `self_push_mult`), Chùm ba (3 tên lửa 45% sát thương / 70% bán kính, tỏa 7 độ), Mìn dính (`sticky`: bám vào bot rồi nổ sau 1 s, `rocket.gd` `_stuck/_fuse/_detonate`), Nổ dây chuyền (bot chết vì nổ -> nổ thêm 50% sát thương / 50% bán kính, tối đa 3 lần, không hại người bắn; `Rocket.explode` giờ trả về danh sách vụ nổ thêm và `_detonate` phát `exploded` cho từng vụ).
+- `hurtbox_component.gd`: thêm `damage_taken_mult`. `player_combat.gd`: `_charge_need()` (gộp Săn liên hoàn + Nạp trượt), `_handle_shoot` hỗ trợ Nạp thêm. Lỗi sửa dọc đường: thả chuột trong cửa sổ Săn liên hoàn trước đây để `_charge_lock` kẹt (phải nhấp thả thêm một lần mới nạp được).
+- Test: `test_m38` (68 kiểm tra, đo bằng số thật: tỉ lệ sát thương, xung, số tên lửa, độ trễ mìn, chuỗi nổ, giới hạn độ sâu). Cập nhật `test_m36`, `test_m37` (shotgun giờ có kho). Ảnh `docs/screenshots/m38/` (màn chọn thẻ). Pitfall test: dùng `seed()` trước phát shotgun khi so sánh sát thương; bot test cần `set_physics_process(false)` và máu lớn nếu không muốn bị bắn chết.
+- **Chưa kiểm bằng người**: cảm giác từng thẻ trên GPU thật; cân bằng số (Cú đá đôi, siêu đạn, mìn dính, chuỗi nổ); Đạn dội và Chùm ba không có hiệu ứng hình riêng (dùng tia/vụ nổ có sẵn); Nạp thêm không có chỉ báo trực quan riêng (vạch nạp vẫn tính theo thời gian nạp thường). SMG/Revolver vẫn chưa làm.
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

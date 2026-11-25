@@ -470,6 +470,18 @@ const FLAWS: Dictionary = {
 	"self_blast": {"name": "Tự chịu nổ", "hint": "Vụ nổ gây 60% sát thương lên chính bạn",
 		"self_damage_mult": 0.6},
 }
+## Thông số thẻ riêng của súng (M38; chỉnh tại đây).
+const PERKS: Dictionary = {
+	"shockwave_range": 4.0, "shockwave_push": 10.0, "shockwave_cone": 0.5,   # cone = cos góc, 0.5 ~ 60 độ
+	"ricochet_mult": 0.6,
+	"airreload_secs": 2.0,
+	"overcharge_extra": 0.6, "overcharge_damage": 2.0,
+	"mark_mult": 1.4, "mark_time": 5.0, "chain_window": 3.0,
+	"launcher_jump_mult": 1.8,
+	"cluster_count": 3, "cluster_spread_deg": 7.0, "cluster_damage": 0.45, "cluster_radius": 0.7,
+	"sticky_fuse": 1.0,
+	"chain_damage": 0.5, "chain_radius": 0.5, "chain_depth": 3,
+}
 ## Vàng (M37): tiền meta giữ lại giữa các lượt (lưu trong savegame). Qua tầng t: floor_base + floor_per_floor*t; mỗi bot hạ: per_kill; Titan: titan.
 ## prices: giá mở khoá súng ở cửa hàng (súng lục miễn phí).
 const GOLD: Dictionary = {
@@ -702,6 +714,26 @@ const UPGRADES: Dictionary = {
 		"pistol_recover": {"name": "Hồi tay", "cat": "gun", "desc": "+30% tốc độ giảm lệch (lỗi Giật theo nhịp)", "stat": "rhythm_recover", "per": 0.3, "max": 3, "kind": "mult"},
 		"pistol_pierce": {"name": "Đạn xuyên", "cat": "gun", "desc": "Đạn súng lục xuyên thêm 1 mục tiêu (còn 70% sát thương)", "stat": "pistol_pierce", "per": 1.0, "max": 2, "kind": "add"},
 		"pistol_heavy": {"name": "Nòng nặng", "cat": "gun", "desc": "+20% sát thương súng lục", "stat": "pistol_damage", "per": 0.2, "max": 3, "kind": "mult"},
+	},
+	# M38: thẻ riêng của shotgun / bắn tỉa / pháo, đổi cách chơi (không chỉ cộng %). "effect" = chữ hiện thay cho "+x%".
+	# Khoá stat có tiền tố id súng; main chép mọi stat của kho "gun:*" vào combat.weapon_mods. Thẻ không gỡ lỗi gốc.
+	"gun:shotgun": {
+		"shotgun_airkick": {"name": "Cú đá đôi", "cat": "gun", "desc": "Phát bắn khi đang bay trên không: +25% sát thương mỗi bậc (bắn xuống đất để bật lên rồi bắn tiếp)", "stat": "shotgun_airkick", "per": 0.25, "max": 3, "kind": "add", "effect": "+25% khi bay"},
+		"shotgun_shockwave": {"name": "Sóng xung kích", "cat": "gun", "desc": "Mỗi phát bắn hất lùi mọi bot trong 4 m phía trước", "stat": "shotgun_shockwave", "per": 1.0, "max": 1, "kind": "add", "effect": "Hất lùi bot"},
+		"shotgun_ricochet": {"name": "Đạn dội", "cat": "gun", "desc": "Mảnh đạn trúng tường nảy một lần, gây 60% sát thương", "stat": "shotgun_ricochet", "per": 1.0, "max": 1, "kind": "add", "effect": "Nảy 1 lần"},
+		"shotgun_airreload": {"name": "Nạp bằng cú nhảy", "cat": "gun", "desc": "Cứ mỗi 2 s bay trên không thì tự nạp 1 viên", "stat": "shotgun_airreload", "per": 1.0, "max": 1, "kind": "add", "effect": "+1 viên / 2 s bay"},
+	},
+	"gun:sniper": {
+		"sniper_overcharge": {"name": "Nạp thêm", "cat": "gun", "desc": "Giữ thêm 0.6 s sau khi đủ nạp: siêu đạn +100% sát thương, xuyên mọi mục tiêu. Thả sau khi đủ nạp vẫn nổ phát thường", "stat": "sniper_overcharge", "per": 1.0, "max": 1, "kind": "add", "effect": "Siêu đạn"},
+		"sniper_mark": {"name": "Tia đánh dấu", "cat": "gun", "desc": "Bot bị tia laser quét trúng lúc nạp bị đánh dấu: +40% sát thương từ mọi nguồn trong 5 s", "stat": "sniper_mark", "per": 1.0, "max": 1, "kind": "add", "effect": "+40% sát thương nhận"},
+		"sniper_chain": {"name": "Săn liên hoàn", "cat": "gun", "desc": "Hạ gục bot bằng bắn tỉa: 3 s sau đó phát kế tiếp nổ ngay, không cần nạp ngắm", "stat": "sniper_chain", "per": 1.0, "max": 1, "kind": "add", "effect": "Bắn liền 3 s"},
+		"sniper_slide": {"name": "Nạp trượt", "cat": "gun", "desc": "Khi đang trượt: không bị chậm lúc nạp và nạp nhanh hơn 15% mỗi bậc", "stat": "sniper_slide", "per": 0.15, "max": 2, "kind": "add", "effect": "Nạp trượt nhanh hơn"},
+	},
+	"gun:launcher": {
+		"launcher_jump": {"name": "Nhảy nổ", "cat": "gun", "desc": "Vụ nổ hất chính bạn mạnh gấp 1.8 lần (rocket jump), sát thương tự chịu giữ nguyên", "stat": "launcher_jump", "per": 1.0, "max": 1, "kind": "add", "effect": "Hất bản thân x1.8"},
+		"launcher_cluster": {"name": "Chùm ba", "cat": "gun", "desc": "Mỗi phát bắn ra 3 tên lửa tỏa ra, mỗi quả 45% sát thương và 70% bán kính nổ", "stat": "launcher_cluster", "per": 1.0, "max": 1, "kind": "add", "effect": "3 tên lửa"},
+		"launcher_sticky": {"name": "Mìn dính", "cat": "gun", "desc": "Tên lửa trúng bot thì dính vào rồi nổ sau 1 s", "stat": "launcher_sticky", "per": 1.0, "max": 1, "kind": "add", "effect": "Dính, nổ sau 1 s"},
+		"launcher_chain": {"name": "Nổ dây chuyền", "cat": "gun", "desc": "Bot chết vì vụ nổ nổ thêm một vụ nhỏ (50% sát thương, 50% bán kính), tối đa 3 lần liên tiếp", "stat": "launcher_chain", "per": 1.0, "max": 1, "kind": "add", "effect": "Nổ lan"},
 	},
 	"shared": {
 		"damage": {"name": "Đạn mạnh", "cat": "gun", "desc": "+12% sát thương súng mỗi bậc", "stat": "damage", "per": 0.12, "max": 5, "kind": "mult"},
