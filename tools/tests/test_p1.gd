@@ -155,7 +155,7 @@ func _run() -> void:
 				break
 		_check(rd >= 1 and rd <= 30, "tầng %d: sẵn sàng sau %d khung" % [fl, rd])
 		var p2: PackedVector3Array = an.nav_path(an.spawn_point, an.exit_point)
-		_check(p2.size() >= 2 and p2[p2.size() - 1].distance_to(an.exit_point) < 3.0, "tầng %d: đường mới tới đúng cổng mới" % fl)
+		_check(p2.size() >= 2 and p2[p2.size() - 1].distance_to(an.exit_point) < 3.0, "tầng %d: đường mới tới đúng cổng mới (rd=%d, %d điểm, cách %.1f m)" % [fl, rd, p2.size(), p2[p2.size() - 1].distance_to(an.exit_point) if p2.size() > 0 else -1.0])
 	an.queue_free()
 	await _frames(2)
 
