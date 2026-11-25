@@ -175,11 +175,11 @@ func _run() -> void:
 	arena.add_child(rb)
 	await _frames(5)
 	rb.global_position = Vector3(0, arena.void_y - 10.0, 0)
-	await _frames(3)
+	await _frames(20)   # lưới an toàn của wave_manager chạy 4 lần/giây
 	_check(relocated.size() == 1, "bot rơi dưới void_y được đưa về (signal bot_relocated)")
 	_check(rb.global_position.y > arena.void_y and absf(rb.global_position.x) < arena.half.x and absf(rb.global_position.z) < arena.half.y, "vị trí mới nằm trong map (%s)" % rb.global_position)
 	rb.global_position = Vector3(arena.half.x + 6.0, 0.1, 0.0)
-	await _frames(3)
+	await _frames(20)   # lưới an toàn của wave_manager chạy 4 lần/giây
 	_check(relocated.size() == 2 and absf(rb.global_position.x) < arena.half.x, "bot văng ra ngoài biên được đưa về")
 	var dead_bot = load("res://scripts/bot.gd").new()
 	dead_bot.setup("swordsman", 1)
@@ -188,7 +188,7 @@ func _run() -> void:
 	await _frames(3)
 	dead_bot.dead = true
 	dead_bot.global_position = Vector3(0, arena.void_y - 10.0, 0)
-	await _frames(3)
+	await _frames(20)   # lưới an toàn của wave_manager chạy 4 lần/giây
 	_check(relocated.size() == 2, "bot đã chết không bị kéo về")
 	rb.queue_free()
 	dead_bot.queue_free()

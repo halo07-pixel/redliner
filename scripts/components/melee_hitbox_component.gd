@@ -27,6 +27,7 @@ var _recovery_time: float = 0.0
 var _reach: float = 0.0
 var _shape := BoxShape3D.new()
 var _sphere := SphereShape3D.new()
+var _query := PhysicsShapeQueryParameters3D.new()   # dùng lại mỗi lần quét, khỏi cấp phát
 # M39: các hệ số của kiếm người chơi (combat đặt mỗi frame; mặc định tắt nên bot không bị ảnh hưởng)
 var guard_rebound: float = 0.0     # > 0: khựng thêm bấy nhiêu giây khi chém trúng đối thủ đang đỡ (lỗi Phá thế đỡ)
 var pierce_guard: float = 0.0      # tỉ lệ sát thương vẫn gây lên đối thủ đang đỡ (Mũi nhọn xuyên giáp)
@@ -163,7 +164,7 @@ func _scan() -> void:
 		other.force_clash(my_pos)
 		return
 	var reach: float = _reach
-	var q := PhysicsShapeQueryParameters3D.new()
+	var q: PhysicsShapeQueryParameters3D = _query
 	if _whirl:
 		_sphere.radius = float(Global.PERKS["whirl_radius"])
 		q.shape = _sphere

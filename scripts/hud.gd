@@ -5,6 +5,9 @@ extends CanvasLayer
 var _speed_label: Label
 var _state_label: Label
 var _dash_label: Label
+var _dash_cells: int = -1   # số ô stamina đang hiện (tránh dựng lại chuỗi mỗi frame)
+var _compass_key: int = -1
+const COMPASS_ARROWS: Array = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
 var _health_bar: ProgressBar
 var _health_label: Label
 var _ammo_label: Label
@@ -227,11 +230,10 @@ func set_state(state_name: String) -> void:
 ## Thanh stamina dash (10 ô); mỗi dash tốn dash_cost, hồi dần sau độ trễ ngắn.
 func set_stamina(value: float, maximum: float) -> void:
 	var n: int = int(round(10.0 * value / maximum))
+	if n == _dash_cells:
+		return
+	_dash_cells = n
 	_dash_label.text = "Dash: [" + "#".repeat(n) + "-".repeat(10 - n) + "]"
-
-
-func set_dash(charges: int, max_charges: int) -> void:
-	_dash_label.text = "Dash: " + "[#]".repeat(charges) + "[ ]".repeat(max_charges - charges)
 
 
 func set_health(current: float, maximum: float) -> void:
@@ -475,9 +477,12 @@ func set_compass(on: bool, angle: float, dist: float) -> void:
 	_compass_label.visible = on
 	if not on:
 		return
-	var arrows: Array = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
 	var idx: int = int(roundf(wrapf(angle, 0.0, TAU) / (TAU / 8.0))) % 8
-	_compass_label.text = "%s  %d m" % [arrows[idx], int(dist)]
+	var key: int = idx * 100000 + int(dist)
+	if key == _compass_key:
+		return   # không đổi: khỏi dựng lại chuỗi
+	_compass_key = key
+	_compass_label.text = "%s  %d m" % [COMPASS_ARROWS[idx], int(dist)]
 
 
 ## Thanh máu Titan (giữa trên, dưới la bàn). on=false ẩn.

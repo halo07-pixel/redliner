@@ -33,6 +33,7 @@ var stats            # thống kê ván (run_stats.gd)
 var portal: Area3D   # Vô Tận: cổng ra tầng
 var progress: Node   # Vô Tận: XP / cấp / nâng cấp (run_progress.gd)
 var level_ui: CanvasLayer
+var _compass_t: float = 0.0
 var run_gold: int = 0          # Vô Tận: vàng kiếm trong lượt (chưa/đã cộng vào Global)
 var _gold_flushed: int = 0
 var laser: Node3D              # lỗi nạp ngắm của bắn tỉa
@@ -497,7 +498,7 @@ func _physics_process(delta: float) -> void:
 		var regen: float = progress.stat("regen")
 		if regen > 0.0:
 			player.hurtbox.heal(regen * delta)
-	_update_compass()
+	_update_compass(delta)
 	if _over or player.dead:
 		return
 	if mode != null and mode.active:
@@ -531,9 +532,13 @@ func _titan_shake(p: Vector3, amount: float) -> void:
 
 
 ## La bàn (chỉ map lớn): hướng + khoảng cách tới kẻ địch gần nhất, chỉ cập nhật UI qua hàm của HUD.
-func _update_compass() -> void:
+func _update_compass(delta: float = 1.0) -> void:
 	if not arena.compass:
 		return
+	_compass_t -= delta
+	if _compass_t > 0.0:
+		return   # la bàn cập nhật 5 lần/giây là đủ
+	_compass_t = 0.2
 	var best: Node3D = null
 	var best_d: float = INF
 	for b in get_tree().get_nodes_in_group("bots"):

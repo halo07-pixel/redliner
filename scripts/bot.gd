@@ -61,6 +61,8 @@ var _retreat_t: float = 0.0   # lùi một nhịp sau khi bị parry / thua clas
 var _punish: bool = false     # người chơi đang Destabilized
 var _path: PackedVector3Array = PackedVector3Array()
 var _path_t: float = 0.0
+var _rank_until: int = 0
+var _rank_cache: int = 0
 var _blocked_t: float = 0.0   # thời gian muốn đi mà không nhúc nhích được (kẹt vật cản thấp...)
 var _force_nav_t: float = 0.0 # đang ép đi theo navmesh (bỏ đường thẳng) sau khi bị kẹt
 var _steer_hold: Vector3 = Vector3.ZERO # hướng lách đã chọn quanh vật cản (giữ nhất quán, không đổi bên liên tục)
@@ -485,6 +487,15 @@ func _melee_move(dir: Vector3, dist: float, spd: float) -> Vector3:
 
 ## Thứ hạng của bot trong số bot cận chiến còn sống (0 = gần người chơi nhất).
 func _melee_rank() -> int:
+	var now: int = Engine.get_physics_frames()
+	if now < _rank_until:
+		return _rank_cache   # tính lại tối đa 5 lần/giây mỗi bot (vòng lặp O(số bot) trên mỗi bot ở gần)
+	_rank_until = now + 12
+	_rank_cache = _compute_melee_rank()
+	return _rank_cache
+
+
+func _compute_melee_rank() -> int:
 	var rank: int = 0
 	var my_d: float = global_position.distance_to(target.global_position)
 	for b in get_tree().get_nodes_in_group("bots"):
