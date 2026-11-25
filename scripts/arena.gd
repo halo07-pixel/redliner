@@ -68,6 +68,10 @@ func load_floor(n: int) -> void:
 		nav_region.enabled = false
 	for node in _map_nodes:
 		if is_instance_valid(node):
+			# Gỡ khỏi cây NGAY: queue_free chỉ xoá cuối khung, mà navmesh tầng mới được nướng từ mọi collider còn trong cây
+			# -> khối của tầng cũ lọt vào navmesh mới (đo: tầng 6 có 1898 đa giác thay vì 1131, xuất phát và cổng bị tách rời).
+			if node.get_parent() == self:
+				remove_child(node)
 			node.queue_free()
 	_map_nodes.clear()
 	props.clear()
@@ -206,6 +210,10 @@ func nav_ready() -> bool:
 		return false
 	if map_id != "endless" or _nav_probe_ok:
 		return true
+	# vùng mới phải đã được máy chủ nhận (iteration > 0); riêng đường thông thì chưa đủ vì dữ liệu cũ của tầng trước có thể tình cờ
+	# cho đường tới góc cổng mới (các góc đều là ô trống), và riêng iteration cũng chưa đủ (đo: đường vẫn cụt vài khung sau đó).
+	if NavigationServer3D.region_get_iteration_id(nav_region.get_rid()) <= 0:
+		return false
 	var p: PackedVector3Array = NavigationServer3D.map_get_path(nav_region.get_navigation_map(), spawn_point, exit_point, true)
 	_nav_probe_ok = p.size() >= 2 and p[p.size() - 1].distance_to(exit_point) < 4.0
 	return _nav_probe_ok

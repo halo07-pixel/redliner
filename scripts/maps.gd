@@ -274,6 +274,13 @@ static func _district() -> Dictionary:
 
 # ------------------------------------------------------------------ Vô Tận (M34)
 
+## Địa hình thêm (P3): "sân khấu" = bệ thấp + 2 dốc lên + 2 bức che thấp, đặt vào các ô trống. Cấp từ một bộ số ngẫu nhiên RIÊNG
+## (hạt giống lệch) và chỉ dựng SAU toà nhà / cột: bố cục cũ, chỗ xuất phát và cổng không đổi. Mọi khối nằm trong chỗ xây của ô.
+const TERRAIN: Dictionary = {
+	"seed_offset": 101, "stage_max": 3, "stage_half": 8.0, "stage_h": 2.0, "ramp_run": 8.0, "ramp_w": 7.0, "ramp_t": 0.4,
+	"cover_len": 8.0, "cover_h": 1.4, "cover_t": 0.8, "cover_dist": 11.0,
+}
+
 ## Bản đồ một tầng chế độ Vô Tận: lưới ô vuông, mỗi ô một mẫu ngẫu nhiên (hạt giống theo số tầng, cùng tầng cùng bản đồ).
 ## Công trình luôn lùi vào `inset` m trong ô nên phố giữa các ô rộng >= 2*inset: mọi ô thông nhau, không cần kiểm tra thêm.
 ## Xuất phát ở một góc (ô trống), cổng ra ở góc đối diện (ô trống). Ít vật thể: chỉ toà nhà và cột.
@@ -286,6 +293,7 @@ static func endless(floor_n: int) -> Dictionary:
 	var half: float = n * cell * 0.5
 	var usable: float = cell * 0.5 - float(E["inset"])   # nửa bề rộng chỗ xây trong ô
 	var boxes: Array = []
+	var empties: Array = []   # tâm các ô trống (P3 đặt sân khấu vào đây); không dùng thêm số ngẫu nhiên
 	var corner: int = rng.randi() % 4
 	var start_ij := Vector2i(0 if corner % 2 == 0 else n - 1, 0 if corner < 2 else n - 1)
 	var exit_ij := Vector2i(n - 1 - start_ij.x, n - 1 - start_ij.y)
@@ -315,6 +323,9 @@ static func endless(floor_n: int) -> Dictionary:
 					boxes.append(pb)
 					if rng.randf() < 0.5:
 						boxes.append(_b(Vector3(4.0, 0.5, 4.0), Vector3(pos.x, h + 0.25, pos.z), "grapple"))
+			else:
+				empties.append(c)
+	_endless_stages(boxes, floor_n, empties)
 	var start_c := Vector3(-half + cell * (start_ij.x + 0.5), 0.1, -half + cell * (start_ij.y + 0.5))
 	var exit_c := Vector3(-half + cell * (exit_ij.x + 0.5), 0.0, -half + cell * (exit_ij.y + 0.5))
 	# Điểm sinh bot: dọc các phố (đường biên ô), cách nhau 25 m; bỏ những điểm sát chỗ xuất phát.
@@ -338,6 +349,36 @@ static func endless(floor_n: int) -> Dictionary:
 		"big": true, "titans": true, "spawn_band": E["band"], "compass": true, "nav_cell": float(E["nav_cell"]),
 		"exit": exit_c, "endless": true, "floor": floor_n,
 	}
+
+
+## Sân khấu (P3) vào tối đa `stage_max` ô trống, chọn xác định theo tầng. Dốc theo trục x, bức che theo trục z.
+static func _endless_stages(boxes: Array, floor_n: int, empties: Array) -> void:
+	var T: Dictionary = TERRAIN
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3400 + floor_n * 7919 + int(T["seed_offset"])
+	var pool: Array = empties.duplicate()
+	var sh: float = float(T["stage_half"])
+	var h: float = float(T["stage_h"])
+	var run: float = float(T["ramp_run"])
+	var th: float = float(T["ramp_t"])
+	var ang: float = atan2(h, run)
+	var rlen: float = sqrt(run * run + h * h)
+	for k in mini(int(T["stage_max"]), pool.size()):
+		var idx: int = rng.randi() % pool.size()
+		var c: Vector3 = pool[idx]
+		pool.remove_at(idx)
+		boxes.append(_b(Vector3(sh * 2.0, h, sh * 2.0), Vector3(c.x, h * 0.5, c.z), "platform"))
+		for sx in [-1.0, 1.0]:
+			# bề mặt dốc đi từ (mép bệ, cao h) xuống (cách mép `run`, cao 0); hộp dày th lệch xuống dưới bề mặt
+			var rz: float = rad_to_deg(ang) * sx   # +x thấp xuống: xoay z âm; -x: dương
+			var rot_rad: float = deg_to_rad(-rz)
+			var n := Vector3(-sin(rot_rad), cos(rot_rad), 0.0)   # pháp tuyến mặt trên sau khi xoay quanh z
+			var mid := Vector3(c.x + sx * (sh + run * 0.5), h * 0.5, c.z) - n * (th * 0.5)
+			boxes.append(_b(Vector3(rlen, th, float(T["ramp_w"])), mid, "ramp", Vector3(0.0, 0.0, -rz)))
+		var cl: float = float(T["cover_len"])
+		var ch: float = float(T["cover_h"])
+		for sz in [-1.0, 1.0]:
+			boxes.append(_b(Vector3(cl, ch, float(T["cover_t"])), Vector3(c.x, ch * 0.5, c.z + sz * float(T["cover_dist"])), "platform"))
 
 
 ## Một toà nhà tại `c` (tâm yêu cầu) trong ô có tâm `cc`: tâm bị kẹp để mép toà nhà không vượt `usable` (nửa bề rộng chỗ xây).

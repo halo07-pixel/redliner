@@ -62,7 +62,7 @@ func _run() -> void:
 	_check(bad_inset == 0, "8 tầng: mọi khối lùi vào >= %d m trong ô (phố rộng >= %d m, mọi ô thông nhau)" % [inset, inset * 2.0])
 	var role_keys: Array = roles.keys()
 	role_keys.sort()
-	_check(role_keys == ["grapple", "pillar", "wall"], "chỉ có toà nhà / cột / bệ móc (%s)" % [role_keys])
+	_check(role_keys == ["grapple", "pillar", "platform", "ramp", "wall"], "chỉ có toà nhà / cột / bệ móc / sân khấu + dốc (%s)" % [role_keys])
 	for fl in [1, 2, 3, 4, 5]:
 		var md: Dictionary = Maps.endless(fl)
 		var sp: Vector3 = md["spawn"]
