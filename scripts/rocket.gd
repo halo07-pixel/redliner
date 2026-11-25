@@ -9,6 +9,9 @@ var velocity: Vector3 = Vector3.ZERO
 var source: Node3D
 var cfg: Dictionary = {}
 var _life: float = 0.0
+var _stuck: Node3D = null        # mìn dính (M38): đang dính vào thân bot này
+var _stick_off: Vector3 = Vector3.ZERO
+var _fuse: float = 0.0
 
 
 func setup(p_source: Node3D, p_cfg: Dictionary, dir: Vector3) -> void:
@@ -31,6 +34,13 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _fuse > 0.0:
+		_fuse -= delta
+		if is_instance_valid(_stuck):
+			global_position = _stuck.global_position + _stick_off
+		if _fuse <= 0.0:
+			_detonate(global_position)
+		return
 	_life += delta
 	if _life > float(cfg["life"]):
 		queue_free()
@@ -45,14 +55,30 @@ func _physics_process(delta: float) -> void:
 		global_position = to
 		return
 	var pos: Vector3 = hit["position"]
-	explode(get_world_3d(), pos, cfg, source if is_instance_valid(source) else null)
+	var col: Object = hit["collider"]
+	var body: Node3D = col.get_parent() as Node3D if col.has_method("take_hit") else null
+	if float(cfg.get("sticky", 0.0)) > 0.0 and body != null and body != source:
+		_stuck = body   # mìn dính: bám vào bot rồi nổ sau `sticky` giây
+		_stick_off = pos - body.global_position
+		global_position = pos
+		velocity = Vector3.ZERO
+		_fuse = float(cfg["sticky"])
+		return
+	_detonate(pos)
+
+
+func _detonate(pos: Vector3) -> void:
+	var chains: Array = explode(get_world_3d(), pos, cfg, source if is_instance_valid(source) else null)
 	exploded.emit(pos, float(cfg["blast_radius"]))
+	for c in chains:
+		exploded.emit(c[0], c[1])   # nổ dây chuyền: mỗi vụ nổ thêm phát một Signal để hiệu ứng/âm thanh
 	queue_free()
 
 
 ## Nổ tại `pos`: sát thương giảm dần theo khoảng cách, đẩy lùi và làm choáng kẻ địch trong bán kính.
 ## Người bắn cũng bị đẩy (rocket-jump) và chịu một phần nhỏ sát thương.
-static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3D) -> void:
+## Trả về danh sách vụ nổ dây chuyền đã xảy ra [[vị trí, bán kính], ...] (thẻ Nổ dây chuyền; rỗng nếu không có).
+static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3D) -> Array:
 	var radius: float = float(cfg["blast_radius"])
 	var shape := SphereShape3D.new()
 	shape.radius = radius
@@ -63,6 +89,7 @@ static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3
 	q.collide_with_areas = true
 	q.collide_with_bodies = false
 	var seen: Array = []
+	var dead_centers: Array = []
 	for r in world.direct_space_state.intersect_shape(q, 32):
 		var hb: Object = r["collider"]
 		if hb in seen or not hb.has_method("take_hit"):
@@ -78,8 +105,10 @@ static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3
 		var dir: Vector3 = (center - pos).normalized() if dist > 0.01 else Vector3.UP
 		var push: Vector3 = dir * float(cfg["knockback"]) * scale
 		if body == source:
+			if bool(cfg.get("no_self", false)):
+				continue   # nổ dây chuyền không hại người bắn
 			if body.has_method("apply_blast"):
-				body.apply_blast(push)
+				body.apply_blast(push * float(cfg.get("self_push_mult", 1.0)))
 			hb.take_hit({"damage": float(cfg["damage"]) * scale * float(cfg["self_damage_mult"]),
 				"kind": "explosion", "source": source, "direction": dir})
 			continue
@@ -92,3 +121,17 @@ static func explode(world: World3D, pos: Vector3, cfg: Dictionary, source: Node3
 				body.apply_blast(push)
 			if "melee" in body and body.melee != null:
 				body.melee.stagger(float(cfg["stagger"]))
+			if "dead" in hb and hb.dead:
+				dead_centers.append(center)
+	var out: Array = []
+	var depth: int = int(cfg.get("chain_depth", 0))
+	if bool(cfg.get("chain", false)) and depth < int(Global.PERKS["chain_depth"]):
+		for c in dead_centers:
+			var cc: Dictionary = cfg.duplicate()
+			cc["damage"] = float(cfg["damage"]) * float(Global.PERKS["chain_damage"])
+			cc["blast_radius"] = radius * float(Global.PERKS["chain_radius"])
+			cc["chain_depth"] = depth + 1
+			cc["no_self"] = true
+			out.append([c, cc["blast_radius"]])
+			out.append_array(explode(world, c, cc, source))
+	return out

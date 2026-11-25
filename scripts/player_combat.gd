@@ -47,6 +47,10 @@ var move_mult: float = 1.0        # hệ số tốc độ chạy do lỗi (nạp
 var _charge: float = 0.0
 var _charge_lock: bool = false
 var _last_spread: float = -1.0
+var _air_time: float = 0.0        # M38 Nạp bằng cú nhảy: giây đã bay liên tục
+var _marks: Dictionary = {}       # M38 Tia đánh dấu: hurtbox -> giây còn lại
+var _chain_t: float = 0.0         # M38 Săn liên hoàn: giây còn được bắn không cần nạp ngắm
+var _super: bool = false          # M38 Nạp thêm: phát đang bắn là siêu đạn
 
 var _ammo: Dictionary = {}
 var _head: Node3D
@@ -111,6 +115,7 @@ func _physics_process(delta: float) -> void:
 	_shot_cd = maxf(_shot_cd - delta, 0.0)
 	flaws.tick(delta)
 	_emit_flaw()
+	_tick_perks(delta)
 	if reloading:
 		_reload_t -= delta
 		if _reload_t <= 0.0:
@@ -152,6 +157,38 @@ func _emit_flaw() -> void:
 	flaw_changed.emit(sp, flaws.max_spread(weapon))
 
 
+func _airborne() -> bool:
+	return _body.has_method("is_on_floor") and not _body.is_on_floor()
+
+
+func _sliding() -> bool:
+	return "state" in _body and _body.state == _body.State.SLIDE
+
+
+## Thẻ có hiệu ứng theo thời gian: nạp bằng cú nhảy, hết hạn đánh dấu, cửa sổ săn liên hoàn.
+func _tick_perks(delta: float) -> void:
+	_chain_t = maxf(_chain_t - delta, 0.0)
+	for hb in _marks.keys():
+		if not is_instance_valid(hb):
+			_marks.erase(hb)
+			continue
+		_marks[hb] = float(_marks[hb]) - delta
+		if float(_marks[hb]) <= 0.0:
+			hb.damage_taken_mult = 1.0
+			_marks.erase(hb)
+	if float(weapon_mods.get("shotgun_airreload", 0.0)) > 0.0 and _airborne():
+		_air_time += delta
+		if _air_time >= float(Global.PERKS["airreload_secs"]):
+			_air_time -= float(Global.PERKS["airreload_secs"])
+			var cap: int = maxi(roundi(float(Global.WEAPONS["shotgun"]["mag"]) * mag_mult), 1)
+			if int(_ammo.get("shotgun", 0)) < cap:
+				_ammo["shotgun"] = int(_ammo["shotgun"]) + 1
+				if weapon == "shotgun":
+					ammo_changed.emit(ammo, max_ammo())
+	else:
+		_air_time = 0.0
+
+
 ## Hệ số / giá trị nâng cấp riêng của súng đang cầm (vd "damage_mult" -> weapon_mods["pistol_damage_mult"]).
 func _wmod(key: String, default: float) -> float:
 	return float(weapon_mods.get(weapon + "_" + key, default))
@@ -165,17 +202,35 @@ func _start_reload() -> void:
 	reloading_changed.emit(true)
 
 
-## Bắn theo súng: thường thì bắn khi giữ; súng có lỗi nạp ngắm thì phải giữ đủ thời gian (thả sớm = huỷ).
-func _handle_shoot(delta: float, blocked: bool) -> void:
+## Thời gian giữ cần để nổ phát hiện tại (0 = bắn thường): lỗi nạp ngắm, trừ Săn liên hoàn và Nạp trượt.
+func _charge_need() -> float:
 	var ct: float = flaws.charge_time(weapon)
+	if ct <= 0.0 or _chain_t > 0.0:
+		return 0.0
+	if _sliding():
+		ct *= maxf(1.0 - _wmod("slide", 0.0), 0.2)
+	return ct
+
+
+## Bắn theo súng: thường thì bắn khi giữ; súng có lỗi nạp ngắm thì phải giữ đủ thời gian (thả sớm = huỷ).
+## Thẻ Nạp thêm: đủ nạp rồi giữ thêm `overcharge_extra` s thì thành siêu đạn; thả sau khi đủ nạp vẫn nổ phát thường.
+func _handle_shoot(delta: float, blocked: bool) -> void:
+	var ct: float = _charge_need()
 	if ct <= 0.0:
 		_cancel_charge()
-		if want_shoot and not blocked:
+		if not want_shoot:
+			_charge_lock = false   # thả chuột trong cửa sổ săn liên hoàn cũng mở khoá cho lần nạp sau
+		elif not blocked:
 			_shoot()
 		return
+	var over: bool = _wmod("overcharge", 0.0) > 0.0
 	if not want_shoot:
 		_charge_lock = false
-		_cancel_charge()
+		if over and _charge >= ct and not blocked and not reloading and ammo > 0:
+			_cancel_charge()
+			_shoot()   # thả sau khi đủ nạp: phát thường
+		else:
+			_cancel_charge()
 		return
 	if blocked or reloading or _charge_lock or _shot_cd > 0.0:
 		_cancel_charge()
@@ -184,12 +239,29 @@ func _handle_shoot(delta: float, blocked: bool) -> void:
 		_shoot()   # hết đạn: tự nạp
 		return
 	_charge += delta
-	move_mult = flaws.charge_move_mult(weapon)
-	charge_changed.emit(minf(_charge / ct, 1.0))
-	if _charge >= ct:
+	move_mult = 1.0 if (_sliding() and _wmod("slide", 0.0) > 0.0) else flaws.charge_move_mult(weapon)
+	var full: float = ct + (float(Global.PERKS["overcharge_extra"]) if over else 0.0)
+	charge_changed.emit(minf(_charge / full, 1.0))
+	if _wmod("mark", 0.0) > 0.0:
+		_mark_target()
+	if _charge >= full:
 		_cancel_charge()
 		_charge_lock = true   # phải thả chuột mới nạp phát sau
+		_super = over
 		_shoot()
+		_super = false
+
+
+## Tia đánh dấu: bot bị tia laser quét trúng bị nhận thêm sát thương một lúc.
+func _mark_target() -> void:
+	var hit: Dictionary = _ray(_head.global_position, -_head.global_transform.basis.z, float(cfg()["range"]), [_body])
+	if hit.is_empty():
+		return
+	var hb: Object = hit["collider"]
+	if not hb.has_method("take_hit") or not ("damage_taken_mult" in hb) or ("dead" in hb and hb.dead):
+		return
+	hb.damage_taken_mult = float(Global.PERKS["mark_mult"])
+	_marks[hb] = float(Global.PERKS["mark_time"])
 
 
 func _cancel_charge() -> void:
@@ -224,6 +296,8 @@ func _shoot() -> void:
 	var to: Vector3 = from + dir * float(c["range"])
 	match String(c["kind"]):
 		"pellets":
+			if _wmod("shockwave", 0.0) > 0.0:
+				_shockwave(from, dir)
 			to = _fire_pellets(from, dir, c)
 		"explosive":
 			_launch_rocket(from, dir, c)
@@ -260,6 +334,9 @@ func _hit(collider: Object, damage: float, dir: Vector3, extra: Dictionary = {})
 func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 	var damage: float = float(c["damage"]) * _wmod("damage_mult", 1.0)
 	var pierce: int = int(c.get("pierce", 0)) + int(_wmod("pierce", 0.0))
+	if _super:
+		damage *= float(Global.PERKS["overcharge_damage"])
+		pierce = 99   # siêu đạn xuyên mọi mục tiêu
 	var exclude: Array = []
 	var end: Vector3 = from + dir * float(c["range"])
 	var any_landed: bool = false
@@ -282,6 +359,8 @@ func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 				d *= float(c["headshot_mult"])
 		if _hit(col, d, dir, {"headshot": head, "point": hit["position"]}):
 			any_landed = true
+			if weapon == "sniper" and _wmod("chain", 0.0) > 0.0 and "dead" in col and col.dead:
+				_chain_t = float(Global.PERKS["chain_window"])   # Săn liên hoàn: hạ gục mở cửa sổ bắn liền
 		exclude.append(col.get_rid())
 		damage *= float(c.get("pierce_mult", 0.7 if int(_wmod("pierce", 0.0)) > 0 else 1.0))
 	if any_target:
@@ -290,12 +369,15 @@ func _fire_hitscan(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 
 
 ## Shotgun: nhiều viên tản, sát thương giảm theo khoảng cách. Trả về điểm trúng giữa nòng.
+## Thẻ Cú đá đôi (+sát thương khi đang bay) và Đạn dội (mảnh trúng tường nảy một lần).
 func _fire_pellets(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 	var basis := Basis.looking_at(dir, Vector3.UP)
 	var spread: float = deg_to_rad(float(c["spread_deg"]))
 	var any_landed: bool = false
 	var any_target: bool = false
 	var centre: Vector3 = from + dir * float(c["range"])
+	var air_mult: float = 1.0 + _wmod("airkick", 0.0) if _airborne() else 1.0
+	var ricochet: bool = _wmod("ricochet", 0.0) > 0.0
 	for i in int(c["pellets"]):
 		var ang: float = randf() * TAU
 		var rad: float = sqrt(randf()) * spread
@@ -306,11 +388,24 @@ func _fire_pellets(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 		if i == 0:
 			centre = hit["position"]
 		var col: Object = hit["collider"]
+		var travelled: float = from.distance_to(hit["position"])
+		var mult: float = air_mult
 		if not col.has_method("take_hit"):
-			continue
-		var dist: float = from.distance_to(hit["position"])
-		var k: float = clampf(1.0 - dist / float(c["falloff_range"]), 0.0, 1.0)
-		var d: float = float(c["damage"]) * lerpf(float(c["min_falloff"]), 1.0, k)
+			if not ricochet:
+				continue
+			# nảy khỏi tường một lần
+			var n: Vector3 = hit.get("normal", Vector3.UP)
+			var rd: Vector3 = pd.bounce(n).normalized()
+			var rfrom: Vector3 = (hit["position"] as Vector3) + n * 0.05
+			hit = _ray(rfrom, rd, maxf(float(c["range"]) - travelled, 1.0))
+			if hit.is_empty() or not (hit["collider"] as Object).has_method("take_hit"):
+				continue
+			col = hit["collider"]
+			pd = rd
+			travelled += rfrom.distance_to(hit["position"])
+			mult *= float(Global.PERKS["ricochet_mult"])
+		var k: float = clampf(1.0 - travelled / float(c["falloff_range"]), 0.0, 1.0)
+		var d: float = float(c["damage"]) * lerpf(float(c["min_falloff"]), 1.0, k) * mult
 		any_target = true
 		if _hit(col, d, pd):
 			any_landed = true
@@ -319,12 +414,60 @@ func _fire_pellets(from: Vector3, dir: Vector3, c: Dictionary) -> Vector3:
 	return centre
 
 
+## Thẻ Sóng xung kích: hất lùi mọi bot trong nón phía trước, trong tầm `shockwave_range`.
+func _shockwave(from: Vector3, dir: Vector3) -> void:
+	var shape := SphereShape3D.new()
+	shape.radius = float(Global.PERKS["shockwave_range"])
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis.IDENTITY, from)
+	q.collision_mask = Global.L_ENEMY_HURT
+	q.collide_with_areas = true
+	q.collide_with_bodies = false
+	var seen: Array = []
+	for r in _head.get_world_3d().direct_space_state.intersect_shape(q, 32):
+		var hb: Object = r["collider"]
+		if hb in seen:
+			continue
+		seen.append(hb)
+		var body: Node3D = hb.get_parent() as Node3D
+		if body == null or body == _body or not body.has_method("apply_knockback") or ("dead" in body and body.dead):
+			continue
+		var to: Vector3 = body.global_position + Vector3(0.0, 0.95, 0.0) - from
+		if to.length() < 0.01 or to.normalized().dot(dir) < float(Global.PERKS["shockwave_cone"]):
+			continue
+		var flat: Vector3 = Vector3(dir.x, 0.0, dir.z).normalized()
+		body.apply_knockback(flat * float(Global.PERKS["shockwave_push"]) + Vector3(0.0, 3.0, 0.0))
+
+
 func _launch_rocket(from: Vector3, dir: Vector3, c: Dictionary) -> void:
+	var cluster: bool = _wmod("cluster", 0.0) > 0.0
+	var count: int = int(Global.PERKS["cluster_count"]) if cluster else 1
+	var basis := Basis.looking_at(dir, Vector3.UP)
+	for i in count:
+		var d: Vector3 = dir
+		if cluster:
+			var a: float = TAU * float(i) / float(count)
+			var off: float = deg_to_rad(float(Global.PERKS["cluster_spread_deg"]))
+			d = (basis * Vector3(sin(off) * cos(a), sin(off) * sin(a), -cos(off))).normalized()
+		_spawn_rocket(from, d, c, cluster)
+
+
+func _spawn_rocket(from: Vector3, dir: Vector3, c: Dictionary, cluster: bool) -> void:
 	var r: Node3D = RocketScript.new()
 	_body.get_parent().add_child(r)
 	r.global_position = from + dir * 0.8
 	var rc: Dictionary = c.duplicate()
 	rc["damage"] = float(c["damage"]) * damage_mult
 	rc["self_damage_mult"] = flaws.self_damage_mult(weapon, float(c["self_damage_mult"]))
+	if cluster:
+		rc["damage"] = float(rc["damage"]) * float(Global.PERKS["cluster_damage"])
+		rc["blast_radius"] = float(c["blast_radius"]) * float(Global.PERKS["cluster_radius"])
+	if _wmod("jump", 0.0) > 0.0:
+		rc["self_push_mult"] = float(Global.PERKS["launcher_jump_mult"])
+	if _wmod("sticky", 0.0) > 0.0:
+		rc["sticky"] = float(Global.PERKS["sticky_fuse"])
+	if _wmod("chain", 0.0) > 0.0:
+		rc["chain"] = true
 	r.setup(_body, rc, dir)
 	r.exploded.connect(func(pos: Vector3, radius: float): exploded.emit(pos, radius))

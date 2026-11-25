@@ -225,7 +225,7 @@ func _run() -> void:
 	await _frames(3)
 	mc.want_weapon = -1
 	_check(mc.weapon == "shotgun", "bấm đổi súng: không đổi được")
-	_check(main.progress.pools == ["shared"], "shotgun chưa có kho thẻ riêng: chỉ kho chung")
+	_check(main.progress.pools == ["shared", "gun:shotgun"], "cầm shotgun: kho chung + kho shotgun (M38)")
 	_check(main.hud._flaw_label.text.contains("Giật bật người"), "HUD hiện lỗi của súng đang cầm")
 	_check(main.laser != null and not main.laser._mesh.visible, "tia laser có sẵn, đang ẩn")
 	# vàng

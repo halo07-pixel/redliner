@@ -12,6 +12,7 @@ var max_health: float = 100.0
 var health: float = 100.0
 var dead: bool = false
 var parry: Node = null
+var damage_taken_mult: float = 1.0   # đánh dấu (tia đánh dấu bắn tỉa): nhân mọi sát thương nhận
 
 
 ## Tiêm phụ thuộc (setup injection): phe, máu tối đa, và parry (nếu có).
@@ -33,7 +34,7 @@ func take_hit(hit: Dictionary) -> bool:
 		return false
 	if parry != null and parry.try_parry(hit):
 		return false
-	health = maxf(health - float(hit["damage"]), 0.0)
+	health = maxf(health - float(hit["damage"]) * damage_taken_mult, 0.0)
 	hurt.emit(hit, health)
 	health_changed.emit(health, max_health)
 	if health <= 0.0:
