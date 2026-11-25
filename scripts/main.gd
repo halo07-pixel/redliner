@@ -165,6 +165,9 @@ func _ready() -> void:
 		player.combat.flaws.enabled = true   # lỗi riêng của súng chỉ có ở Vô Tận
 		player.combat.weapon_changed.connect(func(id, _n): progress.set_weapon_pool(id))
 		player.combat.weapon_changed.connect(func(id, _n): hud.set_flaw_text(id))
+		player.combat.sword_rebounded.connect(func():
+			Sfx.play("clash")
+			hud.flash("DỘI!", Color(1.0, 0.55, 0.3)))
 		player.combat.locked = true          # một súng mỗi lượt: súng khởi đầu đã chọn ở menu
 		player.combat.switch_to(Global.start_gun)
 		hud.set_flaw_text(player.combat.weapon)
@@ -248,7 +251,7 @@ func _apply_upgrades() -> void:
 	c.flaws.mods = {"rhythm_per_shot_mult": progress.stat("rhythm_per_shot"), "rhythm_recover_mult": progress.stat("rhythm_recover")}
 	c.weapon_mods = {"pistol_damage_mult": progress.stat("pistol_damage"), "pistol_pierce": progress.stat("pistol_pierce")}
 	for pool in Global.UPGRADES:
-		if String(pool).begins_with("gun:") and pool != "gun:pistol":
+		if (String(pool).begins_with("gun:") and pool != "gun:pistol") or pool == "sword":
 			for id in Global.UPGRADES[pool]:
 				var st: String = Global.UPGRADES[pool][id]["stat"]
 				c.weapon_mods[st] = progress.stat(st)

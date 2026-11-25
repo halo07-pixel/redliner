@@ -190,10 +190,13 @@ func _run() -> void:
 	await _frames(1)
 	_check(side.hurtbox.health == 100000.0, "không thẻ: đạn trúng tường rồi mất, bia bên cạnh không sao")
 	cb.weapon_mods = {"shotgun_ricochet": 1.0}
-	cb.refill()
-	cb._shot_cd = 0.0
-	cb._shoot()
-	await _frames(1)
+	for k in 6:   # đạn tản ngẫu nhiên: thử vài phát, chỉ cần ít nhất một mảnh nảy trúng
+		cb.refill()
+		cb._shot_cd = 0.0
+		cb._shoot()
+		await _frames(1)
+		if side.hurtbox.health < 100000.0:
+			break
 	_check(side.hurtbox.health < 100000.0, "Đạn dội: mảnh nảy khỏi tường trúng bia bên cạnh (-%.0f)" % (100000.0 - side.hurtbox.health))
 	await _clear()
 

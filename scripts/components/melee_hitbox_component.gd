@@ -8,6 +8,7 @@ signal hit_landed(hurtbox: Area3D, landed: bool)
 signal clashed(direction: Vector3)
 signal staggered(duration: float)
 signal got_parried # đòn của mình bị đối phương parry
+signal rebounded(direction: Vector3)   # M39: chém trúng bot đang đỡ -> kiếm bị dội (hướng đẩy người chơi)
 
 enum Phase { IDLE, WINDUP, ACTIVE, RECOVERY }
 
@@ -25,6 +26,15 @@ var _active_time: float = 0.0
 var _recovery_time: float = 0.0
 var _reach: float = 0.0
 var _shape := BoxShape3D.new()
+var _sphere := SphereShape3D.new()
+# M39: các hệ số của kiếm người chơi (combat đặt mỗi frame; mặc định tắt nên bot không bị ảnh hưởng)
+var guard_rebound: float = 0.0     # > 0: khựng thêm bấy nhiêu giây khi chém trúng đối thủ đang đỡ (lỗi Phá thế đỡ)
+var pierce_guard: float = 0.0      # tỉ lệ sát thương vẫn gây lên đối thủ đang đỡ (Mũi nhọn xuyên giáp)
+var riposte_t: float = 0.0         # còn bao lâu cú chém kế được thưởng phản đòn
+var riposte_mult: float = 1.0
+var whirl_next: bool = false       # cú chém tới là vòng chém 360 độ (Vòng chém)
+var _whirl: bool = false
+var _riposte_swing: bool = false
 
 
 func setup(p_team: int, p_body: Node3D) -> void:
@@ -66,6 +76,11 @@ func try_swing(wide: bool = false) -> bool:
 		_reach *= float(H["reach_mult"])
 		width *= float(H["width_mult"])
 	_shape.size = Vector3(width, 1.6, _reach)
+	_whirl = whirl_next
+	whirl_next = false
+	_riposte_swing = riposte_t > 0.0
+	if _riposte_swing:
+		riposte_t = 0.0
 	phase = Phase.WINDUP
 	_t = windup
 	_hit_list.clear()
@@ -103,6 +118,7 @@ func _leave_active() -> void:
 
 func _physics_process(delta: float) -> void:
 	_stagger_t = maxf(_stagger_t - delta, 0.0)
+	riposte_t = maxf(riposte_t - delta, 0.0)
 	match phase:
 		Phase.WINDUP:
 			_t -= delta
@@ -148,25 +164,61 @@ func _scan() -> void:
 		return
 	var reach: float = _reach
 	var q := PhysicsShapeQueryParameters3D.new()
-	q.shape = _shape
-	q.transform = Transform3D(global_transform.basis, global_position + _forward() * (reach * 0.5 + 0.2))
+	if _whirl:
+		_sphere.radius = float(Global.PERKS["whirl_radius"])
+		q.shape = _sphere
+		q.transform = Transform3D(Basis.IDENTITY, (body.global_position if body != null else global_position) + Vector3(0.0, 0.95, 0.0))
+	else:
+		q.shape = _shape
+		q.transform = Transform3D(global_transform.basis, global_position + _forward() * (reach * 0.5 + 0.2))
 	q.collision_mask = Global.hurt_layer(1 - team)
 	q.collide_with_areas = true
 	q.collide_with_bodies = false
+	var dmg_mult: float = (float(Global.HEAVY_SLASH["damage_mult"]) if heavy else 1.0)
+	if _whirl:
+		dmg_mult *= float(Global.PERKS["whirl_damage"])
+	if _riposte_swing:
+		dmg_mult *= riposte_mult
 	for r in get_world_3d().direct_space_state.intersect_shape(q, 8):
 		var hb: Object = r["collider"]
 		if hb in _hit_list or not hb.has_method("take_hit"):
 			continue
 		_hit_list.append(hb)
 		var hit := {
-			"damage": float(Global.COMBAT["sword_damage"]) * (float(Global.HEAVY_SLASH["damage_mult"]) if heavy else 1.0),
+			"damage": float(Global.COMBAT["sword_damage"]) * dmg_mult,
 			"kind": "melee",
 			"source": body,
 			"direction": _forward(),
 			"on_parried": _on_parried,
 		}
+		var guarded: bool = "parry" in hb and hb.parry != null and hb.parry.is_active()
 		var landed: bool = hb.take_hit(hit)
 		hit_landed.emit(hb, landed)
+		if guarded and not landed:
+			_on_guard_hit(hb, hit)
+		elif landed and _whirl:
+			_whirl_push(hb)
+
+
+## Chém trúng đối thủ đang đỡ (đòn đã bị parry): xuyên giáp gây phần sát thương còn lại, lỗi Phá thế đỡ dội kiếm lại.
+func _on_guard_hit(hb: Object, hit: Dictionary) -> void:
+	if pierce_guard > 0.0 and not hb.dead:
+		var through: Dictionary = hit.duplicate()
+		through["damage"] = float(hit["damage"]) * pierce_guard
+		through["on_parried"] = func(): pass
+		hb.take_hit(through)   # parry đã bị tiêu hao nên đòn này trúng thật
+	if guard_rebound > 0.0 and not _riposte_swing:
+		stagger(float(Global.COMBAT["sword_stagger_when_parried"]) + guard_rebound)
+		rebounded.emit(-_forward())
+
+
+func _whirl_push(hb: Object) -> void:
+	var tb: Node3D = hb.get_parent() as Node3D
+	if tb == null or tb == body or not tb.has_method("apply_knockback"):
+		return
+	var away: Vector3 = tb.global_position - (body.global_position if body != null else global_position)
+	away.y = 0.0
+	tb.apply_knockback(away.normalized() * float(Global.PERKS["whirl_push"]) + Vector3(0.0, 2.0, 0.0))
 
 
 func _on_parried() -> void:
