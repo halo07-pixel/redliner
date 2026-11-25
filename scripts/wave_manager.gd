@@ -299,11 +299,18 @@ func _spot_ok(c: Vector3) -> bool:
 
 
 ## Lưới an toàn: bot rơi khỏi map / văng ra ngoài biên thì đưa về một điểm sinh (không để wave kẹt).
+var _net_t: float = 0.0
+
+
 func _physics_process(delta: float) -> void:
 	if _world == null or _spawns.is_empty():
 		return
 	if stream and _running:
 		_stream_tick(delta)
+	_net_t -= delta
+	if _net_t > 0.0:
+		return
+	_net_t = 0.25   # lưới an toàn: 4 lần/giây là đủ
 	var void_y: Variant = _world.get("void_y")
 	var half: Variant = _world.get("half")
 	for b in get_tree().get_nodes_in_group("bots"):

@@ -44,9 +44,3 @@ func show_result(d: Dictionary) -> void:
 	summary_label.text = "\n".join(PackedStringArray(d.get("lines", [])))
 	record_label.text = String(d.get("record", ""))
 	visible = true
-
-
-func show_summary(wave: int, score: int, kills: int, best: int, new_record: bool) -> void:
-	summary_label.text = "Wave đạt được: %d\nĐiểm: %d\nBot đã hạ: %d\nĐiểm cao nhất: %d" % [wave, score, kills, best]
-	record_label.text = "KỶ LỤC MỚI!" if new_record else ""
-	visible = true
