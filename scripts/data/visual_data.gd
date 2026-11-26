@@ -17,12 +17,24 @@ const PALETTE: Dictionary = {
 	"steel_dark": Color(0.4875, 0.507, 0.546),
 	"gold": Color(0.8, 0.65, 0.25),
 	"leather": Color(0.28, 0.17, 0.1),
+	"gun_metal": Color(0.17, 0.18, 0.21),
+	"gun_metal_light": Color(0.3194, 0.3276, 0.3522),
+	"wood": Color(0.32, 0.2, 0.1),
+	"red": Color(0.7, 0.15, 0.1),
+	"scope_dark": Color(0.08, 0.08, 0.1),
 }
 
 ## M42 "Chuẩn low poly": model dựng trong Blender (.glb). `enabled` = false -> quay về khối/FBX cũ. Chuẩn đầy đủ: docs/ASSETS.md.
 const LOWPOLY: Dictionary = {
 	"enabled": true,
 	"sword": "res://assets/weapons/lowpoly/sword.glb",
+	# M43: súng cầm tay (gốc = bàn tay cầm, nòng -Z; phần cử động Mag/Pump/Cap/Bolt; Empty `muzzle`)
+	"guns": {
+		"pistol": "res://assets/weapons/lowpoly/pistol.glb",
+		"shotgun": "res://assets/weapons/lowpoly/shotgun.glb",
+		"launcher": "res://assets/weapons/lowpoly/launcher.glb",
+		"sniper": "res://assets/weapons/lowpoly/sniper.glb",
+	},
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)
 	"budget": {"bot": 1500, "weapon": 600, "prop": 1200},
 }
@@ -42,6 +54,11 @@ const MATERIAL_PARAMS: Dictionary = {
 	"steel_dark": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
 	"gold": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
 	"leather": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"gun_metal": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"gun_metal_light": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"wood": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"red": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"scope_dark": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
 }
 
 ## Chất lượng đồ họa (M6.3): chỉ số 0=Thấp, 1=Vừa, 2=Cao.

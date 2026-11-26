@@ -149,6 +149,8 @@ var gun_pivot: Node3D
 var weapon_id: String = "pistol"
 var _gun_models: Dictionary = {}
 var _flash_z: Dictionary = {}
+## Tên phần cử động trong .glb của từng súng (M43).
+const _LOWPOLY_ANIM: Dictionary = {"pistol": "Mag", "shotgun": "Pump", "launcher": "Cap", "sniper": "Bolt"}
 var muzzle_flash: MeshInstance3D
 
 var bob_offset: Vector3 = Vector3.ZERO   # nhún hiện tại (để test)
@@ -215,18 +217,19 @@ func _ready() -> void:
 	gun_pivot = _node("GunPivot", self, V["gun_pos"])
 	_gun_rest_pos = gun_pivot.position
 	var pistol := _node("Pistol", gun_pivot, Vector3.ZERO)
-	_part(pistol, Vector3(0.05, 0.04, 0.2), Vector3(0.0, 0.0, -0.08), metal)               # khung
-	_part(pistol, Vector3(0.056, 0.05, 0.27), Vector3(0.0, 0.045, -0.1), metal_light)      # thân trượt
-	_part(pistol, Vector3(0.026, 0.026, 0.09), Vector3(0.0, 0.048, -0.275), metal)         # nòng
-	_part(pistol, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
-	_part(pistol, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
-	_part(pistol, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
-	_part(pistol, Vector3(0.058, 0.012, 0.2), Vector3(0.0, 0.074, -0.1), steel_dark)       # M29: rãnh trượt
-	_part(pistol, Vector3(0.012, 0.014, 0.05), Vector3(0.0, 0.076, 0.0), metal)            # khe ngắm sau
-	_part(pistol, Vector3(0.052, 0.02, 0.05), Vector3(0.0, -0.01, -0.17), gold)            # vòng khoá nòng
-	var pmag := _node("Mag", pistol, Vector3.ZERO)
-	_part(pmag, Vector3(0.04, 0.05, 0.045), Vector3(0.0, -0.135, 0.03), steel_dark, Vector3(12.0, 0.0, 0.0))  # băng đạn thò dưới báng
-	_anim_parts["pistol"] = {"node": pmag, "pos": pmag.position, "rot": pmag.rotation_degrees}
+	if not _add_lowpoly_gun("pistol", pistol):
+		_part(pistol, Vector3(0.05, 0.04, 0.2), Vector3(0.0, 0.0, -0.08), metal)               # khung
+		_part(pistol, Vector3(0.056, 0.05, 0.27), Vector3(0.0, 0.045, -0.1), metal_light)      # thân trượt
+		_part(pistol, Vector3(0.026, 0.026, 0.09), Vector3(0.0, 0.048, -0.275), metal)         # nòng
+		_part(pistol, Vector3(0.018, 0.016, 0.02), Vector3(0.0, 0.078, -0.2), metal)           # đầu ruồi
+		_part(pistol, Vector3(0.048, 0.11, 0.055), Vector3(0.0, -0.065, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
+		_part(pistol, Vector3(0.016, 0.03, 0.07), Vector3(0.0, -0.035, -0.045), metal)         # bao cò
+		_part(pistol, Vector3(0.058, 0.012, 0.2), Vector3(0.0, 0.074, -0.1), steel_dark)       # M29: rãnh trượt
+		_part(pistol, Vector3(0.012, 0.014, 0.05), Vector3(0.0, 0.076, 0.0), metal)            # khe ngắm sau
+		_part(pistol, Vector3(0.052, 0.02, 0.05), Vector3(0.0, -0.01, -0.17), gold)            # vòng khoá nòng
+		var pmag := _node("Mag", pistol, Vector3.ZERO)
+		_part(pmag, Vector3(0.04, 0.05, 0.045), Vector3(0.0, -0.135, 0.03), steel_dark, Vector3(12.0, 0.0, 0.0))  # băng đạn thò dưới báng
+		_anim_parts["pistol"] = {"node": pmag, "pos": pmag.position, "rot": pmag.rotation_degrees}
 	_gun_fingers = _hand(gun_pivot, Vector3(0.0, -0.06, 0.02), glove, false)
 	_gun_arm = _make_arm(gun_pivot, Vector3(0.0, -0.1, 0.07), Vector3(V["gun_shoulder"]), Vector3(-0.6, -1.0, 0.25), sleeve)
 	var fm := StandardMaterial3D.new()
@@ -254,48 +257,51 @@ func _ready() -> void:
 
 	# ---- Các súng khác (cùng gốc = bàn tay cầm; chỉ hiện súng đang chọn) ----
 	_gun_models["pistol"] = pistol
-	_flash_z["pistol"] = -0.36
+	_flash_z["pistol"] = _flash_z.get("pistol", -0.36)
 	var wood := _mat(Color(0.32, 0.2, 0.1), 0.0, 0.8)
 	var scope_mat := _mat(Color(0.08, 0.08, 0.1), 0.5, 0.3)
 	var red := _mat(Color(0.7, 0.15, 0.1), 0.2, 0.6)
 	var sg := _node("Shotgun", gun_pivot, Vector3.ZERO)
-	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(-0.02, 0.05, -0.3), metal)                  # nòng trái
-	_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(0.02, 0.05, -0.3), metal)                   # nòng phải
-	_part(sg, Vector3(0.09, 0.05, 0.12), Vector3(0.0, 0.02, -0.02), metal_light)            # thân
-	var pump := _node("Pump", sg, Vector3.ZERO)
-	_part(pump, Vector3(0.05, 0.035, 0.22), Vector3(0.0, 0.01, -0.2), wood)                 # ốp tay (ống trượt)
-	_part(pump, Vector3(0.056, 0.012, 0.03), Vector3(0.0, 0.01, -0.1), steel_dark)          # M29: vòng ốp tay
-	_part(sg, Vector3(0.012, 0.012, 0.46), Vector3(0.0, 0.074, -0.3), metal_light)          # thanh ngắm giữa 2 nòng
-	_part(sg, Vector3(0.016, 0.016, 0.016), Vector3(0.0, 0.086, -0.52), gold)               # đầu ruồi
-	_anim_parts["shotgun"] = {"node": pump, "pos": pump.position, "rot": pump.rotation_degrees}
-	_part(sg, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.04), wood, Vector3(12.0, 0.0, 0.0)) # báng
+	if not _add_lowpoly_gun("shotgun", sg):
+		_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(-0.02, 0.05, -0.3), metal)                  # nòng trái
+		_part(sg, Vector3(0.03, 0.03, 0.5), Vector3(0.02, 0.05, -0.3), metal)                   # nòng phải
+		_part(sg, Vector3(0.09, 0.05, 0.12), Vector3(0.0, 0.02, -0.02), metal_light)            # thân
+		var pump := _node("Pump", sg, Vector3.ZERO)
+		_part(pump, Vector3(0.05, 0.035, 0.22), Vector3(0.0, 0.01, -0.2), wood)                 # ốp tay (ống trượt)
+		_part(pump, Vector3(0.056, 0.012, 0.03), Vector3(0.0, 0.01, -0.1), steel_dark)          # M29: vòng ốp tay
+		_part(sg, Vector3(0.012, 0.012, 0.46), Vector3(0.0, 0.074, -0.3), metal_light)          # thanh ngắm giữa 2 nòng
+		_part(sg, Vector3(0.016, 0.016, 0.016), Vector3(0.0, 0.086, -0.52), gold)               # đầu ruồi
+		_anim_parts["shotgun"] = {"node": pump, "pos": pump.position, "rot": pump.rotation_degrees}
+		_part(sg, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.04), wood, Vector3(12.0, 0.0, 0.0)) # báng
 	_gun_models["shotgun"] = sg
-	_flash_z["shotgun"] = -0.6
+	_flash_z["shotgun"] = _flash_z.get("shotgun", -0.6)
 	var ln := _node("Launcher", gun_pivot, Vector3.ZERO)
-	_part(ln, Vector3(0.11, 0.11, 0.55), Vector3(0.0, 0.07, -0.22), metal_light)            # ống phóng
-	var lcap := _node("Cap", ln, Vector3(0.0, 0.07, -0.5))
-	_part(lcap, Vector3(0.13, 0.13, 0.06), Vector3.ZERO, red)                               # miệng ống (nắp mở khi nạp)
-	_part(ln, Vector3(0.12, 0.016, 0.1), Vector3(0.0, 0.134, -0.3), steel_dark)             # M29: băng đạn / giá đỡ
-	_part(ln, Vector3(0.016, 0.1, 0.016), Vector3(0.0, 0.02, -0.12), metal)                 # tay cầm trước
-	_anim_parts["launcher"] = {"node": lcap, "pos": lcap.position, "rot": lcap.rotation_degrees}
-	_part(ln, Vector3(0.05, 0.1, 0.05), Vector3(0.0, -0.04, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
-	_part(ln, Vector3(0.03, 0.04, 0.1), Vector3(0.0, 0.15, -0.1), metal)                    # ngắm
+	if not _add_lowpoly_gun("launcher", ln):
+		_part(ln, Vector3(0.11, 0.11, 0.55), Vector3(0.0, 0.07, -0.22), metal_light)            # ống phóng
+		var lcap := _node("Cap", ln, Vector3(0.0, 0.07, -0.5))
+		_part(lcap, Vector3(0.13, 0.13, 0.06), Vector3.ZERO, red)                               # miệng ống (nắp mở khi nạp)
+		_part(ln, Vector3(0.12, 0.016, 0.1), Vector3(0.0, 0.134, -0.3), steel_dark)             # M29: băng đạn / giá đỡ
+		_part(ln, Vector3(0.016, 0.1, 0.016), Vector3(0.0, 0.02, -0.12), metal)                 # tay cầm trước
+		_anim_parts["launcher"] = {"node": lcap, "pos": lcap.position, "rot": lcap.rotation_degrees}
+		_part(ln, Vector3(0.05, 0.1, 0.05), Vector3(0.0, -0.04, 0.02), metal, Vector3(12.0, 0.0, 0.0)) # báng
+		_part(ln, Vector3(0.03, 0.04, 0.1), Vector3(0.0, 0.15, -0.1), metal)                    # ngắm
 	_gun_models["launcher"] = ln
-	_flash_z["launcher"] = -0.58
+	_flash_z["launcher"] = _flash_z.get("launcher", -0.58)
 	var sn := _node("Sniper", gun_pivot, Vector3.ZERO)
-	_part(sn, Vector3(0.03, 0.03, 0.75), Vector3(0.0, 0.05, -0.4), metal)                   # nòng dài
-	_part(sn, Vector3(0.06, 0.06, 0.3), Vector3(0.0, 0.02, -0.02), metal_light)             # thân
-	_part(sn, Vector3(0.05, 0.05, 0.22), Vector3(0.0, 0.11, -0.1), scope_mat)               # ống ngắm
-	_part(sn, Vector3(0.03, 0.04, 0.03), Vector3(0.0, 0.075, -0.05), metal)                 # chân ngắm
-	var bolt := _node("Bolt", sn, Vector3(0.04, 0.035, 0.0))
-	_part(bolt, Vector3(0.012, 0.012, 0.05), Vector3.ZERO, gold)                            # M29: khoá nòng
-	_part(bolt, Vector3(0.03, 0.012, 0.012), Vector3(0.015, 0.0, 0.02), gold)               # tay kéo
-	_part(sn, Vector3(0.04, 0.012, 0.18), Vector3(0.0, 0.052, -0.1), metal_light)           # thanh ray
-	_part(sn, Vector3(0.012, 0.012, 0.1), Vector3(0.0, 0.0, -0.78), steel_dark)             # chân hãm nòng
-	_anim_parts["sniper"] = {"node": bolt, "pos": bolt.position, "rot": bolt.rotation_degrees}
-	_part(sn, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.06), metal, Vector3(12.0, 0.0, 0.0)) # báng
+	if not _add_lowpoly_gun("sniper", sn):
+		_part(sn, Vector3(0.03, 0.03, 0.75), Vector3(0.0, 0.05, -0.4), metal)                   # nòng dài
+		_part(sn, Vector3(0.06, 0.06, 0.3), Vector3(0.0, 0.02, -0.02), metal_light)             # thân
+		_part(sn, Vector3(0.05, 0.05, 0.22), Vector3(0.0, 0.11, -0.1), scope_mat)               # ống ngắm
+		_part(sn, Vector3(0.03, 0.04, 0.03), Vector3(0.0, 0.075, -0.05), metal)                 # chân ngắm
+		var bolt := _node("Bolt", sn, Vector3(0.04, 0.035, 0.0))
+		_part(bolt, Vector3(0.012, 0.012, 0.05), Vector3.ZERO, gold)                            # M29: khoá nòng
+		_part(bolt, Vector3(0.03, 0.012, 0.012), Vector3(0.015, 0.0, 0.02), gold)               # tay kéo
+		_part(sn, Vector3(0.04, 0.012, 0.18), Vector3(0.0, 0.052, -0.1), metal_light)           # thanh ray
+		_part(sn, Vector3(0.012, 0.012, 0.1), Vector3(0.0, 0.0, -0.78), steel_dark)             # chân hãm nòng
+		_anim_parts["sniper"] = {"node": bolt, "pos": bolt.position, "rot": bolt.rotation_degrees}
+		_part(sn, Vector3(0.05, 0.11, 0.06), Vector3(0.0, -0.065, 0.06), metal, Vector3(12.0, 0.0, 0.0)) # báng
 	_gun_models["sniper"] = sn
-	_flash_z["sniper"] = -0.82
+	_flash_z["sniper"] = _flash_z.get("sniper", -0.82)
 	set_weapon("pistol", false)
 	_sw.pos.x = sword_pivot.position
 	_sw.rot.x = sword_pivot.rotation_degrees
@@ -365,6 +371,32 @@ func _add_lowpoly_sword(parent: Node3D) -> bool:
 	parent.add_child(blade)
 	for mi in blade.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return true
+
+
+## M43: súng low poly (.glb) đặt dưới `parent`. Phần cử động (Mag/Pump/Cap/Bolt) tìm theo tên, `muzzle` cho z chớp lửa.
+## Trả về false (-> dùng khối cũ) khi tắt hoặc thiếu file.
+func _add_lowpoly_gun(id: String, parent: Node3D) -> bool:
+	if not bool(Global.LOWPOLY["enabled"]) or not Global.LOWPOLY["guns"].has(id):
+		return false
+	var path: String = String(Global.LOWPOLY["guns"][id])
+	if not ResourceLoader.exists(path):
+		return false
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return false
+	var model: Node3D = scene.instantiate()
+	model.name = "LowPoly"
+	parent.add_child(model)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mz: Node3D = model.get_node_or_null("muzzle")
+	if mz != null:
+		_flash_z[id] = mz.position.z
+	var anim_name: String = String(_LOWPOLY_ANIM[id])
+	var node: Node3D = model.get_node_or_null(anim_name)
+	if node != null:
+		_anim_parts[id] = {"node": node, "pos": node.position, "rot": node.rotation_degrees}
 	return true
 
 
