@@ -45,7 +45,7 @@ func _run() -> void:
 
 	# 11. Wave 3: đủ 3 loại bot (đỏ = lính kiếm, cam = xạ thủ, tím = tinh nhuệ) tiến vào đấu trường
 	waves.wave = 2
-	waves._next_wave()
+	waves.start()
 	await _frames(100)
 	var cam := Camera3D.new()
 	cam.fov = 60.0
@@ -81,7 +81,7 @@ func _run() -> void:
 
 	# 13. Hạ 2 bot liên tiếp: điểm + combo
 	waves.wave = 0
-	waves._next_wave()
+	waves.start()
 	await _frames(3)
 	var list: Array = root.get_tree().get_nodes_in_group("bots")
 	list[0].hurtbox.take_hit({"damage": 9999.0, "kind": "hitscan"})

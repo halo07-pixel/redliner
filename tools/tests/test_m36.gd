@@ -113,8 +113,7 @@ func _run() -> void:
 	rp.queue_free()
 
 	print("[Combat: lỗi trong bắn thật]")
-	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "yard"
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	var pl: Node3D = load("res://scenes/player.tscn").instantiate()
@@ -190,7 +189,6 @@ func _run() -> void:
 
 	print("[Tích hợp main (Vô Tận)]")
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)
@@ -210,7 +208,7 @@ func _run() -> void:
 	main.player.hurtbox.health = main.player.hurtbox.max_health
 	main.queue_free()
 	await _frames(10)
-	G.set_mode("survival")
+	G.set_mode("training")
 	var main2 = load("res://scenes/main.tscn").instantiate()
 	main2.autostart_waves = false
 	root.add_child(main2)

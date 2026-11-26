@@ -185,23 +185,23 @@ func _run() -> void:
 	var old_path: String = G.save_path
 	G.save_path = test_path
 	G.load_save()
-	_check(G.high_score == 0, "chưa có file: điểm cao = 0")
-	_check(G.submit_score(500) == true and G.high_score == 500, "điểm 500 phá kỷ lục")
-	_check(G.submit_score(300) == false and G.high_score == 500, "điểm thấp hơn không ghi đè")
-	G.high_score = 0
+	_check(G.best_score() == 0, "chưa có file: điểm cao = 0")
+	_check(G.submit_mode_score(500) == true and G.best_score() == 500, "điểm 500 phá kỷ lục")
+	_check(G.submit_mode_score(300) == false and G.best_score() == 500, "điểm thấp hơn không ghi đè")
+	G._mode_scores = {}
 	G.load_save()
-	_check(G.high_score == 500, "đọc lại từ file sau khi 'tắt game': 500")
+	_check(G.best_score() == 500, "đọc lại từ file sau khi 'tắt game': 500")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_path))
 	G.save_path = old_path
-	G.high_score = 0
 
 	# ---------------- MENU
 	print("[menu]")
 	var menu = load("res://scenes/menu.tscn").instantiate()
 	root.add_child(menu)
 	await _frames(2)
-	_check(menu.play_button != null and menu.help_button != null and menu.quit_button != null, "menu có 3 nút: Chơi / Hướng dẫn / Thoát")
+	_check(menu.play_button != null and menu.shop_button != null and menu.settings_button != null and menu.quit_button != null, "menu có 4 nút: Chơi / Cửa hàng / Cài đặt / Thoát")
 	_check(not menu.help_panel.visible, "hướng dẫn ẩn lúc đầu")
+	menu.play_button.pressed.emit()   # Hướng dẫn nằm trong màn Chuẩn bị
 	menu.help_button.pressed.emit()
 	_check(menu.help_panel.visible, "bấm Hướng dẫn -> hiện bảng hướng dẫn")
 	_check(_find_button(menu.help_panel, "Quay lại") != null, "bảng hướng dẫn có nút Quay lại")
@@ -241,7 +241,7 @@ func _run() -> void:
 	_check(main.game_over.record_label.text.contains("KỶ LỤC"), "điểm 1234 > 0 -> KỶ LỤC MỚI")
 	_check(_find_button(main.game_over, "Chơi lại") != null and _find_button(main.game_over, "Về menu") != null, "có nút Chơi lại và Về menu")
 	paused = false
-	root.get_node("Global").high_score = 0
+	root.get_node("Global")._mode_scores = {}
 
 	print("---- ", "TẤT CẢ ĐẠT" if failures == 0 else "%d TEST FAIL" % failures)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://savegame.cfg"))

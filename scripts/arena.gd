@@ -15,7 +15,11 @@ signal map_loaded(map_id: String)
 signal explosion(position: Vector3, radius: float) # thùng nổ phát nổ
 signal prop_broken(position: Vector3, kind: String) # thùng/barrel vỡ (để rơi đồ)
 
-var map_id: String = ""
+var map_id: String = "endless"
+## Chỉ cho test: dữ liệu bản đồ dựng sẵn (cùng khuôn với Maps.endless) thay cho bản đồ Vô Tận, ví dụ một sân phẳng nhỏ.
+## Game thật luôn để trống (chỉ có bản đồ lưới Vô Tận).
+var map_override: Dictionary = {}
+var _endless_map: bool = true
 var half: Vector2 = Vector2(30.0, 30.0)
 var wall_h: float = 12.0
 var void_y: float = -30.0
@@ -46,11 +50,12 @@ var _map_nodes: Array = []   # mọi node thuộc bản đồ (để dựng lạ
 
 
 func _ready() -> void:
-	if map_id == "":
-		map_id = "endless" if Global.game_mode == "endless" else Global.selected_map
+	# M41: chỉ còn một bản đồ (lưới Vô Tận). Tập luyện dùng đúng tầng cố định `TRAINING.floor` (hạt giống cố định).
+	if Global.game_mode == "training":
+		floor_n = int(Global.TRAINING["floor"])
 	_build_environment()
-	_build_map(map_id)
-	if map_id == "endless":
+	_build_map()
+	if _endless_map:
 		_apply_theme(false)
 
 
@@ -79,8 +84,9 @@ func load_floor(n: int) -> void:
 	nav_region = null
 	_nav_probe_ok = false
 	_free_titan_nav()
-	_build_map("endless")
-	_apply_theme(true)
+	_build_map()
+	if _endless_map:
+		_apply_theme(true)
 
 
 var _theme_tween: Tween
@@ -102,9 +108,10 @@ func _apply_theme(smooth: bool) -> void:
 	_theme_tween.tween_method(func(k: float) -> void: EndlessLook.blend_env(sun, world_env, from, to, k), 0.0, 1.0, EndlessLook.THEME_BLEND_SEC)
 
 
-func _build_map(id: String) -> void:
-	var m: Dictionary = Maps.endless(floor_n) if id == "endless" else Maps.get_map(id)
-	map_id = id
+func _build_map() -> void:
+	var m: Dictionary = map_override if not map_override.is_empty() else Maps.endless(floor_n)
+	_endless_map = bool(m.get("endless", false))
+	map_id = "endless" if _endless_map else String(m.get("id", "custom"))
 	exit_point = m.get("exit", Vector3.ZERO)
 	half = m["half"]
 	wall_h = float(m["wall_h"])
@@ -122,9 +129,9 @@ func _build_map(id: String) -> void:
 	_box(Vector3(1.0, wall_h, half.y * 2.0), Vector3(-half.x - 0.5, wall_h * 0.5, 0.0), "wall")
 	for bx in m["boxes"]:
 		var body: StaticBody3D = _box(bx["size"], bx["pos"], bx["role"], bx["rot"])
-		if id == "endless":
+		if _endless_map:
 			EndlessLook.style_box(body, bx)
-	if id == "endless":
+	if _endless_map:
 		for deco in EndlessLook.dress(m, EndlessLook.theme_index(floor_n)):   # chỉ hình ảnh, không va chạm
 			_add_map_node(deco)
 	_build_trim()
@@ -138,7 +145,7 @@ func _build_map(id: String) -> void:
 		_build_nav()
 		if titans:
 			_build_titan_nav()
-	map_loaded.emit(id)
+	map_loaded.emit(map_id)
 
 
 ## Navmesh cho bot, bake từ collider tĩnh của map (tầng L_WORLD). Bệ cao hơn bước leo (0.5 m) không nằm
@@ -208,7 +215,7 @@ var _nav_probe_ok: bool = false
 func nav_ready() -> bool:
 	if nav_region == null or not is_instance_valid(nav_region):
 		return false
-	if map_id != "endless" or _nav_probe_ok:
+	if not _endless_map or _nav_probe_ok:
 		return true
 	# vùng mới phải đã được máy chủ nhận (iteration > 0); riêng đường thông thì chưa đủ vì dữ liệu cũ của tầng trước có thể tình cờ
 	# cho đường tới góc cổng mới (các góc đều là ô trống), và riêng iteration cũng chưa đủ (đo: đường vẫn cụt vài khung sau đó).

@@ -31,11 +31,9 @@ func _initialize() -> void:
 	_run()
 
 
-func _game(mode: String, map: String, start_wave: int = 1):
+func _game(mode: String):
 	G.set_mode(mode)
 	G.set_difficulty("normal")
-	G.selected_map = map
-	G.start_wave = start_wave
 	var m = load("res://scenes/main.tscn").instantiate()
 	m.autostart_waves = false
 	root.add_child(m)
@@ -53,19 +51,10 @@ func _run() -> void:
 	print("[menu + phím]")
 	_check(G.REMAPPABLE.any(func(r): return r[0] == "spawn_titan") and InputMap.has_action("spawn_titan"), "có phím gọi Titan (T), đổi phím được")
 	_check(String(G.MODE_DESCRIPTIONS["training"]).contains("T"), "mô tả Tập luyện nhắc phím T")
-	var UIKit = load("res://scripts/ui_kit.gd")
-	G.start_wave = 1
-	var b: Button = UIKit.start_wave_button()
-	_check(b.text.contains("1"), "nút wave khởi đầu: mặc định wave 1")
-	b.pressed.emit()
-	_check(G.start_wave == 5 and b.text.contains("5") and b.text.contains("không tính kỷ lục"), "bấm: wave 5, cảnh báo không tính kỷ lục")
-	for i in 3:
-		b.pressed.emit()
-	_check(G.start_wave == 1, "xoay vòng 1 -> 5 -> 10 -> 15 -> 1")
 
-	print("[tập luyện trên Khu phố]")
-	var m1 = await _game("training", "district")
-	_check(m1.arena.titans and m1.waves.titans_enabled, "Khu phố bật Titan")
+	print("[tập luyện trên bản đồ Vô Tận]")
+	var m1 = await _game("training")
+	_check(m1.arena.map_id == "endless", "Tập luyện chạy trên bản đồ Vô Tận")
 	_check(_titans().size() == 0, "chưa gọi: không có Titan")
 	m1._start_mode()
 	await _frames(3)
@@ -83,34 +72,6 @@ func _run() -> void:
 	_check(get_nodes_in_group("bots").size() == others, "bot tập khác không bị ảnh hưởng")
 	m1.queue_free()
 	await _frames(5)
-
-	print("[tập luyện trên map nhỏ]")
-	var m2 = await _game("training", "yard")
-	m2._start_mode()
-	await _frames(3)
-	m2._toggle_practice_titan()
-	await _frames(3)
-	_check(_titans().size() == 0, "Sân tập: T không sinh Titan")
-	m2.queue_free()
-	await _frames(5)
-
-	print("[sinh tồn bắt đầu từ wave 5]")
-	var m3 = await _game("survival", "district", 5)
-	m3._start_mode()
-	await _frames(5)
-	_check(m3.waves.wave == 5, "bắt đầu ở wave 5 (wave=%d)" % m3.waves.wave)
-	_check(_titans().size() == 1, "wave 5: có Titan")
-	var best0: int = G.best_score()
-	_check(not G.submit_mode_score(999999), "chơi thử từ wave cao: không ghi kỷ lục")
-	_check(G.best_score() == best0, "kỷ lục không đổi")
-	m3.queue_free()
-	await _frames(5)
-	G.start_wave = 1
-	var m4 = await _game("survival", "district", 1)
-	m4._start_mode()
-	await _frames(5)
-	_check(m4.waves.wave == 1 and _titans().size() == 0, "wave 1 như cũ: chưa có Titan")
-	m4.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_m27.cfg"))
 	print("---- ", "TẤT CẢ ĐẠT" if failures == 0 else "%d TEST FAIL" % failures)
 	quit(1 if failures > 0 else 0)

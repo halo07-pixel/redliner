@@ -144,7 +144,6 @@ func _run() -> void:
 	var wm: Node = load("res://scripts/wave_manager.gd").new()
 	root.add_child(wm)
 	wm.stream = true
-	wm.titans_enabled = true
 	wm.setup(arena2, arena2.bot_spawns, arena2.spawn_band)
 	var spawn_d: Array = []
 	wm.bot_spawned.connect(func(b): spawn_d.append((b as Node3D).global_position.distance_to(pl.global_position)))
@@ -187,7 +186,6 @@ func _run() -> void:
 
 	print("[Tích hợp main: vào cổng -> tầng 2]")
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)
@@ -211,7 +209,7 @@ func _run() -> void:
 	_check(not main.portal.is_open and main.portal.global_position.distance_to(main.arena.exit_point) < 0.1, "cổng mới đóng, đặt ở góc đối diện")
 	_check(main.waves.wave == 2 and main.waves.stream_cap == 7, "bot tầng 2: tối đa 7")
 	_check(main.player.hurtbox.health > hp0 * 0.5, "hồi một phần máu khi sang tầng")
-	var res: Dictionary = main.build_result("TEST", false, 100, 0, false)
+	var res: Dictionary = main.build_result("TEST", 100, 0, false)
 	_check(String(res["lines"][1]).contains("Tầng"), "màn tổng kết có dòng tầng đạt được")
 	main.queue_free()
 	await _frames(10)

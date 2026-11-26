@@ -50,8 +50,7 @@ func _bot(pos: Vector3) -> Node:
 
 
 func _world() -> void:
-	arena = load("res://scripts/arena.gd").new()
-	arena.map_id = "yard"
+	arena = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	pl = load("res://scenes/player.tscn").instantiate()
@@ -296,7 +295,6 @@ func _run() -> void:
 
 	print("[Tích hợp main]")
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)
@@ -313,7 +311,7 @@ func _run() -> void:
 	mc.sword_rebounded.emit()   # main nối vào âm thanh + HUD: không được lỗi
 	main.queue_free()
 	await _frames(10)
-	G.set_mode("survival")
+	G.set_mode("training")
 	var main2 = load("res://scenes/main.tscn").instantiate()
 	main2.autostart_waves = false
 	root.add_child(main2)

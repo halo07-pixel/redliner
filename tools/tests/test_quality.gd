@@ -27,7 +27,7 @@ func _run() -> void:
 	_check(g.quality == Global.QUALITY_DEFAULT, "mặc định là Vừa")
 	_check(Global.QUALITY.size() == 3 and Global.QUALITY_NAMES.size() == 3, "có đúng 3 mức")
 
-	var arena: Node3D = load("res://scripts/arena.gd").new()
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	root.add_child(arena)
 	await process_frame
 	var env: Environment = arena.world_env
@@ -51,11 +51,11 @@ func _run() -> void:
 
 	# Lưu & tải lại, và điểm cao không làm mất mức đồ họa
 	g.set_quality(0)
-	g.submit_score(500)
+	g.submit_mode_score(500)
 	g.quality = 1
-	g.high_score = 0
+	g._mode_scores = {}
 	g.load_save()
-	_check(g.quality == 0 and g.high_score == 500, "lưu/tải lại giữ cả mức đồ họa lẫn điểm cao")
+	_check(g.quality == 0 and g.best_score() == 500, "lưu/tải lại giữ cả mức đồ họa lẫn điểm cao")
 
 	# Nút xoay vòng
 	var b: Button = UIKit.quality_button()

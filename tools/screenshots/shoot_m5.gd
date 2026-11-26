@@ -29,7 +29,7 @@ func _run() -> void:
 	await process_frame # đợi autoload nạp xong rồi mới đặt điểm giả
 	var G: Node = root.get_node("Global")
 	G.save_path = "user://shot_m5.cfg"
-	G.high_score = 2450
+	G._mode_scores["endless_normal"] = 2450
 
 	# 15-16. Menu chính + hướng dẫn
 	var menu = load("res://scenes/menu.tscn").instantiate()
@@ -51,7 +51,7 @@ func _run() -> void:
 	player.use_input = false
 	player.global_position = Vector3(0.0, 0.1, 18.0)
 	main.waves.wave = 2
-	main.waves._next_wave()
+	main.waves.start()
 	await _frames(30)
 	player.instability.add(500.0)           # vào Redline
 	player.hurtbox.take_hit({"damage": 70.0, "kind": "hitscan"}) # máu thấp -> viền đỏ

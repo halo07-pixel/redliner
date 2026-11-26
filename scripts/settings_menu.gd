@@ -42,6 +42,8 @@ func _ready() -> void:
 	_add_slider(box, "vol_master", "Âm lượng tổng", 0.0, 1.0, 0.05)
 	_add_slider(box, "vol_sfx", "Âm lượng hiệu ứng", 0.0, 1.0, 0.05)
 	_add_slider(box, "vol_music", "Âm lượng nhạc", 0.0, 1.0, 0.05)
+	box.add_child(UIKit.quality_button())
+	box.add_child(UIKit.fx_button())
 	_invert = CheckButton.new()
 	_invert.text = "Đảo trục Y"
 	_invert.add_theme_font_size_override("font_size", 22)

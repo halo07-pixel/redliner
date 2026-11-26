@@ -35,7 +35,7 @@ func _run() -> void:
 	player.use_input = false
 	player.global_position = Vector3(0.0, 0.1, 18.0)
 	main.waves.wave = 2
-	main.waves._next_wave()
+	main.waves.start()
 	await _frames(40)
 	player.instability.add(72.0)            # gần đầy: thanh chuyển cam/đỏ
 	await _frames(3)

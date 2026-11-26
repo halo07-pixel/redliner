@@ -1,5 +1,5 @@
 extends SceneTree
-## M31: kiểm tra tổng thể (smoke) - mọi chế độ x mọi bản đồ vào/ra, vào lại không rò, nhiều wave có Titan, chồng tính năng.
+## M31: kiểm tra tổng thể (smoke) - mọi chế độ (Vô Tận, Tập luyện) vào/ra, vào lại không rò, Vô Tận chạy lâu, chồng tính năng.
 ## Lỗi script hiện qua "SCRIPT ERROR"/"ERROR:" trên stderr (bộ chạy dùng grep để bắt).
 ##   timeout 280 godot --headless --path . -s tools/tests/test_m31.gd
 
@@ -36,10 +36,8 @@ func _maps() -> int:
 	return NavigationServer3D.get_maps().size()
 
 
-func _enter(map_id: String, mode_id: String, start_wave: int = 1) -> Node:
-	G.selected_map = map_id
+func _enter(mode_id: String) -> Node:
 	G.set_mode(mode_id)
-	G.start_wave = start_wave
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)
@@ -58,42 +56,41 @@ func _run() -> void:
 	G.save_path = "user://m31.cfg"
 	G.reduced_fx = false
 
-	print("[mọi chế độ x mọi bản đồ: vào, chạy, ra]")
+	print("[mọi chế độ: vào, chạy, ra]")
 	var base_nodes: int = _nodes()
 	var base_maps: int = -1   # ghi sau lần vào đầu tiên (bản đồ nav mặc định của World3D tạo lười)
 	var base_orph: int = _orphans()
 	var combos: int = 0
 	for mode_id in G.MODES:
-		for map_id in G.MAP_IDS:
-			var main = await _enter(map_id, mode_id)
-			var ok: bool = is_instance_valid(main.player) and main.arena.map_id == ("endless" if mode_id == "endless" else map_id) and main.mode != null
-			main.waves.start()
-			await _frames(60)
-			ok = ok and main.waves.wave >= 1
-			_check(ok, "%s / %s: vào trận, wave bắt đầu (wave %d, %d bot)" % [mode_id, map_id, main.waves.wave, get_nodes_in_group("bots").size()])
-			await _leave(main)
-			if base_maps < 0:
-				base_maps = _maps()
-			combos += 1
-	_check(combos == G.MODES.size() * G.MAP_IDS.size(), "đã chạy %d tổ hợp" % combos)
+		var main = await _enter(mode_id)
+		var ok: bool = is_instance_valid(main.player) and main.arena.map_id == "endless" and main.mode != null
+		main._start_mode()
+		await _frames(60)
+		ok = ok and get_nodes_in_group("bots").size() >= 1
+		_check(ok, "%s: vào trận, có bot (%d bot)" % [mode_id, get_nodes_in_group("bots").size()])
+		await _leave(main)
+		if base_maps < 0:
+			base_maps = _maps()
+		combos += 1
+	_check(combos == G.MODES.size(), "đã chạy %d tổ hợp" % combos)
 	_check(_nodes() == base_nodes, "sau khi thoát hết: không còn node thừa (%d so với %d)" % [_nodes(), base_nodes])
 	_check(_maps() == base_maps, "không rò bản đồ nav (%d so với %d)" % [_maps(), base_maps])
 	_check(_orphans() <= base_orph, "không có node mồ côi mới (%d so với %d)" % [_orphans(), base_orph])
 
-	print("[vào lại cùng bản đồ nhiều lần: không tích tụ]")
+	print("[vào lại nhiều lần: không tích tụ]")
 	var after_first: int = -1
 	for i in 4:
-		var main2 = await _enter("district", "survival", 5)
-		main2.waves.start()
+		var main2 = await _enter("endless")
+		main2._start_mode()
 		await _frames(90)
 		await _leave(main2)
 		if after_first < 0:
 			after_first = _nodes()
-	_check(_nodes() == after_first and _nodes() == base_nodes, "4 lần vào/ra Khu phố: node ổn định (%d)" % _nodes())
+	_check(_nodes() == after_first and _nodes() == base_nodes, "4 lần vào/ra Vô Tận: node ổn định (%d)" % _nodes())
 	_check(_maps() == base_maps, "nav map ổn định sau 4 lần (%d)" % _maps())
 
 	print("[bot đầu tiên không làm giật khung (nạp nền model)]")
-	var mw = await _enter("yard", "survival")
+	var mw = await _enter("endless")
 	await _frames(30)   # chờ luồng nền nạp xong
 	var t0: int = Time.get_ticks_usec()
 	mw.waves._spawn("swordsman")
@@ -101,14 +98,13 @@ func _run() -> void:
 	_check(spawn_ms < 40.0, "sinh bot gltf đầu tiên %.1f ms (< 40 ms; không nạp nền thì ~100 ms)" % spawn_ms)
 	await _leave(mw)
 
-	print("[nhiều wave trên Khu phố, qua wave 5 có Titan]")
-	var main3 = await _enter("district", "survival", 4)
+	print("[Vô Tận chạy lâu: không kẹt, physics ổn]")
+	var main3 = await _enter("endless")
 	var pl = main3.player
 	pl.use_input = false
 	pl.hurtbox.max_health = 1e9
 	pl.hurtbox.health = 1e9
-	main3.waves.break_time = 0.5
-	main3.waves.start()
+	main3._start_mode()
 	var saw_titan: bool = false
 	var frames: int = 0
 	var phys_sum: float = 0.0
@@ -120,7 +116,7 @@ func _run() -> void:
 	var last_progress: int = 0
 	var last_wave: int = 0
 	var last_left: int = -1
-	while main3.waves.wave <= 6 and frames < 60 * 420:
+	while frames < 60 * 40:
 		await physics_frame
 		frames += 1
 		var fm: float = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
@@ -150,12 +146,11 @@ func _run() -> void:
 			last_wave = main3.waves.wave
 			last_left = left
 		stuck_frames = maxi(stuck_frames, frames - last_progress)
-	_check(main3.waves.wave >= 6, "đạt wave %d trong %d khung (%.0f s mô phỏng)" % [main3.waves.wave, frames, frames / 60.0])
-	_check(saw_titan, "Titan xuất hiện ở wave 5")
+	_check(bots_max >= 1, "Vô Tận sinh bot liên tục (tối đa %d bot, %.0f s mô phỏng)" % [bots_max, frames / 60.0])
 	_check(stuck_frames < 60 * 120, "không kẹt: khoảng im lặng dài nhất %.0f s" % (stuck_frames / 60.0))
 	print("   SỐ ĐO (headless, chỉ logic, không GPU): physics TB %.2f ms, tệ nhất %.1f ms, bot tối đa %d, bake nav %d ms, tệ nhất sau 5 s: %.1f ms (khung đầu của vòng lặp có thể đọc lẫn số liệu lúc nạp màn)" % [phys_sum / maxf(phys_n, 1.0), phys_max, bots_max, int(main3.arena.nav_bake_ms), phys_max_late])
 	_check(phys_sum / maxf(phys_n, 1.0) < 25.0, "physics trung bình < 25 ms")
-	_check(int(main3.arena.nav_bake_ms) < 1500, "bake navmesh Khu phố < 1.5 s (%d ms)" % int(main3.arena.nav_bake_ms))
+	_check(int(main3.arena.nav_bake_ms) < 8000, "bake navmesh Vô Tận < 8 s (%d ms)" % int(main3.arena.nav_bake_ms))
 
 	print("[chồng tính năng ngẫu nhiên: không lỗi, không kẹt]")
 	var rng := RandomNumberGenerator.new()
@@ -184,7 +179,6 @@ func _run() -> void:
 	_check(_nodes() == base_nodes, "thoát sạch sau cùng (%d so với %d)" % [_nodes(), base_nodes])
 	_check(_maps() == base_maps, "nav map về như đầu (%d so với %d)" % [_maps(), base_maps])
 
-	G.start_wave = 1
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://m31.cfg"))
 	print("---- ", "TẤT CẢ ĐẠT" if failures == 0 else "%d TEST FAIL" % failures)
 	quit(1 if failures > 0 else 0)

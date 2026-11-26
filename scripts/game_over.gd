@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Màn hình tổng kết khi người chơi chết: wave đạt được, điểm, số bot hạ + Chơi lại / Về menu.
+## Màn hình tổng kết khi người chơi chết: tầng đạt được, điểm, số bot hạ + Chơi lại / Về menu.
 
 signal restart_requested
 signal menu_requested
@@ -37,10 +37,10 @@ func _ready() -> void:
 	menu_button.pressed.connect(func(): menu_requested.emit())
 
 
-## Tổng kết đầy đủ. d: title, won, lines (Array[String]), record (String, rỗng nếu không có).
+## Tổng kết đầy đủ. d: title, lines (Array[String]), record (String, rỗng nếu không có).
 func show_result(d: Dictionary) -> void:
 	title_label.text = String(d.get("title", "KẾT THÚC"))
-	title_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4) if bool(d.get("won", false)) else Color(0.95, 0.2, 0.15))
+	title_label.add_theme_color_override("font_color", Color(0.95, 0.2, 0.15))
 	summary_label.text = "\n".join(PackedStringArray(d.get("lines", [])))
 	record_label.text = String(d.get("record", ""))
 	visible = true

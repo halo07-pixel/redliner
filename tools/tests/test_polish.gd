@@ -1,6 +1,6 @@
 extends SceneTree
 ## Test headless M17: file save hỏng/thiếu khoá -> về mặc định, phiên bản, bảng FPS,
-## vào/thoát ván lặp lại không để lại node, nhiều wave không làm node tăng dần.
+## vào/thoát ván lặp lại không để lại node, Vô Tận chạy lâu không làm node tăng dần.
 ##   timeout 600 godot --headless --path . -s tools/tests/test_polish.gd
 
 var failures: int = 0
@@ -31,13 +31,13 @@ func _size(n: Node) -> int:
 	return c
 
 
-## Số node không tính bot và vật rơi (chúng tăng theo cỡ wave, không phải rò rỉ).
+## Số node không tính bot, vật rơi và hạt XP (chúng tăng theo cỡ wave, không phải rò rỉ).
 func _static_nodes(m: Node) -> int:
 	var total: int = _size(m)
 	for b in get_nodes_in_group("bots"):
 		total -= _size(b)
 	for n in m.find_children("*", "Area3D", true, false):
-		if n.get_script() != null and String(n.get_script().resource_path).ends_with("pickup.gd"):
+		if n.get_script() != null and (String(n.get_script().resource_path).ends_with("pickup.gd") or String(n.get_script().resource_path).ends_with("xp_orb.gd")):
 			total -= _size(n)
 	return total
 
@@ -63,12 +63,12 @@ func _run() -> void:
 	# --- Save hỏng
 	_write("đây không phải ConfigFile [[[ = =")
 	G.load_save()
-	_check(G.high_score == 0 and G.difficulty == "normal" and G.selected_map == "yard", "file hỏng hoàn toàn -> mặc định")
+	_check(G.difficulty == "normal", "file hỏng hoàn toàn -> mặc định")
 	_write('[progress]\nhigh_score_normal="abc"\nhigh_score_hard=-50\nhigh_score_easy=[1,2]\n[graphics]\nquality=99\nreduced_fx={"a":1}\n[game]\nmap="khong_co"\nmode=5\ndifficulty=[]\n[settings]\n')
 	G.load_save()
-	_check(G._scores.get("normal", 0) == 0 and G._scores.get("hard", 0) == 0 and G._scores.get("easy", 0) == 0, "điểm sai kiểu / âm -> 0")
+	_check(G.best_score("endless", "normal") == 0 and G.best_score("endless", "hard") == 0 and G.best_score("endless", "easy") == 0, "điểm sai kiểu / âm -> 0")
 	_check(G.quality == G.QUALITY.size() - 1, "quality ngoài khoảng -> kẹp lại")
-	_check(not G.reduced_fx and G.selected_map == "yard" and G.game_mode == "survival" and G.difficulty == "normal", "khoá sai kiểu -> mặc định")
+	_check(not G.reduced_fx and G.game_mode == "endless" and G.difficulty == "normal", "khoá sai kiểu -> mặc định")
 	var keys: Array = G.DEFAULT_SETTINGS.keys()
 	var s: String = "[settings]\n"
 	for k in keys:
@@ -80,9 +80,9 @@ func _run() -> void:
 		if G.settings[k] != G.DEFAULT_SETTINGS[k]:
 			all_def = false
 	_check(all_def, "setting sai kiểu -> giá trị mặc định")
-	_write("[progress]\nhigh_score_normal=1234\n")
+	_write("[progress]\nhigh_score_endless_normal=1234\n")
 	G.load_save()
-	_check(int(G._scores.get("normal", 0)) == 1234, "file thiếu khoá vẫn đọc được phần còn lại")
+	_check(G.best_score("endless", "normal") == 1234, "file thiếu khoá vẫn đọc được phần còn lại")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(G.save_path))
 	G.load_save()
 
@@ -107,7 +107,7 @@ func _run() -> void:
 		await _frames(5)
 	_check(_nodes() <= base + 2, "vào/thoát ván 4 lần: không thừa node (%d -> %d)" % [base, _nodes()])
 
-	# --- Nhiều wave: node không tăng dần
+	# --- Vô Tận chạy lâu, liên tục hạ bot: node không tăng dần
 	G.difficulty = "hard"
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
@@ -117,25 +117,21 @@ func _run() -> void:
 	pl.use_input = false
 	pl.hurtbox.max_health = 1e9
 	pl.hurtbox.health = 1e9
-	main.waves.break_time = 0.3
-	main.waves.start()
+	main._start_mode()
 	var samples: Array = []
-	var last_wave: int = 1
 	var frames: int = 0
-	while main.waves.wave <= 5 and frames < 60 * 200:
+	while frames < 60 * 40:
 		await physics_frame
 		frames += 1
-		if main.waves.wave != last_wave:
-			last_wave = main.waves.wave
-			await _frames(30)
+		if frames % 600 == 0:
 			samples.append(_static_nodes(main))
 		for b in get_nodes_in_group("bots"):
 			if not b.dead and frames % 20 == 0:
 				b.hurtbox.take_hit({"damage": 9999.0, "kind": "x", "source": null, "direction": Vector3.ZERO})
 				break
-	_check(main.waves.wave > 5, "chạy được 5 wave (wave %d)" % main.waves.wave)
+	_check(frames >= 60 * 40 and samples.size() >= 3, "Vô Tận chạy được %d khung" % frames)
 	var growth: int = int(samples[samples.size() - 1]) - int(samples[0]) if samples.size() > 1 else 999
-	_check(growth <= 30, "node (không tính bot/vật rơi) không tăng dần qua các wave (%s)" % str(samples))
+	_check(growth <= 30, "node (không tính bot/vật rơi) không tăng dần khi chạy lâu (%s)" % str(samples))
 	main.queue_free()
 	await _frames(10)
 	_check(_nodes() <= base + 2, "thoát hẳn: node về mức ban đầu")

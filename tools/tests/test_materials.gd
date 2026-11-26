@@ -41,7 +41,7 @@ func _run() -> void:
 			if colors[i].is_equal_approx(colors[j]):
 				uniq = false
 	_check(uniq, "các vai trò chính có màu phân biệt")
-	var arena: Node3D = load("res://scripts/arena.gd").new()
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	root.add_child(arena)
 	await process_frame
 	var meshes: int = 0

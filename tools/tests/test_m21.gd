@@ -17,7 +17,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var Maps: GDScript = load("res://scripts/maps.gd")
-	var d: Dictionary = Maps.get_map("district")
+	var d: Dictionary = Maps.endless(1)
 	var h: Vector2 = d["half"]
 	print("[bố cục]")
 	_check(h.x * h.y * 4.0 >= 5.0 * 3600.0 * 0.95, "diện tích >= ~5x Sân tập (%d m2)" % int(h.x * h.y * 4.0))
@@ -29,7 +29,7 @@ func _run() -> void:
 			bad += 1
 	_check(bad == 0, "mọi khối nằm trong biên (%d lỗi)" % bad)
 	_check(d["bot_spawns"].size() >= 12, "đủ điểm sinh bot (%d)" % d["bot_spawns"].size())
-	_check(str(Maps.get_map("district")) == str(d), "bố cục xác định (cùng kết quả)")
+	_check(str(Maps.endless(1)) == str(d), "bố cục xác định (cùng kết quả)")
 	var sp: Vector3 = d["spawn"]
 	var inside: int = 0
 	for p in d["bot_spawns"]:
@@ -42,7 +42,6 @@ func _run() -> void:
 
 	print("[navmesh]")
 	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "district"
 	root.add_child(arena)
 	await _frames(15)
 	print("  bake ", arena.nav_bake_ms, " ms")
@@ -60,7 +59,7 @@ func _run() -> void:
 		if path.size() < 2 or path[path.size() - 1].distance_to(p) > 2.5:
 			unreachable += 1
 	_check(unreachable == 0, "người chơi tới được mọi điểm sinh bằng navmesh (%d không tới được)" % unreachable)
-	_check(arena.spawn_band == Vector2(35.0, 60.0) and arena.compass, "map đọc spawn_band + compass")
+	_check(arena.spawn_band == Vector2(d["spawn_band"]) and arena.compass, "map đọc spawn_band + compass")
 	arena.queue_free()
 
 	print("[điểm sinh theo vòng]")

@@ -2,18 +2,15 @@ extends RefCounted
 ## Chế độ chơi, XP, kho thẻ nâng cấp, Vô Tận, thời gian, tập luyện (dữ liệu thuần).
 ## Chỉ là dữ liệu: `Global` nạp lại các hằng này nên mã khác vẫn dùng `Global.TÊN`. Không tham chiếu Global ở đây.
 
-## Chế độ chơi (M16). Sinh tồn: wave vô hạn. Thời gian: hạ `target_kills` bot trước khi hết giờ, mỗi bot hạ
-## cộng `kill_bonus` giây (tối đa `max_time`); thắng được cộng `win_bonus_per_sec` điểm cho mỗi giây còn lại.
-## Tập luyện: bất tử, đạn vô hạn, bot tập sinh lần lượt, không tính điểm.
-const MODES: Array = ["survival", "timed", "training", "endless"]
+## Chế độ chơi (M41: chỉ còn hai). Vô Tận: tầng vô hạn trên bản đồ lưới. Tập luyện: cùng bản đồ Vô Tận (tầng 1, hạt giống cố định),
+## bất tử, đạn vô hạn, khu thử bot gần chỗ xuất phát, không tính điểm / XP / vàng.
+const MODES: Array = ["endless", "training"]
 
-const MODE_NAMES: Dictionary = {"survival": "Sinh tồn", "timed": "Thử thách thời gian", "training": "Tập luyện", "endless": "Vô Tận"}
+const MODE_NAMES: Dictionary = {"training": "Tập luyện", "endless": "Vô Tận"}
 
 const MODE_DESCRIPTIONS: Dictionary = {
-	"survival": "Chống lại các wave bot ngày càng mạnh cho tới khi gục. Điểm cao nhất được lưu.",
-	"timed": "Hạ đủ số bot trước khi hết giờ. Mỗi bot hạ được cộng thêm giây. Thắng càng sớm điểm càng cao.",
-	"training": "Bất tử, đạn vô hạn, có bot tập để thử vũ khí và di chuyển. Không tính điểm. Ở bản đồ Khu phố: phím T gọi / xoá một Titan để thử.",
-	"endless": "Vô Tận: bản đồ rất rộng, mỗi tầng một bản đồ mới. Hạ đủ bot để mở cổng, chạy tới cổng để sang tầng sau. Cứ 5 tầng có Titan. Bỏ qua lựa chọn bản đồ.",
+	"training": "Bất tử, đạn vô hạn, mở khoá đủ 4 súng + kiếm. Gần chỗ xuất phát có khu thử bot (cận chiến, xạ thủ, pháo thủ bom); phím T gọi / xoá một Titan. Không tính điểm.",
+	"endless": "Vô Tận: bản đồ rất rộng, mỗi tầng một bản đồ mới. Hạ đủ bot để mở cổng, chạy tới cột sáng để sang tầng sau. Cứ 5 tầng có Titan.",
 }
 
 ## Kinh nghiệm / lên cấp chế độ Vô Tận (M35). Cấp n -> n+1 cần need_base + need_per_level*n XP (n bắt đầu từ 0).
@@ -84,13 +81,10 @@ const ENDLESS: Dictionary = {
 	"titan_every": 5, "heal_on_floor": 0.3, "portal_radius": 4.0, "start_clear": 35.0,
 }
 
-const TIMED: Dictionary = {
-	"start_time": 90.0, "kill_bonus": 3.0, "max_time": 150.0, "target_kills": 25,
-	"win_bonus_per_sec": 10, "break_time": 1.5, "urgent_below": 10.0,
+## Tập luyện (M41) trên bản đồ Vô Tận tầng `floor`. Khu thử: các ô `slots` = [loại bot, độ lệch (x, z) so với chỗ xuất phát]; bot chết thì
+## hồi sinh đúng chỗ cũ sau `respawn_time` giây. Titan (phím T) đặt ở `titan_offset`. Người chơi chết thì hồi sinh ở chỗ xuất phát sau `player_respawn` giây.
+const TRAINING: Dictionary = {
+	"floor": 1, "respawn_time": 2.0, "player_respawn": 1.5, "bot_wave": 1,
+	"slots": [["swordsman", Vector2(-8.0, 14.0)], ["gunner", Vector2(0.0, 16.0)], ["bomber", Vector2(8.0, 14.0)]],
+	"titan_offset": Vector2(0.0, 24.0),
 }
-
-const TRAINING: Dictionary = {"respawn_time": 2.0, "bot_wave": 1, "types": ["swordsman", "gunner", "rusher", "elite", "bomber"]}
-
-const MAP_IDS: Array = ["yard", "alley", "tower", "district"]
-
-const MAP_NAMES: Dictionary = {"yard": "Sân tập", "alley": "Hẻm tường", "tower": "Tháp", "district": "Khu phố"}

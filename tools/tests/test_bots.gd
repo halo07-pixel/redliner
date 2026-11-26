@@ -178,7 +178,6 @@ func _run() -> void:
 	print("[wave]")
 	await _clear()
 	var wm = load("res://scripts/wave_manager.gd").new()
-	wm.break_time = 0.3
 	root.add_child(wm)
 	var spawns: Array = [Vector3(-25, 0.1, -25), Vector3(25, 0.1, -25), Vector3(0, 0.1, -27)]
 	wm.setup(world, spawns)
@@ -186,21 +185,10 @@ func _run() -> void:
 	_check(wm.composition(2).has("gunner") and not wm.composition(2).has("elite"), "wave 2: có xạ thủ, chưa có tinh nhuệ")
 	_check(wm.composition(3).has("elite"), "wave 3: có tinh nhuệ")
 	_check(wm.composition(20).size() == 10, "số bot mỗi wave bị chặn trần 10")
-	var started: Array = []
-	var cleared: Array = []
-	wm.wave_started.connect(func(n, c): started.append([n, c]))
-	wm.wave_cleared.connect(func(n): cleared.append(n))
-	wm.start()
+	# Sinh theo wave nghỉ-rồi-sang đã bỏ ở M41 (chỉ còn Vô Tận / Tập luyện); chỉ còn thành phần mỗi tầng.
+	wm.spawn_practice("swordsman", Vector3(0, 0.1, -20))
 	await _frames(2)
-	_check(started.size() == 1 and started[0] == [1, 3], "wave 1 bắt đầu với 3 bot")
-	var alive: Array = root.get_tree().get_nodes_in_group("bots")
-	_check(alive.size() == 3, "đã sinh 3 bot trong cảnh (%d)" % alive.size())
-	for b in alive:
-		b.hurtbox.take_hit({"damage": 9999.0, "kind": "hitscan"})
-	await _frames(2)
-	_check(cleared == [1], "hạ hết bot -> wave_cleared(1)")
-	await _frames(40) # > break_time
-	_check(started.size() == 2 and started[1] == [2, 4], "nghỉ rồi sang wave 2 với 4 bot (%s)" % str(started))
+	_check(root.get_tree().get_nodes_in_group("bots").size() == 1, "spawn_practice sinh đúng 1 bot tại chỗ chỉ định")
 	wm.stop()
 	for b in root.get_tree().get_nodes_in_group("bots"):
 		b.queue_free()

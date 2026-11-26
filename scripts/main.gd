@@ -114,15 +114,11 @@ func _ready() -> void:
 	player.combat.hit_confirmed.connect(func(landed: bool): stats.record_hit(landed))
 	waves = WaveScript.new()
 	add_child(waves)
-	waves.titans_enabled = arena.titans
 	var endless: bool = Global.game_mode == "endless"
 	waves.stream = endless
-	waves.first_wave = Global.start_wave if Global.game_mode in ["survival", "timed"] else 1
 	waves.setup(arena, arena.bot_spawns, arena.spawn_band)
-	waves.wave_started.connect(_on_wave_started)
-	waves.enemies_left_changed.connect(func(left): hud.set_floor(waves.wave, left) if endless else hud.set_wave(waves.wave, left))
+	waves.enemies_left_changed.connect(func(left): if endless: hud.set_floor(waves.wave, left))
 	waves.enemies_left_changed.connect(_on_enemies_for_music)
-	waves.wave_cleared.connect(_on_wave_cleared)
 	waves.enemies_left_changed.connect(func(_l): hud.set_enemy_types(waves.alive_types))
 	waves.bot_spawned.connect(func(bot):
 		bot.sound.connect(func(n: String): Sfx.play_at(n, bot.global_position))
@@ -150,8 +146,6 @@ func _ready() -> void:
 	add_child(mode)
 	mode.setup(Global.game_mode)
 	mode.objective_changed.connect(hud.set_objective)
-	mode.time_changed.connect(hud.set_timer)
-	mode.finished.connect(_on_mode_finished)
 	if endless:
 		portal = PortalScript.new()
 		add_child(portal)
@@ -185,8 +179,6 @@ func _ready() -> void:
 	waves.practice_bot_killed.connect(_on_practice_bot_killed)
 	hud.set_mode_layout(mode.mode)
 	hud.set_objective(mode.objective_text())
-	if mode.mode == "timed":
-		waves.break_time = float(Global.TIMED["break_time"])
 	if mode.mode == "training":
 		_setup_training()
 
@@ -197,11 +189,12 @@ func _ready() -> void:
 		_start_mode()
 
 
-## Bắt đầu luật chế độ: sinh tồn / thời gian chạy wave; tập luyện sinh bot tập.
+## Bắt đầu luật chế độ: Vô Tận sinh bot theo tầng; Tập luyện dựng khu thử bot cạnh chỗ xuất phát.
 func _start_mode() -> void:
 	mode.start()
 	if mode.mode == "training":
-		_spawn_practice_bot()
+		for i in (Global.TRAINING["slots"] as Array).size():
+			_spawn_practice_bot(i)
 	else:
 		waves.start()
 
@@ -314,37 +307,41 @@ func _setup_training() -> void:
 		player.combat.ammo_changed.emit(player.combat.ammo, player.combat.max_ammo()))
 
 
-var _practice_i: int = 0
+## Chỗ của ô thử bot / Titan trong khu thử: độ lệch (x, z) so với chỗ xuất phát của tầng.
+func _practice_pos(offset: Vector2) -> Vector3:
+	return arena.spawn_point + Vector3(offset.x, 0.0, offset.y)
 
 
-func _spawn_practice_bot() -> void:
+## Sinh bot ở ô thử `i`. Ô nhớ trong meta để bot chết thì hồi sinh đúng chỗ cũ.
+func _spawn_practice_bot(i: int) -> void:
 	if _over:
 		return
-	var types: Array = Global.TRAINING["types"]
-	waves.spawn_practice(types[_practice_i % types.size()], int(Global.TRAINING["bot_wave"]))
-	_practice_i += 1
+	var slot: Array = Global.TRAINING["slots"][i]
+	var home: Vector3 = _practice_pos(slot[1])
+	var bot: Node3D = waves.spawn_practice(String(slot[0]), home, int(Global.TRAINING["bot_wave"]))
+	bot.set_meta("practice_slot", i)
+	bot.set_meta("practice_home", home)   # chỗ sinh (bot sẽ đi chuyển sau đó)
 
 
-## Tập luyện (phím T): gọi một Titan, bấm lần nữa để xoá. Chỉ ở bản đồ Khu phố.
+## Tập luyện (phím T): gọi một Titan ở khu thử, bấm lần nữa để xoá.
 func _toggle_practice_titan() -> void:
 	if mode == null or mode.mode != "training":
-		return
-	if not arena.titans:
-		hud.flash("Titan chỉ có ở Khu phố", Color(0.8, 0.8, 0.8))
 		return
 	if waves.clear_titans() > 0:
 		hud.set_boss(false, 0.0)
 		hud.flash("ĐÃ XOÁ TITAN", Color(0.8, 0.8, 0.8))
 		return
-	waves.spawn_titan_practice()
+	waves.spawn_titan_practice(_practice_pos(Global.TRAINING["titan_offset"]))
 	hud.flash("TITAN!", Color(1.0, 0.5, 0.3))
 
 
-func _on_practice_bot_killed(_bot: Node3D, _info: Dictionary) -> void:
-	stats.record_kill(String(_bot.type_name))
+func _on_practice_bot_killed(bot: Node3D, _info: Dictionary) -> void:
+	stats.record_kill(String(bot.type_name))
 	hud.flash("ĐÃ HẠ", Color(0.5, 1.0, 0.5))
+	var slot: int = int(bot.get_meta("practice_slot", -1))
 	await get_tree().create_timer(float(Global.TRAINING["respawn_time"])).timeout
-	_spawn_practice_bot()
+	if slot >= 0:
+		_spawn_practice_bot(slot)
 
 
 func _input(event: InputEvent) -> void:
@@ -606,18 +603,6 @@ func _spawn_tracer(from: Vector3, to: Vector3) -> void:
 
 # ------------------------------------------------------------------ wave / điểm / chết
 
-func _on_wave_started(n: int, count: int) -> void:
-	Sfx.play("wave")
-	hud.flash("WAVE %d" % n, Color(1.0, 0.4, 0.3))
-	hud.set_wave(n, count)
-
-
-func _on_wave_cleared(n: int) -> void:
-	hud.flash("WAVE %d XONG!" % n, Color(0.5, 1.0, 0.5))
-	if mode.mode == "survival":
-		Global.submit_score(score.score)
-
-
 func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	kills += 1
 	stats.record_kill(String(bot.type_name))
@@ -631,9 +616,7 @@ func _on_bot_killed(bot: Node3D, info: Dictionary) -> void:
 	if progress != null:
 		run_gold += int(Global.GOLD["titan"]) if String(bot.type_name) == "titan" else int(Global.GOLD["per_kill"])
 		hud.set_gold(run_gold)
-	var gained: float = mode.on_kill(String(bot.type_name))
-	if gained > 0.0:
-		hud.flash("+%d s" % roundi(gained), Color(0.5, 0.9, 1.0))
+	mode.on_kill(String(bot.type_name))
 
 
 func _drop_pickup(pos: Vector3) -> void:
@@ -664,17 +647,27 @@ func _on_pickup_collected(kind: String) -> void:
 
 
 func _on_player_died() -> void:
+	if mode.mode == "training":
+		_respawn_in_training()
+		return
 	mode.stop()
-	_end_run("BẠN ĐÃ GỤC", false)
+	_end_run("BẠN ĐÃ GỤC")
 
 
-## Chế độ thời gian tự kết thúc: thắng (đủ bot) hoặc hết giờ.
-func _on_mode_finished(won: bool, _info: Dictionary) -> void:
-	_end_run("CHIẾN THẮNG!" if won else "HẾT GIỜ", won)
+## Tập luyện: chết thì đứng dậy ở chỗ xuất phát sau một nhịp, không có màn kết thúc.
+func _respawn_in_training() -> void:
+	hud.show_death(true)
+	await get_tree().create_timer(float(Global.TRAINING["player_respawn"])).timeout
+	if _over or player.dead == false:
+		return
+	hud.show_death(false)
+	player.respawn(arena.spawn_point)
+	hud.set_health(player.hurtbox.health, player.hurtbox.max_health)
+	hud.set_ammo(player.combat.ammo, player.combat.max_ammo())
 
 
 ## Kết thúc ván: dừng wave, nộp điểm theo chế độ, hiện màn tổng kết đầy đủ.
-func _end_run(title: String, won: bool) -> void:
+func _end_run(title: String) -> void:
 	if _over:
 		return
 	_over = true
@@ -690,30 +683,23 @@ func _end_run(title: String, won: bool) -> void:
 	if progress != null:
 		_flush_gold()
 	var prev_best: int = Global.best_score()
-	var final_score: int = mode.result_score(score.score, won)
+	var final_score: int = mode.result_score(score.score)
 	var new_record: bool = Global.submit_mode_score(final_score)
 	await get_tree().create_timer(1.2 if death else 0.6).timeout
 	hud.show_death(false)
-	game_over.show_result(build_result(title, won, final_score, prev_best, new_record))
+	game_over.show_result(build_result(title, final_score, prev_best, new_record))
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 ## Nội dung màn tổng kết (tách riêng để test được).
-func build_result(title: String, won: bool, final_score: int, prev_best: int, new_record: bool) -> Dictionary:
-	var map_name: String = "Bản đồ lưới" if mode.mode == "endless" else String(Global.MAP_NAMES[Global.selected_map])
-	var lines: Array = ["Chế độ: %s   -   %s   -   %s" % [Global.MODE_NAMES[mode.mode], map_name, Global.DIFFICULTY_NAMES[Global.difficulty]]]
-	if mode.mode == "survival":
-		lines.append("Wave đạt được: %d" % waves.wave)
-	elif mode.mode == "endless":
-		lines.append("Tầng đạt được: %d   (%d / %d bot ở tầng này)" % [mode.floor_n, mode.floor_kills, mode.quota])
-	elif mode.mode == "timed":
-		lines.append("Mục tiêu: %d / %d bot      Còn lại: %s" % [mode.kills, mode.target, RunStatsScript.format_time(mode.time_left)])
+func build_result(title: String, final_score: int, prev_best: int, new_record: bool) -> Dictionary:
+	var lines: Array = ["Chế độ: %s   -   Bản đồ lưới   -   %s" % [Global.MODE_NAMES[mode.mode], Global.DIFFICULTY_NAMES[Global.difficulty]]]
 	if mode.mode == "endless":
+		lines.append("Tầng đạt được: %d   (%d / %d bot ở tầng này)" % [mode.floor_n, mode.floor_kills, mode.quota])
 		lines.append("Vàng kiếm được: +%d   (tổng %d)" % [run_gold, Global.gold])
 	lines.append("Điểm: %d" % final_score)
-	if mode.mode != "timed":
-		lines.append("Bot đã hạ: %d" % kills)
+	lines.append("Bot đã hạ: %d" % kills)
 	var by_type: String = stats.breakdown_text()
 	if by_type != "":
 		lines.append(by_type)
@@ -725,4 +711,4 @@ func build_result(title: String, won: bool, final_score: int, prev_best: int, ne
 		lines.append("Kỷ lục cũ: %d" % prev_best)
 	else:
 		lines.append("Kỷ lục: %d (còn thiếu %d)" % [best, best - final_score])
-	return {"title": title, "won": won, "lines": lines, "record": "KỶ LỤC MỚI!" if new_record else ""}
+	return {"title": title, "lines": lines, "record": "KỶ LỤC MỚI!" if new_record else ""}

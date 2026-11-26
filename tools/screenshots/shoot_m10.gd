@@ -43,7 +43,7 @@ func _run() -> void:
 		i += 1
 	# Pháo nổ: 3 kẻ địch phía trước, bắn xuống đất giữa họ
 	main.waves.wave = 2
-	main.waves._next_wave()
+	main.waves.start()
 	await _frames(30)
 	player.combat.switch_to("launcher")
 	await _frames(40)
