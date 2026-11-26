@@ -107,8 +107,7 @@ func _run() -> void:
 	rp2.queue_free()
 
 	print("[viên XP]")
-	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "yard"
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	var pl: Node3D = load("res://scenes/player.tscn").instantiate()
@@ -165,7 +164,6 @@ func _run() -> void:
 
 	print("[tích hợp main]")
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)

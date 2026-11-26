@@ -91,28 +91,6 @@ static func difficulty_button() -> Button:
 	return b
 
 
-## Nút xoay vòng "bắt đầu từ wave N" (thử Titan / wave cao; không tính kỷ lục khi N > 1).
-static func start_wave_button() -> Button:
-	var b := button("")
-	var refresh := func(): b.text = "Bắt đầu từ wave: %d%s" % [Global.start_wave, "  (không tính kỷ lục)" if Global.start_wave > 1 else ""]
-	refresh.call()
-	b.pressed.connect(func():
-		Global.cycle_start_wave()
-		refresh.call())
-	return b
-
-
-## Nút xoay vòng đấu trường; chữ theo Global.selected_map.
-static func map_button() -> Button:
-	var b := button("")
-	var refresh := func(): b.text = "Bản đồ: %s" % Global.MAP_NAMES[Global.selected_map]
-	refresh.call()
-	b.pressed.connect(func():
-		Global.cycle_map()
-		refresh.call())
-	return b
-
-
 ## Nút xoay vòng mức đồ họa Thấp/Vừa/Cao; chữ tự cập nhật theo Global.quality.
 static func quality_button() -> Button:
 	var b := button("")

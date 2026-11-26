@@ -183,7 +183,6 @@ func _run() -> void:
 	print("[Khu phố: bot tới được người chơi]")
 	await _clear()
 	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "district"
 	world.add_child(arena)
 	await _frames(15)
 	await _player(arena.spawn_point)
@@ -192,7 +191,7 @@ func _run() -> void:
 	wm.setup(world, arena.bot_spawns, arena.spawn_band)
 	var bots: Array = []
 	for k in ["swordsman", "rusher", "swordsman", "rusher"]:
-		var bb = wm.spawn_practice(k, 1)
+		var bb = wm.spawn_practice(k, wm._pick_spawn(), 1)
 		bb.melee.windup_override = 99.0
 		bots.append(bb)
 	var nearest: float = INF

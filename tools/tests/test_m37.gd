@@ -95,8 +95,7 @@ func _run() -> void:
 	_check(is_equal_approx(f.self_damage_mult("launcher", 0.15), 0.6) and f.self_damage_mult("sniper", 0.15) == 0.15, "pháo: tự chịu 60%; súng khác giữ mặc định")
 
 	print("[lỗi: trong bắn thật]")
-	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "yard"
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	var pl: Node3D = load("res://scenes/player.tscn").instantiate()
@@ -191,7 +190,7 @@ func _run() -> void:
 	_check(menu.shop_button != null and menu.shop_panel != null and not menu.shop_panel.visible, "menu: có nút Cửa hàng, panel ẩn")
 	menu.shop_button.pressed.emit()
 	_check(menu.shop_panel.visible, "bấm Cửa hàng: mở panel")
-	G.set_mode("survival")
+	G.set_mode("training")
 	menu._refresh_setup()
 	_check(not menu.start_gun_button.visible, "chế độ Sinh tồn: ẩn nút súng khởi đầu")
 	G.set_mode("endless")
@@ -209,7 +208,6 @@ func _run() -> void:
 	G.set_start_gun("shotgun")
 	var g0: int = G.gold
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)
@@ -245,12 +243,12 @@ func _run() -> void:
 	await _frames(5)
 	_check(main.run_gold == 31 + 12 and G.gold == g0 + 43, "qua tầng 1: +12 vàng thưởng tầng, ghi vào tổng ngay (%d)" % G.gold)
 	main.run_gold += 5
-	var res: Dictionary = main.build_result("TEST", false, 100, 0, false)
+	var res: Dictionary = main.build_result("TEST", 100, 0, false)
 	_check(String(res["lines"][2]).contains("Vàng kiếm được: +48") or String(res["lines"][1]).contains("Vàng kiếm được: +48") or " ".join(res["lines"]).contains("Vàng kiếm được: +48"), "màn tổng kết có dòng vàng kiếm được")
 	main.queue_free()
 	await _frames(10)
 	_check(G.gold == g0 + 48, "thoát giữa chừng: phần vàng còn lại vẫn được lưu, không cộng trùng (%d)" % G.gold)
-	G.set_mode("survival")
+	G.set_mode("training")
 	var main2 = load("res://scenes/main.tscn").instantiate()
 	main2.autostart_waves = false
 	root.add_child(main2)

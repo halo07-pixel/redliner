@@ -1,22 +1,18 @@
 extends Control
-## Menu chính: Chơi / Hướng dẫn / Thoát.
+## Menu chính (M41): Chơi (Vô Tận / Tập luyện) / Cửa hàng / Cài đặt / Thoát. Hướng dẫn nằm trong màn Chuẩn bị.
 
 const UIKit = preload("res://scripts/ui_kit.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 
 var play_button: Button
 var help_button: Button
-var quality_button: Button
-var map_button: Button
 var difficulty_button: Button
-var start_wave_button: Button
 var mode_button: Button
 var start_button: Button
 var setup_back_button: Button
 var best_label: Label
 var mode_desc_label: Label
 var setup_panel: Control
-var fx_button: Button
 var quit_button: Button
 var shop_button: Button
 var shop_panel: Control
@@ -53,16 +49,12 @@ func _ready() -> void:
 	spacer.custom_minimum_size = Vector2(0.0, 8.0)
 	box.add_child(spacer)
 	play_button = UIKit.button("Chơi")
-	help_button = UIKit.button("Hướng dẫn")
 	shop_button = UIKit.button("Cửa hàng")
 	settings_button = UIKit.button("Cài đặt")
-	quality_button = UIKit.quality_button()
-	fx_button = UIKit.fx_button()
 	quit_button = UIKit.button("Thoát")
-	for b in [play_button, shop_button, help_button, settings_button, quality_button, fx_button, quit_button]:
+	for b in [play_button, shop_button, settings_button, quit_button]:
 		box.add_child(b)
 	play_button.pressed.connect(func(): setup_panel.visible = true)
-	help_button.pressed.connect(show_help)
 	shop_button.pressed.connect(func(): shop_panel.visible = true)
 	settings_button.pressed.connect(func(): settings_panel.visible = true)
 	quit_button.pressed.connect(func(): get_tree().quit())
@@ -92,9 +84,7 @@ func _build_setup() -> void:
 	var box := UIKit.center_box(setup_panel, 14)
 	box.add_child(UIKit.title("CHUẨN BỊ", 64))
 	mode_button = UIKit.mode_button()
-	map_button = UIKit.map_button()
 	difficulty_button = UIKit.difficulty_button()
-	start_wave_button = UIKit.start_wave_button()
 	start_gun_button = UIKit.start_gun_button()
 	mode_desc_label = UIKit.label("", 20)
 	mode_desc_label.custom_minimum_size = Vector2(640.0, 0.0)
@@ -102,11 +92,11 @@ func _build_setup() -> void:
 	best_label = UIKit.label("", 22)
 	best_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	start_button = UIKit.button("Bắt đầu")
+	help_button = UIKit.button("Hướng dẫn")
 	setup_back_button = UIKit.button("Quay lại")
-	for c in [mode_button, map_button, difficulty_button, start_wave_button, start_gun_button, mode_desc_label, best_label, start_button, setup_back_button]:
+	for c in [mode_button, difficulty_button, start_gun_button, mode_desc_label, best_label, start_button, help_button, setup_back_button]:
 		box.add_child(c)
-	map_button.pressed.connect(_refresh_setup)
-	start_wave_button.pressed.connect(_refresh_setup)
+	help_button.pressed.connect(show_help)
 	Global.difficulty_changed.connect(func(_l): _refresh_setup())
 	Global.mode_changed.connect(func(_m): _refresh_setup())
 	start_button.pressed.connect(_on_play)
@@ -117,10 +107,6 @@ func _build_setup() -> void:
 ## Mô tả chế độ + kỷ lục của (chế độ, độ khó) đang chọn.
 func _refresh_setup() -> void:
 	mode_desc_label.text = String(Global.MODE_DESCRIPTIONS[Global.game_mode])
-	if Global.selected_map == "district" and Global.game_mode != "training":
-		mode_desc_label.text += " Khu phố có Titan từ wave 5."
-	start_wave_button.visible = Global.game_mode in ["survival", "timed"]
-	map_button.visible = Global.game_mode != "endless"
 	start_gun_button.visible = Global.game_mode == "endless"
 	if Global.game_mode == "training":
 		best_label.text = "Không tính điểm"
@@ -155,7 +141,7 @@ func _build_help() -> void:
 		"Hai kiếm chạm nhau  -  CLASH: cả hai bị đẩy lùi",
 		"Thua clash, parry hụt, bị parry  -  đầy thanh Instability  -  MẤT THẾ vài giây (không đánh/parry/dash)",
 		"Bot lao nhanh bọc sườn, pháo thủ ném bom nổ từ xa, tối đa 3 bot áp sát cùng lúc; bot đánh mạnh hơn khi bạn mất thế",
-		"Chế độ: Sinh tồn (wave vô hạn), Thử thách thời gian (hạ đủ bot trước khi hết giờ), Tập luyện (bất tử, đạn vô hạn)",
+		"Chế độ: Vô Tận (tầng vô hạn, thẻ nâng cấp, vàng), Tập luyện (bất tử, đạn vô hạn, khu thử bot, phím T gọi Titan)",
 		"Esc  -  tạm dừng",
 	]
 	for t in lines:

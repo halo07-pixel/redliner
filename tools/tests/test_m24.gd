@@ -178,9 +178,6 @@ func _run() -> void:
 	root.add_child(w)
 	_check(not ("titan" in w.composition(5)), "mặc định (map thường): không có Titan")
 	_check(w.composition(30).size() <= 10, "map thường giữ cơ cấu cũ")
-	w.titans_enabled = true
-	_check("titan" in w.composition(5) and not ("titan" in w.composition(6)) and "titan" in w.composition(10), "Khu phố: Titan ở wave 5, 10")
-	_check(w.composition(5).count("titan") == 1 and w.composition(25).count("titan") == 2, "số Titan tăng dần, tối đa 2")
 	var hud = load("res://scripts/hud.gd").new()
 	root.add_child(hud)
 	await _frames(1)
@@ -192,7 +189,6 @@ func _run() -> void:
 	print("[navmesh Titan trên Khu phố]")
 	await _clear()
 	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "district"
 	world.add_child(arena)
 	await _frames(15)
 	_check(arena.titans and arena.titan_nav_map.is_valid(), "Khu phố có navmesh Titan riêng")
@@ -206,7 +202,6 @@ func _run() -> void:
 	await _player(arena.spawn_point)
 	var wm = W.new()
 	root.add_child(wm)
-	wm.titans_enabled = true
 	wm.setup(arena, arena.bot_spawns, arena.spawn_band)
 	var spawned: Array = []
 	wm.bot_spawned.connect(func(b): spawned.append(b))

@@ -1,5 +1,5 @@
 extends SceneTree
-## Test headless M11: 3 map dựng được, spawn hợp lệ (không nằm trong khối), chọn map + lưu, rơi khỏi map.
+## Test headless: bản đồ Vô Tận (bản đồ duy nhất từ M41) dựng được, điểm xuất phát/sinh bot hợp lệ, rơi khỏi map.
 ##   timeout 200 godot --headless --path . -s tools/tests/test_maps.gd
 
 var failures: int = 0
@@ -39,16 +39,13 @@ func _run() -> void:
 	var Maps = load("res://scripts/maps.gd")
 	G.save_path = "user://test_maps.cfg"
 	G.load_save()
-	_check(G.selected_map == "yard", "mặc định map = yard")
 
-	for id in Maps.IDS:
+	for id in ["endless"]:
 		print("[", id, "]")
-		var data: Dictionary = Maps.get_map(id)
-		_check(Global.MAP_NAMES.has(id) and Global.MAP_NAMES[id] == data["name"], "tên map khớp Global.MAP_NAMES")
+		var data: Dictionary = Maps.endless(1)
 		_check(data["boxes"].size() >= 8, "có đủ khối địa hình (%d)" % data["boxes"].size())
 		_check(data["bot_spawns"].size() >= 5, "có >= 5 điểm sinh bot")
 		var arena: Node3D = load("res://scripts/arena.gd").new()
-		arena.map_id = id
 		var loaded: Array = []
 		arena.map_loaded.connect(func(m): loaded.append(m))
 		root.add_child(arena)
@@ -65,9 +62,6 @@ func _run() -> void:
 				inside += 1
 		_check(bad == 0, "mọi điểm sinh bot đều trống")
 		_check(inside == 0, "mọi điểm sinh bot nằm trong sàn")
-		_check(arena.dummies.size() == data["dummies"].size(), "có bia tập")
-		for d in arena.dummies:
-			_check(not _blocked(arena, d.position, 0.4, 1.8), "bia tập không kẹt trong khối")
 		# người chơi đứng được trên sàn và thấy đủ khối
 		var player = load("res://scenes/player.tscn").instantiate()
 		player.use_input = false
@@ -91,48 +85,7 @@ func _run() -> void:
 		arena.queue_free()
 		await process_frame
 
-	print("[khác biệt giữa các map]")
-	var sizes: Array = []
-	for id in Maps.IDS:
-		var d: Dictionary = Maps.get_map(id)
-		sizes.append(str(d["half"]) + str(d["boxes"].size()))
-	_check(sizes[0] != sizes[1] and sizes[1] != sizes[2] and sizes[0] != sizes[2], "3 map khác nhau về cỡ/số khối")
-	_check(Maps.get_map("khong_co")["name"] == Maps.get_map("yard")["name"], "id lạ quay về yard")
-
-	print("[chọn map + lưu]")
-	var seen: Array = []
-	G.map_changed.connect(func(m): seen.append(m))
-	G.cycle_map()
-	_check(G.selected_map == "alley" and seen == ["alley"], "cycle_map: yard -> alley, phát map_changed")
-	G.set_map("tower")
-	_check(G.selected_map == "tower", "set_map(tower)")
-	G.set_map("bậy")
-	_check(G.selected_map == "tower", "id sai bị bỏ qua")
-	G.cycle_map()
-	_check(G.selected_map == "district", "cycle_map: tower -> district")
-	G.cycle_map()
-	_check(G.selected_map == "yard", "cycle_map vòng về yard")
-	G.set_map("alley")
-	G.selected_map = "yard"
-	G.load_save()
-	_check(G.selected_map == "alley", "map được lưu và tải lại từ file")
-	var arena2: Node3D = load("res://scripts/arena.gd").new()
-	root.add_child(arena2)
-	await _frames(2)
-	_check(arena2.map_id == "alley", "Arena mặc định dùng map đã chọn")
-	arena2.queue_free()
-
-	print("[menu có nút chọn map]")
-	var menu = load("res://scenes/menu.tscn").instantiate()
-	root.add_child(menu)
-	await _frames(2)
-	_check(menu.map_button != null and menu.map_button.text.contains("Hẻm tường"), "nút bản đồ hiện map đang chọn")
-	menu.map_button.pressed.emit()
-	_check(G.selected_map == "tower" and menu.map_button.text.contains("Tháp"), "bấm nút: đổi sang Tháp, chữ cập nhật")
-	menu.queue_free()
-
 	print("[rơi khỏi map]")
-	G.selected_map = "yard"
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)

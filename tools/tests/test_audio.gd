@@ -242,8 +242,7 @@ func _run() -> void:
 
 	print("[chất liệu bước chân]")
 	_check(G.step_sound("metal") == "step_metal" and G.step_sound("wood") == "step_wood" and G.step_sound("stone") == "step" and G.step_sound("?") == "step", "step_sound theo chất liệu")
-	var arena: Node3D = load("res://scripts/arena.gd").new()
-	arena.map_id = "tower"
+	var arena: Node3D = load("res://scripts/arena.gd").new()   # bản đồ Vô Tận thật
 	root.add_child(arena)
 	await _frames(3)
 	var kinds: Dictionary = {}
@@ -261,7 +260,6 @@ func _run() -> void:
 		b.queue_free()
 
 	print("[nối vào game]")
-	G.selected_map = "yard"
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)

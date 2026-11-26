@@ -116,9 +116,8 @@ func _run() -> void:
 	_check(tinted >= 10, "%d toà nhà đã đổi tông mặt tiền" % tinted)
 	arena.queue_free()
 	await _frames(2)
-	for id in ["yard", "alley", "tower", "district"]:
-		var a2: Node3D = load("res://scripts/arena.gd").new()
-		a2.map_id = id
+	for id in ["yard"]:   # sân phẳng của test: không có lớp trang trí Vô Tận
+		var a2: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 		a2.bake_nav = false
 		root.add_child(a2)
 		await _frames(1)

@@ -48,8 +48,7 @@ func _bot(pos: Vector3, hp: float = 1.0) -> Node:
 
 
 func _world(y: float = 0.2) -> void:
-	arena = load("res://scripts/arena.gd").new()
-	arena.map_id = "yard"
+	arena = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	pl = load("res://scenes/player.tscn").instantiate()
@@ -401,7 +400,6 @@ func _run() -> void:
 
 	print("[Tích hợp main]")
 	G.set_mode("endless")
-	G.start_wave = 1
 	var main = load("res://scenes/main.tscn").instantiate()
 	main.autostart_waves = false
 	root.add_child(main)

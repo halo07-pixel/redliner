@@ -363,6 +363,13 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 - Test: `test_m39` (51 kiểm tra, gồm lao thật đo quãng đường và vòng chém trúng 3 bot quanh người). Pitfall: nhiều lần bị parry làm Destabilized, test phải `pl.instability.reset()`. Cập nhật `test_m36/m37` (pool giờ có "sword", 18 thẻ khi cầm súng lục). Ảnh `docs/screenshots/m39/`.
 - **Chưa kiểm bằng người**: cảm giác lao (quãng đường phụ thuộc ma sát/ thực tế có tường chắn), cân bằng số; Vòng chém không có hiệu ứng hình riêng (dùng chém thường); lỗi kiếm với Titan chưa thử riêng. Kế hoạch Vô Tận M34-M39 đã đủ; việc còn lại: chơi thử cân bằng, SMG/Revolver nếu muốn.
 
+## M41 (nhánh `feature/m41-cat-giam`: cắt giảm, bước đầu hướng "lột xác")
+- Bỏ: 4 bản đồ cố định (yard/alley/tower/district), chế độ Sinh tồn + Thời gian, wave có nghỉ (`_next_wave`, `break_time`, `wave_started/cleared`, `titans_enabled`, `first_wave`), điểm Sinh tồn (`high_score`, `_scores`, `submit_score`), chọn bản đồ/wave khởi đầu (`selected_map`, `cycle_map`, `start_wave`, `map_changed`, nút trên menu), đồng hồ HUD (`set_timer`), cờ `won` ở màn kết thúc. Xoá ảnh/shoot của M11, M16, M21, M24.
+- Tập luyện chuyển sang `Maps.endless(TRAINING.floor)`; khu thử bot theo `Global.TRAINING.slots`, hồi sinh bot đúng ô, phím T Titan, người chơi chết thì hồi sinh (không game over). Menu 4 nút.
+- Test: `test_m41` mới; viết lại gọn `test_modes`, `test_maps`; sửa `m21/m23/m24/m27/m31/polish/bots/bot_fixes/smart_bots/...`; khung sân phẳng chỉ cho test (`tools/tests/fixtures/`, `Arena.map_override`).
+- Số kiểm tra: **47 suite / 1736 -> 48 suite / ~1606** (giảm do bỏ phần test của map/chế độ đã xoá). Chạy 2 tiến trình thì `test_p1` ("navmesh sẵn sàng sau N khung") đôi khi trượt vì máy bận; chạy riêng thì đạt.
+- Chưa kiểm bằng người: cảm giác khu thử bot (khoảng cách các ô 14-24 m, bot đuổi theo người chơi ngay), nút đồ họa/hiệu ứng mới ở Cài đặt, ảnh chụp (các `shoot_*` còn lại chỉ sửa chỗ gọi `waves.start()`, chưa chạy lại).
+
 ## Quy trình (từ instruction Project)
 Đề xuất → chờ duyệt → nhánh feature + push → chờ "Duyệt" → merge `--no-ff` vào main. Không push `main`. Commit conventional, có trailer Co-Authored-By và Claude-Session.
 

@@ -128,7 +128,8 @@ func _run() -> void:
 	WM.bot_spawned.connect(func(b):
 		made.append(b)
 		at_spawn.append(b.global_position))
-	WM._next_wave()
+	for t in WM.composition(8):
+		WM._spawn(t)
 	await _frames(30)
 	_check(made.size() == 10, "wave 8 sinh đủ 10 bot (%d)" % made.size())
 	var min_gap: float = 1e9
@@ -159,7 +160,7 @@ func _run() -> void:
 	print("[rơi / ngoài biên được đưa về]")
 	await _clear_world()
 	_box(Vector3(80, 1, 80), Vector3(0, -0.5, 0))
-	var arena: Node3D = load("res://scripts/arena.gd").new()
+	var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 	arena.bake_nav = false
 	root.add_child(arena)
 	await _frames(3)

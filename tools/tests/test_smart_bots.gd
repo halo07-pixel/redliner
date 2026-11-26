@@ -160,12 +160,10 @@ func _run() -> void:
 		_check(is_instance_valid(bb) and bb.mannequin != null, "bot %s dựng được" % t)
 		bb.queue_free()
 
-	print("[navmesh trên 3 map]")
-	var Maps = load("res://scripts/maps.gd")
-	for id in Maps.IDS:
+	print("[navmesh: sân phẳng + bản đồ Vô Tận]")
+	for id in ["yard", "endless"]:
 		await _clear_world()
-		var arena: Node3D = load("res://scripts/arena.gd").new()
-		arena.map_id = id
+		var arena: Node3D = load("res://scripts/arena.gd" if id == "endless" else "res://tools/tests/fixtures/flat_arena.gd").new()
 		world.add_child(arena)
 		await _frames(15)
 		var bad: int = 0
@@ -305,23 +303,23 @@ func _run() -> void:
 	var seen: Array = []
 	G.difficulty_changed.connect(func(l): seen.append(l))
 	_check(G.difficulty == "normal", "mặc định mức Thường")
-	_check(G.submit_score(500) and G.high_score == 500, "Thường: kỷ lục 500")
+	_check(G.submit_mode_score(500) and G.best_score() == 500, "Thường: kỷ lục 500")
 	G.cycle_difficulty()
-	_check(G.difficulty == "hard" and G.high_score == 0 and seen == ["hard"], "xoay vòng: Thường -> Khó, kỷ lục riêng = 0")
-	_check(G.submit_score(300) and G.high_score == 300, "Khó: kỷ lục 300")
+	_check(G.difficulty == "hard" and G.best_score() == 0 and seen == ["hard"], "xoay vòng: Thường -> Khó, kỷ lục riêng = 0")
+	_check(G.submit_mode_score(300) and G.best_score() == 300, "Khó: kỷ lục 300")
 	G.cycle_difficulty()
-	_check(G.difficulty == "easy" and G.high_score == 0, "Khó -> Dễ")
+	_check(G.difficulty == "easy" and G.best_score() == 0, "Khó -> Dễ")
 	G.cycle_difficulty()
-	_check(G.difficulty == "normal" and G.high_score == 500, "Dễ -> Thường: kỷ lục 500 còn nguyên")
+	_check(G.difficulty == "normal" and G.best_score() == 500, "Dễ -> Thường: kỷ lục 500 còn nguyên")
 	G.set_difficulty("khong_co")
 	_check(G.difficulty == "normal", "mức lạ bị bỏ qua")
 	G.set_difficulty("hard")
-	G.high_score = 0
+	G._mode_scores = {}
 	G.difficulty = "normal"
 	G.load_save()
-	_check(G.difficulty == "hard" and G.high_score == 300, "mức + kỷ lục từng mức được lưu và nạp lại")
+	_check(G.difficulty == "hard" and G.best_score() == 300, "mức + kỷ lục từng mức được lưu và nạp lại")
 	G.set_difficulty("normal")
-	_check(G.high_score == 500, "kỷ lục mức Thường vẫn 500 sau khi nạp lại")
+	_check(G.best_score() == 500, "kỷ lục mức Thường vẫn 500 sau khi nạp lại")
 	G.set_difficulty("hard")
 	await _clear_world()
 	_box(Vector3(80, 1, 80), Vector3(0, -0.5, 0))
@@ -341,7 +339,7 @@ func _run() -> void:
 	_check(G.difficulty == "hard" and menu.difficulty_button.text.contains("Khó") and menu.best_label.text.contains("300"), "bấm nút: đổi mức, chữ và điểm cao cập nhật")
 	menu.queue_free()
 	G.set_difficulty("normal")
-	G.high_score = 0
+	G._mode_scores = {}
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_smart.cfg"))
 	print("----", "TẤT CẢ ĐẠT" if failures == 0 else "%d LỖI" % failures)
 	quit(1 if failures > 0 else 0)

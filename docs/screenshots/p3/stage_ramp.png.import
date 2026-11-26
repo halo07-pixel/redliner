@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://yvbmlqqfwssq"
-path="res://.godot/imported/from_spawn.png-d34f690d6305530fea890c29b50a5f3f.ctex"
+uid="uid://d0c4t1skapq3s"
+path="res://.godot/imported/stage_ramp.png-9283f206c0c73e5d13a47aa290256330.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://docs/screenshots/m21/from_spawn.png"
-dest_files=["res://.godot/imported/from_spawn.png-d34f690d6305530fea890c29b50a5f3f.ctex"]
+source_file="res://docs/screenshots/p3/stage_ramp.png"
+dest_files=["res://.godot/imported/stage_ramp.png-9283f206c0c73e5d13a47aa290256330.ctex"]
 
 [params]
 

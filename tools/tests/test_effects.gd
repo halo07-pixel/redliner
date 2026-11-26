@@ -129,7 +129,6 @@ func _run() -> void:
 	player._shake = 0.0
 	player.shake(0.1)
 	_check(is_equal_approx(player._shake, 0.1), "tắt giảm hiệu ứng: rung đầy đủ")
-	G.selected_map = "yard"
 	G.set_reduced_fx(true)
 	G.reduced_fx = false
 	G.load_save()
@@ -233,12 +232,11 @@ func _run() -> void:
 	_check(brk == ["crate"], "thùng gỗ vỡ phát broken(crate), không nổ")
 
 	print("[map có vật phá được]")
-	var Maps = load("res://scripts/maps.gd")
-	for id in Maps.IDS:
-		var d: Dictionary = Maps.get_map(id)
+	var Fixture = load("res://tools/tests/fixtures/map_fixture.gd")
+	for id in ["yard"]:   # sân phẳng của test (bản đồ Vô Tận thật không có thùng)
+		var d: Dictionary = Fixture.yard()
 		_check(d["barrels"].size() >= 2 and d["crates"].size() >= 2, "%s có thùng nổ và thùng gỗ" % id)
-		var arena: Node3D = load("res://scripts/arena.gd").new()
-		arena.map_id = id
+		var arena: Node3D = load("res://tools/tests/fixtures/flat_arena.gd").new()
 		var ex: Array = []
 		arena.explosion.connect(func(p, r): ex.append(p))
 		root.add_child(arena)

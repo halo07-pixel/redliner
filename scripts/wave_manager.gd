@@ -1,9 +1,7 @@
 extends Node
-## Quản lý các wave bot: sinh bot theo wave, đếm số còn sống, hết bot thì nghỉ rồi sang wave sau.
+## Quản lý bot: Vô Tận (sinh liên tục theo tầng, `stream`) và Tập luyện (khu thử bot, sinh tại chỗ chỉ định).
 ## Chỉ phát Signal; main.gd nối tới HUD/âm thanh/điểm.
 
-signal wave_started(wave: int, count: int)
-signal wave_cleared(wave: int)
 signal enemies_left_changed(left: int)
 signal bot_spawned(bot: Node3D)
 signal bot_killed(bot: Node3D, info: Dictionary)
@@ -14,7 +12,6 @@ const BotScript = preload("res://scripts/bot.gd")
 const TitanScript = preload("res://scripts/titan.gd")
 const MAX_BOTS_PER_WAVE: int = 10
 
-var break_time: float = 4.0
 var wave: int = 0
 var alive_types: Dictionary = {}   # loại bot -> số còn sống (HUD hiện cơ cấu bot còn lại)
 
@@ -29,10 +26,6 @@ const SPAWN_GAP: float = 1.3
 
 ## band = (min, max) m quanh người chơi cho map lớn; Vector2.ZERO = cách cũ (điểm xa nhất).
 var _band: Vector2 = Vector2.ZERO
-## Map có Titan (Khu phố): wave 5, 10, ... có thêm Titan. Mặc định tắt để composition() thuần cho map thường.
-var titans_enabled: bool = false
-## Bắt đầu từ wave này (>1: chơi thử, main đặt từ Global.start_wave).
-var first_wave: int = 1
 
 
 ## Vô Tận: bot sinh liên tục (không wave). `wave` = tầng (độ khó), `stream_cap` bot sống cùng lúc; bot quá xa bị gỡ.
@@ -52,10 +45,7 @@ func setup(world: Node3D, spawn_points: Array, band: Vector2 = Vector2.ZERO) -> 
 func start() -> void:
 	_running = true
 	if stream:
-		begin_floor(maxi(first_wave, 1), false)
-		return
-	wave = maxi(first_wave, 1) - 1
-	_next_wave()
+		begin_floor(1, false)
 
 
 ## Vô Tận: bắt đầu tầng n. Gỡ bot cũ (không tính hạ), đặt số bot tối đa theo tầng, sinh Titan nếu tầng có Titan.
@@ -145,37 +135,17 @@ func composition(n: int) -> Array:
 			types.append("gunner")
 		else:
 			types.append("swordsman")
-	if titans_enabled:
-		var T: Dictionary = Global.TITAN
-		var first: int = int(T["first_wave"])
-		if n >= first and (n - first) % int(T["every"]) == 0:
-			var k: int = mini(1 + (n - first) / (int(T["every"]) * 2), int(T["max_alive"]))
-			for i in k:
-				types.append("titan")
 	return types
 
 
-func _next_wave() -> void:
-	wave += 1
-	_used_spots.clear()
-	var comp: Array = composition(wave)
-	_alive = comp.size()
-	alive_types.clear()
-	wave_started.emit(wave, comp.size())
-	enemies_left_changed.emit(_alive)
-	for t in comp:
-		_spawn(t)
-	enemies_left_changed.emit(_alive) # báo lại sau khi sinh xong để HUD thấy cơ cấu bot theo loại
-
-
 ## Tạo Titan (navmesh Titan, chỗ sinh đủ rộng) và thêm vào thế giới; chưa nối Signal chết.
-func _create_titan(at_wave: int) -> CharacterBody3D:
+func _create_titan(at_wave: int, at: Variant = null) -> CharacterBody3D:
 	var b: CharacterBody3D = TitanScript.new()
 	b.setup("titan", at_wave)
 	var nm: Variant = _world.get("titan_nav_map")
 	if nm is RID and (nm as RID).is_valid():
 		b.nav_map = nm
-	var sp: Vector3 = _pick_spawn()
+	var sp: Vector3 = at if at is Vector3 else _pick_spawn()
 	if b.nav_map.is_valid():
 		sp = NavigationServer3D.map_get_closest_point(b.nav_map, sp) # chỗ đủ rộng cho thân hình Titan
 	b.position = sp
@@ -184,11 +154,9 @@ func _create_titan(at_wave: int) -> CharacterBody3D:
 	return b
 
 
-## Tập luyện: gọi một Titan (chỉ map có Titan). Không tính vào wave, không làm bot tập sinh lại. Trả về null nếu map không có.
-func spawn_titan_practice() -> Node3D:
-	if not titans_enabled or _spawns.is_empty():
-		return null
-	return _create_titan(int(Global.TRAINING["bot_wave"]))
+## Tập luyện: gọi một Titan tại `at` (chỗ nào cũng được, ép vào navmesh Titan). Không tính vào tầng, không tự sinh lại.
+func spawn_titan_practice(at: Vector3) -> Node3D:
+	return _create_titan(int(Global.TRAINING["bot_wave"]), at)
 
 
 ## Tập luyện: xoá mọi Titan đang có. Trả về số Titan đã xoá.
@@ -217,12 +185,11 @@ func _spawn(type_name: String) -> void:
 	bot_spawned.emit(b)
 
 
-## Tập luyện: sinh một bot lẻ ở chỉ số wave `at_wave`, không tính vào wave và không kết thúc wave.
-func spawn_practice(type_name: String, at_wave: int = 1) -> Node3D:
+## Tập luyện: sinh một bot lẻ tại đúng `at` (khu thử bot), cấp độ `at_wave`; không tính vào tầng.
+func spawn_practice(type_name: String, at: Vector3, at_wave: int = 1) -> Node3D:
 	var b: CharacterBody3D = BotScript.new()
 	b.setup(type_name, at_wave)
-	_used_spots.clear()
-	b.position = _free_spot(_pick_spawn())
+	b.position = at
 	_world.add_child(b)
 	b.died.connect(func(bot, info): practice_bot_killed.emit(bot, info))
 	bot_spawned.emit(b)
@@ -333,10 +300,3 @@ func _on_bot_died(bot: Node3D, info: Dictionary) -> void:
 	_alive -= 1
 	bot_killed.emit(bot, info)
 	enemies_left_changed.emit(_alive)
-	if stream:
-		return   # Vô Tận: không có wave; hạ bot chỉ tính vào chỉ tiêu tầng
-	if _alive <= 0:
-		wave_cleared.emit(wave)
-		await get_tree().create_timer(break_time).timeout
-		if _running:
-			_next_wave()

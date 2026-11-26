@@ -63,8 +63,6 @@ const PICKUPS: Dictionary = CombatData.PICKUPS
 const BREAKABLES: Dictionary = CombatData.BREAKABLES
 var PLAYER: Dictionary = PlayerData.PLAYER.duplicate(true)   # bản chỉnh sống được
 signal quality_changed(level: int)
-signal map_changed(id: String)
-
 signal fx_changed(reduced: bool)
 signal difficulty_changed(level: String)
 signal mode_changed(mode: String)
@@ -97,7 +95,7 @@ const REMAPPABLE: Array = [
 	["move_forward", "Tiến"], ["move_back", "Lùi"], ["move_left", "Trái"], ["move_right", "Phải"],
 	["jump", "Nhảy"], ["slide", "Trượt"], ["dash", "Dash"], ["slam", "Đập đất"],
 	["attack", "Chém"], ["heavy", "Chém rộng"], ["shoot", "Bắn"], ["parry", "Parry"],
-	["grapple", "Móc"], ["reload", "Nạp đạn"], ["zoom", "Ngắm"], ["spawn_titan", "Gọi/xoá Titan (Tập luyện, Khu phố)"],
+	["grapple", "Móc"], ["reload", "Nạp đạn"], ["zoom", "Ngắm"], ["spawn_titan", "Gọi/xoá Titan (Tập luyện)"],
 	["weapon_1", "Súng 1"], ["weapon_2", "Súng 2"], ["weapon_3", "Súng 3"], ["weapon_4", "Súng 4"],
 ]
 
@@ -107,16 +105,11 @@ const MODE_DESCRIPTIONS: Dictionary = ModeData.MODE_DESCRIPTIONS
 const XP: Dictionary = ModeData.XP
 const UPGRADES: Dictionary = ModeData.UPGRADES
 const ENDLESS: Dictionary = ModeData.ENDLESS
-const TIMED: Dictionary = ModeData.TIMED
 const TRAINING: Dictionary = ModeData.TRAINING
 const VERSION: String = "1.0.0"
-const MAP_IDS: Array = ModeData.MAP_IDS
-const MAP_NAMES: Dictionary = ModeData.MAP_NAMES
 ## Điểm cao nhất + mức đồ họa, lưu vào file để còn sau khi tắt game.
 var save_path: String = "user://savegame.cfg"
-var high_score: int = 0
 var quality: int = QUALITY_DEFAULT
-var selected_map: String = "yard"
 var reduced_fx: bool = false
 ## Bật để lớp phủ F3 hiện pha/clip hoạt ảnh viewmodel (gỡ lỗi hoạt ảnh).
 var anim_debug: bool = false
@@ -125,14 +118,13 @@ var anim_debug_samples: PackedFloat32Array = PackedFloat32Array()   # đường 
 var tune: Dictionary = {}
 var anim_debug_text: String = ""   # viewmodel ghi mỗi frame khi anim_debug bật
 var difficulty: String = "normal"
-var game_mode: String = "survival"
-var _scores: Dictionary = {}
+var game_mode: String = "endless"
 signal gold_changed(total: int)
 signal start_gun_changed(id: String)
 var gold: int = 0                           # vàng lưu lâu dài (M37)
 var owned_guns: Array = ["pistol"]          # súng đã mở khoá
 var start_gun: String = "pistol"            # súng cầm khi bắt đầu lượt Vô Tận
-var _mode_scores: Dictionary = {} # "<chế_độ>_<mức>" -> điểm (sinh tồn dùng _scores/high_score như cũ)
+var _mode_scores: Dictionary = {} # "<chế_độ>_<mức>" -> điểm 
 var settings: Dictionary = DEFAULT_SETTINGS.duplicate()
 var _default_bindings: Dictionary = {}
 
@@ -159,13 +151,10 @@ static func _flag(v: Variant, fallback: bool) -> bool:
 
 
 func load_save() -> void:
-	high_score = 0
 	quality = QUALITY_DEFAULT
-	selected_map = "yard"
 	reduced_fx = false
 	difficulty = "normal"
-	game_mode = "survival"
-	_scores = {}
+	game_mode = "endless"
 	_mode_scores = {}
 	gold = 0
 	owned_guns = ["pistol"]
@@ -175,12 +164,7 @@ func load_save() -> void:
 		return
 	var cf := ConfigFile.new()
 	if cf.load(save_path) == OK:
-		var legacy: int = maxi(int(_num(cf.get_value("progress", "high_score", 0), 0.0)), 0)
-		for lv in DIFFICULTY_LEVELS:
-			_scores[lv] = maxi(int(_num(cf.get_value("progress", "high_score_" + lv, legacy if lv == "normal" else 0), 0.0)), 0)
 		for md in MODES:
-			if md == "survival":
-				continue
 			for lv in DIFFICULTY_LEVELS:
 				_mode_scores[md + "_" + lv] = maxi(int(_num(cf.get_value("progress", "high_score_%s_%s" % [md, lv], 0), 0.0)), 0)
 		gold = maxi(int(_num(cf.get_value("meta", "gold", 0), 0.0)), 0)
@@ -189,14 +173,11 @@ func load_save() -> void:
 				owned_guns.append(g)
 		var sg: String = str(cf.get_value("meta", "start_gun", "pistol"))
 		start_gun = sg if owned_guns.has(sg) else "pistol"
-		var gm: String = str(cf.get_value("game", "mode", "survival"))
-		game_mode = gm if gm in MODES else "survival"
+		var gm: String = str(cf.get_value("game", "mode", "endless"))
+		game_mode = gm if gm in MODES else "endless"   # savegame cũ ghi survival/timed -> Vô Tận
 		var dl: String = str(cf.get_value("game", "difficulty", "normal"))
 		difficulty = dl if dl in DIFFICULTY_LEVELS else "normal"
-		high_score = int(_scores.get(difficulty, 0))
 		quality = clampi(int(_num(cf.get_value("graphics", "quality", QUALITY_DEFAULT), QUALITY_DEFAULT)), 0, QUALITY.size() - 1)
-		var m: String = str(cf.get_value("game", "map", "yard"))
-		selected_map = m if m in MAP_IDS else "yard"
 		reduced_fx = _flag(cf.get_value("graphics", "reduced_fx", false), false)
 		for k in DEFAULT_SETTINGS:
 			var v: Variant = cf.get_value("settings", k, DEFAULT_SETTINGS[k])
@@ -209,10 +190,6 @@ func load_save() -> void:
 
 func _write_save() -> void:
 	var cf := ConfigFile.new()
-	_scores[difficulty] = high_score
-	for lv in DIFFICULTY_LEVELS:
-		cf.set_value("progress", "high_score_" + lv, int(_scores.get(lv, 0)))
-	cf.set_value("progress", "high_score", int(_scores.get("normal", 0)))
 	for k in _mode_scores:
 		cf.set_value("progress", "high_score_" + k, int(_mode_scores[k]))
 	cf.set_value("meta", "gold", gold)
@@ -221,7 +198,6 @@ func _write_save() -> void:
 	cf.set_value("game", "mode", game_mode)
 	cf.set_value("game", "difficulty", difficulty)
 	cf.set_value("graphics", "quality", quality)
-	cf.set_value("game", "map", selected_map)
 	cf.set_value("graphics", "reduced_fx", reduced_fx)
 	for k in settings:
 		cf.set_value("settings", k, settings[k])
@@ -375,13 +351,11 @@ func reset_bindings() -> void:
 	bindings_changed.emit()
 
 
-## Chọn mức độ khó (điểm cao lưu riêng từng mức). Đổi giữa trận không ảnh hưởng bot đã sinh.
+## Chọn mức độ khó (kỷ lục Vô Tận lưu riêng từng mức). Đổi giữa trận không ảnh hưởng bot đã sinh.
 func set_difficulty(level: String) -> void:
 	if level not in DIFFICULTY_LEVELS or level == difficulty:
 		return
-	_scores[difficulty] = high_score
 	difficulty = level
-	high_score = int(_scores.get(level, 0))
 	_write_save()
 	difficulty_changed.emit(level)
 
@@ -415,28 +389,6 @@ func set_reduced_fx(on: bool) -> void:
 	reduced_fx = on
 	_write_save()
 	fx_changed.emit(on)
-
-
-## Chọn đấu trường cho lần chơi sau (lưu file, phát Signal).
-func set_map(id: String) -> void:
-	if id not in MAP_IDS or id == selected_map:
-		return
-	selected_map = id
-	_write_save()
-	map_changed.emit(id)
-
-
-## Bắt đầu từ wave N (chỉ để thử Titan / wave cao; không lưu, không tính kỷ lục). Chỉ áp dụng Sinh tồn và Thời gian.
-const START_WAVES: Array = [1, 5, 10, 15]
-var start_wave: int = 1
-
-
-func cycle_start_wave() -> void:
-	start_wave = START_WAVES[(START_WAVES.find(start_wave) + 1) % START_WAVES.size()]
-
-
-func cycle_map() -> void:
-	set_map(MAP_IDS[(MAP_IDS.find(selected_map) + 1) % MAP_IDS.size()])
 
 
 func cycle_quality() -> void:
@@ -506,37 +458,20 @@ func cycle_mode() -> void:
 func best_score(mode: String = "", level: String = "") -> int:
 	var m: String = mode if mode in MODES else game_mode
 	var lv: String = level if level in DIFFICULTY_LEVELS else difficulty
-	match m:
-		"survival":
-			return high_score if lv == difficulty else int(_scores.get(lv, 0))
-		"training":
-			return 0
+	if m == "training":
+		return 0
 	return int(_mode_scores.get(m + "_" + lv, 0))
 
 
 ## Nộp điểm cho chế độ (mặc định: đang chọn) ở mức độ khó hiện tại. true nếu phá kỷ lục.
 func submit_mode_score(value: int, mode: String = "") -> bool:
 	var m: String = mode if mode in MODES else game_mode
-	if start_wave > 1 and m in ["survival", "timed"]:
-		return false # chơi thử từ wave cao: không ghi kỷ lục
-	match m:
-		"survival":
-			return submit_score(value)
-		"training":
-			return false
+	if m == "training":
+		return false
 	var key: String = m + "_" + difficulty
 	if value <= int(_mode_scores.get(key, 0)):
 		return false
 	_mode_scores[key] = value
-	_write_save()
-	return true
-
-
-## Trả về true nếu phá kỷ lục (và đã lưu).
-func submit_score(value: int) -> bool:
-	if value <= high_score:
-		return false
-	high_score = value
 	_write_save()
 	return true
 
