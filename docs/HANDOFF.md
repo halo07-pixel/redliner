@@ -1,9 +1,15 @@
-# Bàn giao Redliner (gọn; cập nhật sau M42)
+# Bàn giao Redliner (gọn; cập nhật sau M43)
 
 Godot 4.7, GDScript. FPS 3D một người chơi đấu bot, lấy cảm hứng Roblox REDLINER: kiếm + đỡ đòn (parry) + súng, lướt/dash/grapple/trèo gờ. Repo `halo07-pixel/redliner`. Lịch sử từng mốc chi tiết: `docs/HANDOFF_HISTORY.md`. Nguồn asset/giấy phép: `docs/ASSETS.md`.
 
 ## Hướng "lột xác" (người dùng chốt 2026-11-25; mỗi mốc cần đề xuất riêng + "Ok")
 Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong)** -> **M42 chuẩn low poly + kiếm (xong, xem dưới; chờ duyệt gộp)**; nội dung đã làm: chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
+
+## M43 4 súng low poly (nhánh `feature/m43-low-poly-guns`)
+- `tools/blender/make_guns.py` dựng pistol/shotgun/launcher/sniper (184-208 tam giác mỗi súng, 7 màu phẳng trong `PALETTE`) -> `assets/weapons/lowpoly/*.glb`. Mỗi glb có Empty `muzzle` + phần cử động `Mag`/`Pump`/`Cap`/`Bolt` (gốc = trục xoay).
+- Viewmodel (`_add_lowpoly_gun`) nạp glb, lấy `_flash_z` từ `muzzle` và `_anim_parts` theo tên, nên chớp lửa và hoạt ảnh nạp đạn giữ nguyên. Điểm bắt đầu tia đạn (`player_combat.gd`, theo camera) KHÔNG đổi. Bot xạ thủ cầm sniper, pháo thủ cầm launcher (`MannequinGltf.WEAPONS[..]["lowpoly"]`); tinh anh (rìu) và kẻ lao tới (dao) để M44.
+- `Global.LOWPOLY["guns"]`; tắt/thiếu file -> khối cũ. Cloud dựng được bằng `pip install bpy==5.3.0` (không phải chuyển file từ Blender của người dùng).
+- Test: `tools/tests/test_m43.gd`. Chưa thử bằng tay: dáng/độ vừa tay từng súng, tay cầm bot.
 
 ## M42 Chuẩn low poly + kiếm (nhánh `feature/m42-low-poly-kiem`)
 - Chuẩn ghi ở `docs/ASSETS.md` ("Chuẩn low poly"); hằng số `Global.PALETTE` (thêm steel/steel_dark/gold/leather) và `Global.LOWPOLY` (`enabled`, đường dẫn kiếm, ngân sách tam giác bot/súng-kiếm/vật cảnh) trong `scripts/data/visual_data.gd`. Không có tuỳ chọn menu.

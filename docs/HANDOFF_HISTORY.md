@@ -384,3 +384,6 @@ Hết lộ trình M6-M17. Người dùng tự đóng gói Windows (không làm e
 ## M42 (nhánh `feature/m42-low-poly-kiem`: chuẩn low poly + kiếm)
 - Xem `docs/HANDOFF.md` (mục M42) và `docs/ASSETS.md` (Chuẩn low poly). Kiếm 90 tam giác (ngân sách 200-600), `sword.glb` 4168 byte, md5 `d8e4625eea80f4e84fcea4ae8f9e37a7`.
 - Kênh Blender -> repo: Blender chạy trên máy người dùng nên file không thấy từ cloud; glb được chuyển bằng base64 và kiểm md5. Tạo lại: chạy `tools/blender/make_sword.py` (đặt `REDLINER_SWORD_OUT`).
+
+## M43 (nhánh `feature/m43-low-poly-guns`: 4 súng low poly)
+- Xem `docs/HANDOFF.md` (mục M43). Hình học viết theo toạ độ Godot trong `make_guns.py`; `pip install bpy==5.3.0` chạy được trên cloud nên bỏ kênh base64 của M42.
