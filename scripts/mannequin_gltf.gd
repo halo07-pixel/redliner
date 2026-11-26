@@ -7,6 +7,7 @@ extends Node3D
 
 const AnimatorScript = preload("res://scripts/rig_animator.gd")
 const ClipLib = preload("res://scripts/clip_lib.gd")
+const VisualData = preload("res://scripts/data/visual_data.gd")
 const MODEL_PATH: String = "res://assets/characters/godo/GodoDude.gltf"
 const HEIGHT: float = 1.8
 const JOINT_NAMES: Array = [
@@ -34,7 +35,8 @@ const STRAIGHTEN: Dictionary = {
 }
 ## kind -> vũ khí. dir: hướng trục dài của asset ở dạng gốc (mũi nhọn/nòng súng); length: m; grip: tỉ lệ từ đuôi tới chỗ cầm.
 const WEAPONS: Dictionary = {
-	"swordsman": {"file": "res://assets/weapons/quaternius/Sword.fbx", "length": 1.0, "grip": 0.15, "melee": true, "hold_deg": -56.0},
+	"swordsman": {"file": "res://assets/weapons/quaternius/Sword.fbx", "length": 1.0, "grip": 0.15, "melee": true, "hold_deg": -56.0,
+		"lowpoly": {"file": "res://assets/weapons/lowpoly/sword.glb", "grip": 0.11, "flip": true}},
 	"elite": {"file": "res://assets/weapons/quaternius/Axe_Double.fbx", "length": 0.85, "grip": 0.2, "melee": true, "hold_deg": -56.0},
 	"gunner": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.85, "grip": 0.45, "melee": false, "hold_deg": -90.0},
 	"rusher": {"file": "res://assets/weapons/quaternius/Dagger.fbx", "length": 0.6, "grip": 0.1, "melee": true, "hold_deg": -56.0},
@@ -46,13 +48,24 @@ const WEAPONS: Dictionary = {
 static func warm_up() -> void:
 	var paths: Array = [MODEL_PATH]
 	for k in WEAPONS:
-		var f: String = String(WEAPONS[k]["file"])
+		var f: String = weapon_config(k)["file"]
 		if not paths.has(f):
 			paths.append(f)
 	for pth in paths:
 		if ResourceLoader.exists(pth):
 			ResourceLoader.load_threaded_request(pth)
 	ClipLib.warm_up()
+
+
+## Cấu hình vũ khí đang dùng: bản low poly (M42) nếu bật + file có, không thì bản cũ.
+static func weapon_config(k: String) -> Dictionary:
+	var cfg: Dictionary = (WEAPONS[k] as Dictionary).duplicate()
+	if cfg.has("lowpoly") and bool(VisualData.LOWPOLY["enabled"]):
+		var lp: Dictionary = cfg["lowpoly"]
+		if ResourceLoader.exists(String(lp["file"])):
+			cfg.merge(lp, true)
+	cfg.erase("lowpoly")
+	return cfg
 
 
 @export var color: Color = Color(0.85, 0.85, 0.9)
@@ -169,7 +182,7 @@ func _prepare_materials() -> void:
 
 
 func _attach_weapon() -> void:
-	var cfg: Dictionary = WEAPONS[kind]
+	var cfg: Dictionary = weapon_config(kind)
 	var att := BoneAttachment3D.new()
 	att.bone_name = JOINT_TREE["hand_r"][1]
 	skeleton.add_child(att)
@@ -178,7 +191,7 @@ func _attach_weapon() -> void:
 	var pivot := Node3D.new()
 	pivot.name = "weapon"
 	pivot.add_child(asset)
-	_orient_asset(asset, bool(cfg["melee"]), float(cfg["length"]), float(cfg["grip"]))
+	_orient_asset(asset, bool(cfg["melee"]), float(cfg["length"]), float(cfg["grip"]), bool(cfg.get("flip", false)))
 	# Đặt pivot sao cho ở tư thế gốc nó trùng khung của khớp hand_r (+ lòng bàn tay cách cổ tay 0.08 m).
 	var b0: Basis = (_bone_fix["hand_r"] as Basis) * (_bone_rest_g["hand_r"] as Basis)
 	var to_bone: Basis = b0.inverse() * _flip.inverse()
@@ -190,13 +203,16 @@ func _attach_weapon() -> void:
 
 
 ## Xoay/co asset: trục dài -> +Y (cận chiến) hoặc -Z (súng), dài `length` m, điểm cầm ở gốc.
-func _orient_asset(asset: Node3D, melee: bool, length: float, grip: float) -> void:
+## `flip`: mũi/nòng của asset nằm ở đầu ÂM của trục dài (model Blender: mũi về -Z).
+func _orient_asset(asset: Node3D, melee: bool, length: float, grip: float, flip: bool = false) -> void:
 	var box: AABB = _mesh_aabb(asset)
 	var axis: int = 0
 	for a in 3:
 		if box.size[a] > box.size[axis]:
 			axis = a
 	var long_axis: Vector3 = [Vector3.RIGHT, Vector3.UP, Vector3.BACK][axis]
+	if flip:
+		long_axis = -long_axis
 	var target: Vector3 = Vector3.UP if melee else Vector3.FORWARD
 	# Quaternius: mũi ở +Y; HoneyBadger: nòng ở +Z (xem ảnh xem thử) -> đưa nòng về -Z
 	var from: Vector3 = long_axis
