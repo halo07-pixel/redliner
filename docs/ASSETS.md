@@ -6,9 +6,24 @@
 | Quaternius – Medieval Weapons Pack (`Sword`, `Axe_Double`, `Dagger` FBX) | https://quaternius.com (bản sao trong repo `beep2bleep/FreeAssetsByKenneyNLandQuaternius`) | CC0 1.0, `assets/weapons/quaternius/LICENSE.txt` | Kiếm (kiếm sĩ), rìu đôi (tinh anh) |
 | HoneyBadger (`assets/weapons/honeybadger/HoneyBadger.fbx`) | https://github.com/Datiel124/StickmanRev2 | CC0 1.0 (LICENSE của repo) | Súng trường của xạ thủ |
 | Quaternius – Universal Animation Library [Standard] (`assets/animations/ual/UAL1_Standard.glb`, bản không root motion) | https://quaternius.com/packs/universalanimationlibrary.html (người dùng cung cấp file) | CC0 1.0, `assets/animations/ual/LICENSE.txt` | Clip chạy/đi/đứng/núp nền cho bot glTF (M32), qua `scripts/clip_lib.gd` |
+| Kiếm low poly (`assets/weapons/lowpoly/sword.glb`, dựng bằng `tools/blender/make_sword.py`) | Tự dựng trong Blender (M42) | Của dự án | Kiếm của viewmodel + kiếm sĩ (thay Quaternius `Sword.fbx`; tắt bằng `Global.LOWPOLY["enabled"]`) |
 
 - Model nhân vật GodoDude không có clip hoạt ảnh; từ M32 `scripts/clip_lib.gd` lấy clip từ Universal Animation Library, chuyển sang khớp proxy của rig (bake một lần) rồi `RigAnimator` trộn lên tư thế sinh bằng code (chân/thân/đầu; tay, đòn đánh, parry, bắn vẫn do code). Chỉ dùng 7 clip (Idle, Sword_Idle, Pistol_Idle, Walk, Jog_Fwd, Sprint, Crouch_Idle); file glb còn ~36 clip chưa dùng (7.6 MB).
 - (Cũ) Model nhân vật không có clip hoạt ảnh. `scripts/mannequin_gltf.gd` dùng lại `RigAnimator` (cùng bộ tư thế với hình nhân khối) và chuyển góc khớp sang xương.
 - Thiếu file asset thì bot tự dùng hình nhân khối (`mannequin.gd`). Bia `dummy` và thân người chơi (chỉ thấy bóng) vẫn là hình nhân khối.
 - `Dagger.fbx` được thêm sẵn nhưng chưa dùng.
 - Quy ước: thêm asset mới phải ghi vào bảng này kèm nguồn và giấy phép; chỉ dùng CC0, MIT hoặc CC-BY.
+
+
+## Chuẩn low poly (M42)
+
+Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn này. Hằng số nằm ở `scripts/data/visual_data.gd` (`PALETTE`, `LOWPOLY`), không có tuỳ chọn trong menu.
+
+- **Màu**: chỉ dùng màu phẳng lấy từ `PALETTE` (`steel`, `steel_dark`, `gold`, `leather`, ...). Không texture, không UV. Mỗi màu là một vật liệu riêng, tên `<model>_<màu>`; đổi màu thì đổi cả `PALETTE` lẫn script Blender.
+- **Shading phẳng**: mọi mặt `smooth = False`; xuất `.glb` với `export_normals=False` (file nhỏ, Godot tự tính pháp tuyến phẳng).
+- **Ngân sách tam giác** (đếm theo mesh, `LOWPOLY["budget"]`): bot ~800-1500; súng/kiếm ~200-600; vật cảnh ~300-1200. Vật cảnh lặp lại dùng `MultiMesh`; mỗi ô 50 m tối đa ~40.000 tam giác (chốt ở M45). Va chạm vẫn là hộp đơn giản, không dùng mesh model.
+- **Đơn vị/trục**: mét, tỉ lệ 1. Trong Blender: Y là hướng "phía trước" của vật (mũi kiếm, nòng súng), X là bề dày, Z là bề rộng/cao. Xuất `export_yup=True` -> trong Godot mũi/nòng hướng -Z, đúng quy ước viewmodel. Gốc ở điểm cầm (giữa chuôi / báng).
+- **Bot**: tên khớp trùng 15 khớp proxy của rig (`MannequinGltf.JOINT_NAMES`); vũ khí gắn vào `hand_r` qua `MannequinGltf.WEAPONS[kind]["lowpoly"]` (`file`, `grip` = tỉ lệ từ đuôi tới chỗ cầm, `flip` = mũi nằm ở đầu âm của trục dài).
+- **Điểm gắn**: cầm = gốc model; nòng súng = đầu -Z (đo bằng AABB). Mốc riêng (nòng, ổ đạn) sẽ thêm ở M43 bằng Empty đặt tên `muzzle`, `grip`.
+- **Dự phòng**: `LOWPOLY["enabled"] = false` hoặc thiếu file -> dùng lại khối/FBX cũ.
+- **Quy trình**: script `tools/blender/*.py` dựng + xuất; `.blend` làm việc để ở `D:\nham\gugugaga\blender` trên máy tác giả, chỉ `.glb` (+ `.import`) vào repo; chạy `godot --headless --path . --import` sau khi thêm file.

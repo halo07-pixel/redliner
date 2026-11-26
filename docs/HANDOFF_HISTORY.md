@@ -380,3 +380,7 @@ Mốc 1/6 của chế độ "Vô Tận" (M34 bản đồ + tầng, M35 XP/chọn
 
 ## Việc kế tiếp
 Hết lộ trình M6-M17. Người dùng tự đóng gói Windows (không làm export trong dự án này). Việc mới: chơi thử rồi chỉnh theo bảng số ở trên; mỗi việc phải đề xuất + chờ duyệt.
+
+## M42 (nhánh `feature/m42-low-poly-kiem`: chuẩn low poly + kiếm)
+- Xem `docs/HANDOFF.md` (mục M42) và `docs/ASSETS.md` (Chuẩn low poly). Kiếm 90 tam giác (ngân sách 200-600), `sword.glb` 4168 byte, md5 `d8e4625eea80f4e84fcea4ae8f9e37a7`.
+- Kênh Blender -> repo: Blender chạy trên máy người dùng nên file không thấy từ cloud; glb được chuyển bằng base64 và kiểm md5. Tạo lại: chạy `tools/blender/make_sword.py` (đặt `REDLINER_SWORD_OUT`).

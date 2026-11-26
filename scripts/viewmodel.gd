@@ -201,12 +201,13 @@ func _ready() -> void:
 	sword_pivot = _node("SwordPivot", self, V["sword_pos"])
 	sword_pivot.rotation_degrees = _sword_rest
 	_sword_rest_pos = sword_pivot.position
-	_part(sword_pivot, Vector3(0.036, 0.036, 0.2), Vector3(0.0, 0.0, 0.0), metal)             # chuôi
-	_part(sword_pivot, Vector3(0.042, 0.042, 0.03), Vector3(0.0, 0.0, 0.1), gold)           # đầu chuôi
-	_part(sword_pivot, Vector3(0.14, 0.03, 0.03), Vector3(0.0, 0.0, -0.115), gold)            # tsuba (chắn tay)
-	_part(sword_pivot, Vector3(0.016, 0.058, 0.86), Vector3(0.0, 0.0, -0.57), steel)          # lưỡi
-	_part(sword_pivot, Vector3(0.022, 0.014, 0.82), Vector3(0.0, 0.032, -0.56), steel_dark)   # sống lưỡi
-	_part(sword_pivot, Vector3(0.016, 0.058, 0.06), Vector3(0.0, 0.0, -1.03), steel, Vector3(0.0, 0.0, 0.0)) # mũi
+	if not _add_lowpoly_sword(sword_pivot):
+		_part(sword_pivot, Vector3(0.036, 0.036, 0.2), Vector3(0.0, 0.0, 0.0), metal)             # chuôi
+		_part(sword_pivot, Vector3(0.042, 0.042, 0.03), Vector3(0.0, 0.0, 0.1), gold)           # đầu chuôi
+		_part(sword_pivot, Vector3(0.14, 0.03, 0.03), Vector3(0.0, 0.0, -0.115), gold)            # tsuba (chắn tay)
+		_part(sword_pivot, Vector3(0.016, 0.058, 0.86), Vector3(0.0, 0.0, -0.57), steel)          # lưỡi
+		_part(sword_pivot, Vector3(0.022, 0.014, 0.82), Vector3(0.0, 0.032, -0.56), steel_dark)   # sống lưỡi
+		_part(sword_pivot, Vector3(0.016, 0.058, 0.06), Vector3(0.0, 0.0, -1.03), steel, Vector3(0.0, 0.0, 0.0)) # mũi
 	_sword_fingers = _hand(sword_pivot, Vector3(0.0, 0.0, 0.0), glove, true)
 	_sword_arm = _make_arm(sword_pivot, Vector3(0.0, -0.02, 0.09), Vector3(V["sword_shoulder"]), Vector3(0.6, -1.0, 0.25), sleeve)
 
@@ -352,6 +353,21 @@ func _box(size: Vector3) -> BoxMesh:
 
 
 ## Một khối: không đổ bóng (thân người chơi đã có bóng riêng).
+## M42: kiếm low poly từ Blender (.glb): gốc ở giữa chuôi, lưỡi về -Z. Trả về false (-> dùng khối cũ) khi tắt hoặc thiếu file.
+func _add_lowpoly_sword(parent: Node3D) -> bool:
+	if not bool(Global.LOWPOLY["enabled"]) or not ResourceLoader.exists(String(Global.LOWPOLY["sword"])):
+		return false
+	var scene := load(String(Global.LOWPOLY["sword"])) as PackedScene
+	if scene == null:
+		return false
+	var blade: Node3D = scene.instantiate()
+	blade.name = "LowPolySword"
+	parent.add_child(blade)
+	for mi in blade.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return true
+
+
 func _part(parent: Node3D, size: Vector3, pos: Vector3, mat: Material, rot_deg: Vector3 = Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = _box(size)

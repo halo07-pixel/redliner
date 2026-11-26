@@ -12,6 +12,19 @@ const PALETTE: Dictionary = {
 	"grapple": Color(0.95, 0.72, 0.15),    # bệ đu móc: vàng, phát sáng
 	"ramp": Color(0.3, 0.6, 0.35),         # dốc trượt: xanh lá
 	"trim": Color(0.25, 0.85, 1.0),        # vạch sáng chân tường
+	# M42: màu vật liệu của model low poly (Blender dùng đúng các giá trị này, xem tools/blender/make_sword.py)
+	"steel": Color(0.75, 0.78, 0.84),
+	"steel_dark": Color(0.4875, 0.507, 0.546),
+	"gold": Color(0.8, 0.65, 0.25),
+	"leather": Color(0.28, 0.17, 0.1),
+}
+
+## M42 "Chuẩn low poly": model dựng trong Blender (.glb). `enabled` = false -> quay về khối/FBX cũ. Chuẩn đầy đủ: docs/ASSETS.md.
+const LOWPOLY: Dictionary = {
+	"enabled": true,
+	"sword": "res://assets/weapons/lowpoly/sword.glb",
+	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)
+	"budget": {"bot": 1500, "weapon": 600, "prop": 1200},
 }
 
 ## Độ kim loại / nhám / cường độ phát sáng theo vai trò.
@@ -24,6 +37,11 @@ const MATERIAL_PARAMS: Dictionary = {
 	"grapple": {"metallic": 0.4, "roughness": 0.4, "emission": 1.6, "tile": 2.0},
 	"ramp": {"metallic": 0.1, "roughness": 0.8, "emission": 0.0, "tile": 2.0},
 	"trim": {"metallic": 0.0, "roughness": 0.5, "emission": 2.5, "tile": 1.0},
+	# M42: model low poly (màu phẳng, không lưới họa tiết)
+	"steel": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"steel_dark": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"gold": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
+	"leather": {"metallic": 0.0, "roughness": 0.6, "emission": 0.0, "tile": 1.0},
 }
 
 ## Chất lượng đồ họa (M6.3): chỉ số 0=Thấp, 1=Vừa, 2=Cao.

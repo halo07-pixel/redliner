@@ -41,6 +41,7 @@ const DIFFICULTY_LEVELS: Array = BotData.DIFFICULTY_LEVELS
 const DIFFICULTY_NAMES: Dictionary = BotData.DIFFICULTY_NAMES
 const DIFFICULTY: Dictionary = BotData.DIFFICULTY
 const PALETTE: Dictionary = VisualData.PALETTE
+const LOWPOLY: Dictionary = VisualData.LOWPOLY
 const MATERIAL_PARAMS: Dictionary = VisualData.MATERIAL_PARAMS
 const QUALITY_NAMES: Array = VisualData.QUALITY_NAMES
 const QUALITY: Array = VisualData.QUALITY

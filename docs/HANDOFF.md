@@ -1,9 +1,15 @@
-# Bàn giao Redliner (gọn; cập nhật sau M41)
+# Bàn giao Redliner (gọn; cập nhật sau M42)
 
 Godot 4.7, GDScript. FPS 3D một người chơi đấu bot, lấy cảm hứng Roblox REDLINER: kiếm + đỡ đòn (parry) + súng, lướt/dash/grapple/trèo gờ. Repo `halo07-pixel/redliner`. Lịch sử từng mốc chi tiết: `docs/HANDOFF_HISTORY.md`. Nguồn asset/giấy phép: `docs/ASSETS.md`.
 
 ## Hướng "lột xác" (người dùng chốt 2026-11-25; mỗi mốc cần đề xuất riêng + "Ok")
-Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong, xem dưới)** -> M42 chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
+Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong)** -> **M42 chuẩn low poly + kiếm (xong, xem dưới; chờ duyệt gộp)**; nội dung đã làm: chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
+
+## M42 Chuẩn low poly + kiếm (nhánh `feature/m42-low-poly-kiem`)
+- Chuẩn ghi ở `docs/ASSETS.md` ("Chuẩn low poly"); hằng số `Global.PALETTE` (thêm steel/steel_dark/gold/leather) và `Global.LOWPOLY` (`enabled`, đường dẫn kiếm, ngân sách tam giác bot/súng-kiếm/vật cảnh) trong `scripts/data/visual_data.gd`. Không có tuỳ chọn menu.
+- Kiếm: `tools/blender/make_sword.py` dựng trong Blender (90 tam giác, 4 vật liệu phẳng, gốc ở giữa chuôi, mũi -Z) -> `assets/weapons/lowpoly/sword.glb`. Viewmodel (`_add_lowpoly_sword`) và bot kiếm sĩ (`MannequinGltf.weapon_config`, cờ `flip`) dùng nó; hitbox/chiến đấu không đổi. `LOWPOLY.enabled=false` hoặc thiếu file -> khối/FBX cũ.
+- File `.blend` làm việc ở máy tác giả `D:\nham\gugugaga\blender` (kiem.blend, sword_m42.blend, export\sword.glb); repo chỉ giữ script + glb.
+- Test: `tools/tests/test_m42.gd`. Chưa thử bằng tay: độ vừa tay/kích cỡ kiếm trong viewmodel, cảm giác và FPS.
 
 ## M41 Cắt giảm (đã làm)
 - Chỉ còn 2 chế độ: `Global.MODES = ["endless", "training"]`; bỏ Sinh tồn, Thời gian, 4 bản đồ cố định (yard/alley/tower/district), wave có nghỉ (`WaveManager` chỉ còn `stream` Vô Tận + sinh lẻ cho Tập luyện), điểm Sinh tồn (`high_score`), chọn bản đồ/chọn wave khởi đầu. Savegame cũ ghi mode survival/timed hoặc khoá `map` vẫn nạp được (mode -> Vô Tận; khoá thừa bị bỏ).
