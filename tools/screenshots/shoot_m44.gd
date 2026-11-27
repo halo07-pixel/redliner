@@ -46,7 +46,7 @@ func _run() -> void:
 		if kinds[i] == "titan":
 			m.scale = Vector3.ONE * 1.5
 	var cam := Camera3D.new()
-	cam.position = Vector3(0.0, 1.7, -8.5)
+	cam.position = Vector3(0.0, 1.5, -7.0)
 	cam.rotation_degrees = Vector3(-4.0, 180.0, 0.0)
 	cam.fov = 55.0
 	world.add_child(cam)

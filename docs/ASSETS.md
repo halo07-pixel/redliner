@@ -24,7 +24,7 @@ Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn nà
 
 - **Màu**: chỉ dùng màu phẳng lấy từ `PALETTE` (`steel`, `steel_dark`, `gold`, `leather`, ...). Không texture, không UV. Mỗi màu là một vật liệu riêng, tên `<model>_<màu>`; đổi màu thì đổi cả `PALETTE` lẫn script Blender.
 - **Shading phẳng**: mọi mặt `smooth = False`; xuất `.glb` với `export_normals=False` (file nhỏ, Godot tự tính pháp tuyến phẳng).
-- **Ngân sách tam giác** (đếm theo mesh, `LOWPOLY["budget"]`): bot ~800-1500; súng/kiếm ~200-600; vật cảnh ~300-1200. Vật cảnh lặp lại dùng `MultiMesh`; mỗi ô 50 m tối đa ~40.000 tam giác (chốt ở M45). Va chạm vẫn là hộp đơn giản, không dùng mesh model.
+- **Ngân sách tam giác** (đếm theo mesh, `LOWPOLY["budget"]`): bot ~2500-4500 (M44 nâng lên theo yêu cầu người dùng; ban đầu 800-1500); súng/kiếm ~200-600; vật cảnh ~300-1200. Vật cảnh lặp lại dùng `MultiMesh`; mỗi ô 50 m tối đa ~40.000 tam giác (chốt ở M45). Va chạm vẫn là hộp đơn giản, không dùng mesh model.
 - **Đơn vị/trục**: mét, tỉ lệ 1. Trong Blender: Y là hướng "phía trước" của vật (mũi kiếm, nòng súng), X là bề dày, Z là bề rộng/cao. Xuất `export_yup=True` -> trong Godot mũi/nòng hướng -Z, đúng quy ước viewmodel. Gốc ở điểm cầm (giữa chuôi / báng).
 - **Bot**: tên khớp trùng 15 khớp proxy của rig (`MannequinGltf.JOINT_NAMES`); vũ khí gắn vào `hand_r` qua `MannequinGltf.WEAPONS[kind]["lowpoly"]` (`file`, `grip` = tỉ lệ từ đuôi tới chỗ cầm, `flip` = mũi nằm ở đầu âm của trục dài).
 - **Điểm gắn** (M43): cầm = gốc model; nòng súng = đầu -Z. Empty tên `muzzle` đặt ở miệng nòng (viewmodel đặt chớp lửa theo z của nó). Phần cử động khi nạp là object riêng tên `Mag` (súng lục), `Pump` (shotgun), `Cap` (launcher), `Bolt` (sniper), gốc object = trục xoay; viewmodel tìm theo tên.
@@ -34,6 +34,6 @@ Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn nà
 
 ### Thân bot (M44)
 - Không xương/skin: thân là các **khối rời** (object Blender) cha-con theo 15 Empty đặt đúng tên khớp proxy (`hips > spine > head | shoulder_x > elbow_x > hand_x | hip_x > knee_x > ankle_x`), vị trí khớp bằng `mannequin.gd` + `Global.RIG` (vai/độ dày theo loại). Vì vậy `RigAnimator`, IK chân và hitbox chạy y nguyên; `test_m44` kiểm tra vị trí khớp theo RIG.
-- Vật liệu đặt tên theo **vai trò** (`bd_cloth`, `bd_pants`, `bd_dark`, `bd_skin`, `bd_glow`); màu thật do `mannequin_lowpoly.gd` tô theo màu của loại bot khi chạy (nên không dùng `PALETTE`). Ngân sách thân: `LOWPOLY["budget"]["bot"]` (hiện 760-944 tam giác).
+- Vật liệu đặt tên theo **vai trò** (`bd_cloth`, `bd_pants`, `bd_dark`, `bd_skin`, `bd_glow`); màu thật do `mannequin_lowpoly.gd` tô theo màu của loại bot khi chạy (nên không dùng `PALETTE`). Ngân sách thân: `LOWPOLY["budget"]["bot"]` (hiện 3460-4200 tam giác).
 - Vũ khí cầm tay lấy từ `MannequinGltf.weapon_config(kind)` (kiếm/rìu/dao/súng low poly), đặt trong khung hình nhân khối: cận chiến dọc +Y, súng nòng -Z, điểm cầm ở gốc.
 - Dự phòng: tắt `LOWPOLY["enabled"]` hoặc thiếu file -> người que GodoDude -> hình nhân khối. Bia `dummy` và thân người chơi vẫn là hình nhân khối.

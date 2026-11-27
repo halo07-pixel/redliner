@@ -119,7 +119,7 @@ func _run() -> void:
 		_check(pos_ok, "vị trí khớp khớp mannequin.gd (RIG vai %.2f)" % float(G.RIG[kind]["shoulder"]))
 		var body: Array = m.find_children("*", "MeshInstance3D", true, false).filter(func(mi): return m.weapon == null or not m.weapon.is_ancestor_of(mi))
 		var bb: AABB = _aabb_of(body)
-		_check(bb.size.y > 1.7 and bb.size.y < 2.0 and absf(bb.position.y) < 0.03, "cao %.2f m, chân chạm đất (%.2f)" % [bb.size.y, bb.position.y])
+		_check(bb.size.y > 1.7 and bb.size.y < 2.15 and absf(bb.position.y) < 0.03, "cao %.2f m, chân chạm đất (%.2f)" % [bb.size.y, bb.position.y])
 		var tinted: bool = false
 		var all_set: bool = true
 		for mi in body:

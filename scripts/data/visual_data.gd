@@ -47,7 +47,7 @@ const LOWPOLY: Dictionary = {
 	"axe": "res://assets/weapons/lowpoly/axe.glb",
 	"dagger": "res://assets/weapons/lowpoly/dagger.glb",
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)
-	"budget": {"bot": 1500, "weapon": 600, "prop": 1200},
+	"budget": {"bot": 4500, "weapon": 600, "prop": 1200},
 }
 
 ## Độ kim loại / nhám / cường độ phát sáng theo vai trò.

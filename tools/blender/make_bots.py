@@ -60,7 +60,9 @@ class Part:
     def _v(self, p):
         return self.bm.verts.new(g(p))
 
-    def box(self, size, center, role, rot=(0.0, 0.0, 0.0)):
+    def box(self, size, center, role, rot=(0.0, 0.0, 0.0), bevel=0.0):
+        """Hộp; `bevel` > 0 vát cạnh (thêm tam giác cho bớt vuông)."""
+        snap = set(self.bm.faces)
         hx, hy, hz = (s / 2.0 for s in size)
         r = (Matrix.Rotation(math.radians(rot[2]), 3, "Z") @ Matrix.Rotation(math.radians(rot[1]), 3, "Y")
              @ Matrix.Rotation(math.radians(rot[0]), 3, "X"))
@@ -70,6 +72,26 @@ class Part:
         v = [self._v(c + r @ Vector(p)) for p in pts]
         for idx in [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (2, 3, 7, 6), (1, 2, 6, 5), (3, 0, 4, 7)]:
             self._face([v[i] for i in idx], role)
+        if bevel > 0.0:
+            edges = list({e for vv in v for e in vv.link_edges})
+            bmesh.ops.bevel(self.bm, geom=edges, offset=bevel, offset_type="OFFSET", segments=1, affect="EDGES")
+            for f in set(self.bm.faces) - snap:
+                f.material_index = ROLES.index(role)
+                f.smooth = False
+
+    def loft(self, rings, role, n=12):
+        """Thân tròn nhiều tiết diện: rings = [(y, rx, rz[, ox, oz]), ...] từ trên xuống hoặc dưới lên; hai đầu bịt kín."""
+        rs = []
+        for r in rings:
+            y, rx, rz = r[0], r[1], r[2]
+            ox, oz = (r[3], r[4]) if len(r) >= 5 else (0.0, 0.0)
+            rs.append([self._v((ox + rx * math.cos(2 * math.pi * i / n), y, oz + rz * math.sin(2 * math.pi * i / n))) for i in range(n)])
+        for a, b in zip(rs[:-1], rs[1:]):
+            for i in range(n):
+                j = (i + 1) % n
+                self._face([a[i], a[j], b[j], b[i]], role)
+        self._face(list(reversed(rs[0])), role)
+        self._face(rs[-1], role)
 
     def prism_y(self, center, r_top, r_bot, height, role, n=8):
         """Lăng trụ n cạnh dọc trục Y (tay, chân), có thể thon."""
@@ -105,62 +127,81 @@ class Part:
 
 
 def style_parts(kind, rig, sw, b):
-    """Chi tiết theo loại (khớp với `mannequin.gd::_style_details`), trả về list Part."""
+    """Chi tiết theo loại (nâng chi tiết so với `mannequin.gd::_style_details`), trả về list Part."""
     out = []
     style = rig["style"]
     if style == "ronin":
-        p = Part("Headband", "head")
-        p.box((0.29, 0.035, 0.29), (0, 0.19, 0), "bd_dark")
-        p.box((0.04, 0.16, 0.03), (0, 0.1, 0.15), "bd_dark")
+        p = Part("Hair", "head")
+        p.loft([(0.17, 0.138, 0.152, 0, 0.0), (0.21, 0.13, 0.144, 0, 0.012), (0.25, 0.098, 0.11, 0, 0.016), (0.285, 0.045, 0.05, 0, 0.012)], "bd_dark")
+        p.box((0.06, 0.2, 0.05), (0, 0.12, 0.15), "bd_dark", (12, 0, 0), 0.006)        # đuôi tóc buộc
+        p.loft([(0.165, 0.142, 0.156), (0.205, 0.142, 0.156)], "bd_cloth")             # băng đầu
+        p.box((0.04, 0.16, 0.03), (0.03, 0.09, 0.17), "bd_cloth", (8, 0, 6), 0.004)    # đuôi băng
         out.append(p)
         p = Part("Sash", "spine")
-        p.box((0.1, 0.55, 0.03), (0, 0.34, -0.15 * b), "bd_dark", (0, 0, 28))
+        p.box((0.1, 0.56, 0.03), (0, 0.34, -0.155 * b), "bd_dark", (0, 0, 28), 0.006)
+        p.box((0.06, 0.06, 0.04), (0, 0.04, -0.14 * b), "bd_glow", (0, 0, 0), 0.008)   # khoá đai
         out.append(p)
         p = Part("Tabard", "hips")
-        p.box((0.1, 0.4, 0.04), (0, -0.25, -0.13 * b), "bd_cloth")
+        p.box((0.11, 0.42, 0.04), (0, -0.25, -0.13 * b), "bd_cloth", (0, 0, 0), 0.008)
+        p.box((0.11, 0.3, 0.04), (0.17 * sw, -0.2, -0.1 * b), "bd_cloth", (0, 0, 8), 0.008)
+        p.box((0.11, 0.3, 0.04), (-0.17 * sw, -0.2, -0.1 * b), "bd_cloth", (0, 0, -8), 0.008)
         out.append(p)
     elif style == "ranger":
         p = Part("Hood", "head")
-        p.ball((0, 0.15, 0.035), 0.15, "bd_dark", 8, 5)
-        p.box((0.2, 0.05, 0.03), (0, 0.15, -0.128), "bd_glow")
+        p.loft([(0.0, 0.07, 0.085, 0, 0.03), (0.07, 0.15, 0.17, 0, 0.04), (0.15, 0.17, 0.185, 0, 0.045), (0.23, 0.14, 0.16, 0, 0.04), (0.295, 0.07, 0.09, 0, 0.03)], "bd_dark", 12)
+        p.box((0.22, 0.05, 0.03), (0, 0.15, -0.14), "bd_glow", (0, 0, 0), 0.006)       # kính
+        p.box((0.05, 0.14, 0.04), (0, 0.03, 0.17), "bd_dark", (-18, 0, 0), 0.006)      # đuôi mũ
         out.append(p)
-        p = Part("Bandolier", "spine")
-        p.box((0.09, 0.52, 0.03), (0, 0.33, -0.15 * b), "bd_dark", (0, 0, -30))
+        p = Part("Gear", "spine")
+        p.box((0.09, 0.54, 0.03), (0, 0.33, -0.155 * b), "bd_dark", (0, 0, -30), 0.006)
+        for k in range(4):                                                              # viên đạn dọc dây
+            p.box((0.025, 0.05, 0.03), (-0.0 + 0.045 * (k - 1.5) * math.cos(math.radians(30)), 0.33 - 0.045 * (k - 1.5) * math.sin(math.radians(30)) * -1.0, -0.175 * b), "bd_glow", (0, 0, -30), 0.004)
+        p.box((0.2 * sw, 0.26, 0.09), (0, 0.34, 0.2 * b), "bd_dark", (0, 0, 0), 0.015)  # ba lô
         out.append(p)
         p = Part("Pouches", "hips")
         for ox in (-1.0, 1.0):
-            p.box((0.1, 0.11, 0.08), (0.22 * sw * ox, -0.07, -0.1 * b), "bd_dark")
+            p.box((0.11, 0.12, 0.085), (0.22 * sw * ox, -0.07, -0.1 * b), "bd_dark", (0, 0, 0), 0.012)
+            p.box((0.115, 0.03, 0.09), (0.22 * sw * ox, -0.015, -0.1 * b), "bd_dark", (0, 0, 0), 0.006)
         out.append(p)
     elif style == "guard":
         p = Part("Helm", "head")
-        p.ball((0, 0.15, 0), 0.155, "bd_dark", 8, 5)
-        p.box((0.18, 0.03, 0.02), (0, 0.15, -0.15), "bd_glow")
-        p.box((0.04, 0.1, 0.22), (0, 0.3, 0), "bd_dark")
+        p.loft([(0.0, 0.1, 0.11), (0.06, 0.15, 0.165), (0.14, 0.165, 0.178), (0.22, 0.15, 0.162), (0.29, 0.09, 0.1), (0.315, 0.04, 0.045)], "bd_dark", 12)
+        p.box((0.2, 0.035, 0.03), (0, 0.15, -0.16), "bd_glow", (0, 0, 0), 0.006)       # khe nhìn
+        p.box((0.045, 0.1, 0.26), (0, 0.32, 0.0), "bd_dark", (0, 0, 0), 0.01)          # mào
+        p.box((0.04, 0.12, 0.05), (0.15, 0.06, 0.0), "bd_dark", (0, 0, 8), 0.006)      # tấm che má
+        p.box((0.04, 0.12, 0.05), (-0.15, 0.06, 0.0), "bd_dark", (0, 0, -8), 0.006)
         out.append(p)
         for tag in ("l", "r"):
             p = Part("ShinGuard_" + tag, "knee_" + tag)
-            p.box((0.14, 0.2, 0.14), (0, -0.2, -0.03), "bd_dark")
+            p.box((0.15, 0.22, 0.15), (0, -0.2, -0.03), "bd_dark", (0, 0, 0), 0.015)
+            p.ball((0, 0, -0.07), 0.075, "bd_dark", 8, 5)                               # nắp gối
             out.append(p)
             p = Part("ForeGuard_" + tag, "elbow_" + tag)
-            p.box((0.11, 0.2, 0.11), (0, -0.2, 0), "bd_dark")
+            p.box((0.12, 0.22, 0.12), (0, -0.2, 0), "bd_dark", (0, 0, 0), 0.015)
             out.append(p)
     elif style == "titan":
         p = Part("Helm", "head")
-        p.ball((0, 0.15, 0), 0.16, "bd_dark", 8, 5)
-        p.box((0.2, 0.035, 0.02), (0, 0.15, -0.155), "bd_glow")
-        for ox in (-1.0, 1.0):                                                       # sừng
-            p.box((0.05, 0.2, 0.05), (0.14 * ox, 0.3, 0.0), "bd_dark", (0, 0, -25 * ox))
+        p.loft([(0.0, 0.1, 0.11), (0.06, 0.155, 0.17), (0.14, 0.17, 0.182), (0.22, 0.15, 0.162), (0.29, 0.08, 0.09), (0.31, 0.03, 0.035)], "bd_dark", 12)
+        p.box((0.22, 0.04, 0.03), (0, 0.15, -0.16), "bd_glow", (0, 0, 0), 0.006)
+        for ox in (-1.0, 1.0):                                                          # sừng cong 2 đốt
+            p.box((0.06, 0.16, 0.06), (0.15 * ox, 0.27, 0.0), "bd_dark", (0, 0, -20 * ox), 0.008)
+            p.box((0.045, 0.14, 0.045), (0.2 * ox, 0.4, 0.0), "bd_dark", (0, 0, -42 * ox), 0.006)
         out.append(p)
         p = Part("Plate", "spine")
-        p.box((0.5 * sw, 0.3, 0.1 * b), (0, 0.42, -0.19 * b), "bd_dark")             # giáp ngực
+        p.loft([(0.26, 0.285 * sw, 0.17 * b), (0.36, 0.3 * sw, 0.18 * b), (0.46, 0.3 * sw, 0.175 * b), (0.56, 0.27 * sw, 0.15 * b)], "bd_dark", 12)
+        p.box((0.1, 0.34, 0.03), (0, 0.4, -0.19 * b), "bd_glow", (0, 0, 0), 0.006)   # vạch sáng giữa ngực
+        p.box((0.2 * sw, 0.3, 0.1), (0, 0.38, 0.19 * b), "bd_dark", (0, 0, 0), 0.015)  # giáp lưng
         out.append(p)
         p = Part("Skirt", "hips")
-        for ox in (-1.0, 0.0, 1.0):
-            p.box((0.11, 0.3, 0.04), (0.11 * ox, -0.22, -0.14 * b), "bd_dark")       # váy giáp
+        for k in range(-2, 3):
+            p.box((0.11, 0.32 - 0.03 * abs(k), 0.04), (0.105 * k, -0.22, -0.14 * b), "bd_dark", (0, 0, 0), 0.008)
+        p.box((0.3 * sw, 0.05, 0.28 * b), (0, 0.0, 0), "bd_dark", (0, 0, 0), 0.008)    # đai to
         out.append(p)
         for tag, side in (("l", -1), ("r", 1)):
             p = Part("Pauldron_" + tag, "shoulder_" + tag)
-            p.ball((0.04 * side, 0.06, 0), 0.17, "bd_dark", 8, 4, 0.6)               # vai to
+            p.ball((0.05 * side, 0.07, 0), 0.19, "bd_dark", 10, 5, 0.65)               # vai to
+            for k in range(3):                                                           # gai vai
+                p.box((0.03, 0.09, 0.03), (0.05 * side + 0.07 * side * (k - 1) * 0.6, 0.2 - 0.02 * abs(k - 1), 0.07 * (k - 1)), "bd_dark", (0, 0, -15 * side), 0.004)
             out.append(p)
     return out
 
@@ -203,49 +244,61 @@ def build_kind(kind):
 
     parts = []
     p = Part("Torso", "spine")
-    p.box((0.5 * sw, 0.36, 0.28 * b), (0, 0.44, 0), "bd_cloth")                      # ngực
-    p.box((0.4 * sw, 0.28, 0.24 * b), (0, 0.14, 0), "bd_cloth")                      # bụng
-    p.box((0.43 * sw, 0.07, 0.27 * b), (0, 0.0, 0), "bd_dark")                       # đai
-    p.box((0.1, 0.12, 0.1), (0, 0.61, 0), "bd_skin")                                 # cổ
+    p.loft([(-0.02, 0.2 * sw, 0.12 * b), (0.04, 0.2 * sw, 0.125 * b), (0.16, 0.185 * sw, 0.115 * b), (0.28, 0.21 * sw, 0.13 * b),
+            (0.42, 0.255 * sw, 0.15 * b), (0.54, 0.27 * sw, 0.135 * b), (0.6, 0.13 * sw, 0.09 * b)], "bd_cloth", 12)
+    p.loft([(-0.04, 0.215 * sw, 0.13 * b), (0.04, 0.215 * sw, 0.13 * b)], "bd_dark", 12)               # đai
+    p.loft([(0.58, 0.06, 0.06), (0.68, 0.05, 0.05)], "bd_skin", 10)                                      # cổ
+    p.box((0.12, 0.03, 0.05), (0, 0.57, -0.03), "bd_dark", (-20, 0, 0), 0.005)                           # cổ áo
     if rig["armor"] >= 2:
-        p.box((0.56 * sw, 0.34, 0.36 * b), (0, 0.38, 0), "bd_dark")                  # giáp ngực
+        p.loft([(0.24, 0.285 * sw, 0.19 * b), (0.34, 0.3 * sw, 0.2 * b), (0.46, 0.3 * sw, 0.2 * b), (0.56, 0.27 * sw, 0.165 * b)], "bd_dark", 12)   # giáp ngực
     if rig["glow"]:
-        p.box((0.1, 0.5, 0.02), (0, 0.3, -0.19 * b), "bd_glow")                      # vạch sáng
+        p.box((0.1, 0.5, 0.02), (0, 0.3, -0.2 * b), "bd_glow", (0, 0, 0), 0.004)                         # vạch sáng
     parts.append(p)
     p = Part("Pelvis", "hips")
-    p.box((0.34 * sw, 0.18, 0.24 * b), (0, -0.06, 0), "bd_pants")
+    p.loft([(0.04, 0.18 * sw, 0.12 * b), (-0.06, 0.19 * sw, 0.125 * b), (-0.16, 0.165 * sw, 0.115 * b)], "bd_pants", 12)
     parts.append(p)
     p = Part("Head", "head")
-    p.ball((0, 0.13, 0), 0.13, "bd_skin", 8, 6)
+    p.loft([(0.0, 0.05, 0.06, 0, -0.01), (0.04, 0.095, 0.11, 0, -0.005), (0.08, 0.12, 0.135), (0.13, 0.13, 0.145), (0.18, 0.125, 0.138),
+            (0.225, 0.1, 0.11), (0.255, 0.055, 0.06), (0.268, 0.02, 0.022)], "bd_skin", 12)
+    p.box((0.03, 0.05, 0.045), (0, 0.115, -0.152), "bd_skin", (-10, 0, 0), 0.004)                         # mũi
     for ex in (-1.0, 1.0):
-        p.box((0.03, 0.02, 0.01), (0.05 * ex, 0.15, -0.125), "bd_dark")             # mắt
+        p.box((0.034, 0.022, 0.014), (0.052 * ex, 0.15, -0.135), "bd_dark", (0, 0, 0), 0.003)            # mắt
+        p.box((0.05, 0.012, 0.014), (0.055 * ex, 0.178, -0.135), "bd_dark", (0, 0, -6 * ex), 0.002)      # lông mày
+        p.box((0.02, 0.06, 0.035), (0.14 * ex, 0.125, 0.0), "bd_skin", (0, 0, 0), 0.004)                # tai
+    p.box((0.07, 0.014, 0.014), (0, 0.075, -0.135), "bd_dark", (0, 0, 0), 0.002)                         # miệng
     parts.append(p)
     for tag, side in (("l", -1), ("r", 1)):
+        inner = -side
         p = Part("Arm_" + tag, "shoulder_" + tag)
-        p.ball((0, 0, 0), 0.085 * b, "bd_cloth", 6, 4)
-        p.prism_y((0, -0.22, 0), 0.075 * b, 0.065 * b, 0.5, "bd_cloth")
+        p.ball((0, 0, 0), 0.09 * b, "bd_cloth", 10, 6)                                                    # vai
+        p.loft([(0.02, 0.078 * b, 0.078 * b), (-0.1, 0.076 * b, 0.076 * b), (-0.25, 0.066 * b, 0.066 * b), (-0.45, 0.054 * b, 0.054 * b)], "bd_cloth", 10)
         if rig["armor"] >= 1:
             pad = 0.2 if rig["armor"] == 1 else 0.3
-            p.box((pad, 0.08, pad), (0.02 * side, 0.06, 0), "bd_dark")               # giáp vai
+            p.box((pad, 0.08, pad), (0.02 * side, 0.06, 0), "bd_dark", (0, 0, 8 * side), 0.012)           # giáp vai
         parts.append(p)
         p = Part("Forearm_" + tag, "elbow_" + tag)
-        p.ball((0, 0, 0), 0.065 * b, "bd_cloth", 6, 4)
-        p.prism_y((0, -0.2, 0), 0.062 * b, 0.05 * b, 0.44, "bd_cloth")
+        p.ball((0, 0, 0), 0.058 * b, "bd_cloth", 10, 5)                                                   # khuỷu
+        p.loft([(0.0, 0.058 * b, 0.058 * b), (-0.15, 0.056 * b, 0.056 * b), (-0.3, 0.047 * b, 0.047 * b), (-0.4, 0.04 * b, 0.04 * b)], "bd_cloth", 10)
+        p.loft([(-0.34, 0.052 * b, 0.052 * b), (-0.41, 0.052 * b, 0.052 * b)], "bd_dark", 10)             # cổ tay áo
         parts.append(p)
         p = Part("Hand_" + tag, "hand_" + tag)
-        p.box((0.08, 0.09, 0.045), (0, -0.045, 0), "bd_skin")
-        p.box((0.075, 0.065, 0.04), (0, -0.115, 0), "bd_skin")
+        p.box((0.08, 0.09, 0.045), (0, -0.045, 0), "bd_skin", (0, 0, 0), 0.008)                           # lòng bàn tay
+        for k in range(4):                                                                                 # 4 ngón
+            p.box((0.017, 0.07, 0.024), (-0.0285 + 0.019 * k, -0.125, 0), "bd_skin", (0, 0, 0), 0.003)
+        p.box((0.022, 0.055, 0.026), (inner * 0.05, -0.07, -0.015), "bd_skin", (0, 0, inner * 25), 0.003)  # ngón cái
         parts.append(p)
         p = Part("Thigh_" + tag, "hip_" + tag)
-        p.prism_y((0, -0.22, 0), 0.115 * b, 0.1 * b, 0.5, "bd_pants")
+        p.loft([(0.02, 0.112 * b, 0.112 * b), (-0.12, 0.116 * b, 0.116 * b), (-0.28, 0.1 * b, 0.1 * b), (-0.45, 0.082 * b, 0.082 * b)], "bd_pants", 10)
         parts.append(p)
         p = Part("Shin_" + tag, "knee_" + tag)
-        p.ball((0, 0, 0), 0.095 * b, "bd_pants", 6, 4)
-        p.prism_y((0, -0.18, 0), 0.088 * b, 0.07 * b, 0.42, "bd_pants")
+        p.ball((0, 0, 0), 0.085 * b, "bd_pants", 10, 5)                                                   # đầu gối
+        p.loft([(0.0, 0.08 * b, 0.08 * b), (-0.12, 0.076 * b, 0.078 * b), (-0.28, 0.062 * b, 0.064 * b), (-0.38, 0.052 * b, 0.052 * b)], "bd_pants", 10)
         parts.append(p)
         p = Part("Boot_" + tag, "ankle_" + tag)
-        p.box((0.13, 0.08, 0.27), (0, 0.0, -0.05), "bd_dark")
-        p.box((0.12, 0.1, 0.12), (0, 0.07, 0.02), "bd_dark")
+        p.box((0.13, 0.03, 0.29), (0, -0.025, -0.06), "bd_dark", (0, 0, 0), 0.008)                         # đế
+        p.box((0.115, 0.06, 0.2), (0, 0.02, -0.105), "bd_dark", (0, 0, 0), 0.012)                          # mũi giày
+        p.box((0.11, 0.1, 0.11), (0, 0.04, 0.025), "bd_dark", (0, 0, 0), 0.012)                            # gót + cổ
+        p.box((0.125, 0.05, 0.125), (0, 0.095, 0.02), "bd_dark", (0, 0, 0), 0.01)                          # cổ giày
         parts.append(p)
     parts += style_parts(kind, rig, sw, b)
 
