@@ -1,11 +1,16 @@
-# Bàn giao Redliner (gọn; cập nhật sau M44)
+# Bàn giao Redliner (gọn; cập nhật sau M45)
 
 Godot 4.7, GDScript. FPS 3D một người chơi đấu bot, lấy cảm hứng Roblox REDLINER: kiếm + đỡ đòn (parry) + súng, lướt/dash/grapple/trèo gờ. Repo `halo07-pixel/redliner`. Lịch sử từng mốc chi tiết: `docs/HANDOFF_HISTORY.md`. Nguồn asset/giấy phép: `docs/ASSETS.md`.
 
 ## Hướng "lột xác" (người dùng chốt 2026-11-25; mỗi mốc cần đề xuất riêng + "Ok")
 Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong)** -> **M42 chuẩn low poly + kiếm (xong, xem dưới; chờ duyệt gộp)**; nội dung đã làm: chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
 
-## M44 Bot + Titan low poly (nhánh `feature/m44-low-poly-bots`)
+## M45 Module bản đồ Vô Tận (nhánh `feature/m45-endless-modules`)
+- `tools/blender/make_map.py` dựng 6 module (3 kiểu toà nhà 1880-2560 tam giác, cột, bệ sân khấu, bức che) -> `assets/map/lowpoly/*.glb`; ngân sách module 3000 tam giác (người dùng chốt), mỗi ô 50 m <= 40.000.
+- `scripts/endless_modules.gd` phủ module lên đúng hộp va chạm (`Arena._build_map` gọi sau `EndlessLook.style_box`); chỉ hình ảnh, hộp gốc ẩn. Cấu hình `Global.LOWPOLY["map"]`. Dải sáng của `EndlessLook` vẫn vẽ như cũ.
+- Test: `tools/tests/test_m45.gd`; ảnh `docs/screenshots/m45_{building,overview}.png` (GL dự phòng). Chưa thử bằng tay: hình dáng/FPS trong game thật. Cảnh báo "tangents" của renderer GL dự phòng khi dựng vật liệu mặt tiền (chưa kiểm trên Forward+).
+
+## M44 Bot + Titan low poly (đã gộp vào main)
 - `tools/blender/make_bots.py` dựng thân 5 loại bot + Titan (10400-11800 tam giác, chi tiết toàn diện: thân loft mịn, mặt có mắt/mũi/tai, tóc, ngón tay, giày, giáp/phụ kiện riêng từng loại; ngân sách bot 13000) thành khối rời gắn vào 15 Empty trùng tên khớp proxy -> `assets/characters/lowpoly/*.glb`; `make_melee.py` dựng rìu + dao -> `assets/weapons/lowpoly/{axe,dagger}.glb`.
 - `scripts/mannequin_lowpoly.gd` (con của `mannequin.gd`) nạp cây khớp từ glb, tô màu theo vai trò vật liệu, gắn vũ khí glb vào `hand_r`; `RigAnimator`/IK/hitbox không đổi. `bot.gd` ưu tiên lớp này (rồi GodoDude, rồi khối), `titan.gd` dùng cho Titan (Titan có sừng, giáp vai/ngực/váy mới). Cấu hình: `Global.LOWPOLY["bots"|"axe"|"dagger"]`; `MannequinGltf.WEAPONS[..]["lowpoly"]` cho mọi vũ khí.
 - `D:\nham\gugugaga\blender\bots_m44.blend` (6 model xếp cạnh nhau) và `export\bots\*.glb` do chạy `make_bots.py` trong Blender của người dùng; cùng số tam giác với bản trong repo (dựng bằng `bpy` 5.3.0 trên cloud), file glb không trùng từng byte.

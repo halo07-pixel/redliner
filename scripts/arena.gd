@@ -10,6 +10,7 @@ const Quality = preload("res://scripts/quality.gd")
 const Maps = preload("res://scripts/maps.gd")
 const BreakableScript = preload("res://scripts/breakable.gd")
 const EndlessLook = preload("res://scripts/endless_look.gd")
+const EndlessModules = preload("res://scripts/endless_modules.gd")
 
 signal map_loaded(map_id: String)
 signal explosion(position: Vector3, radius: float) # thùng nổ phát nổ
@@ -131,6 +132,7 @@ func _build_map() -> void:
 		var body: StaticBody3D = _box(bx["size"], bx["pos"], bx["role"], bx["rot"])
 		if _endless_map:
 			EndlessLook.style_box(body, bx)
+			EndlessModules.apply(body, bx, EndlessLook.theme_index(floor_n))   # M45: vỏ low poly, va chạm vẫn là hộp
 	if _endless_map:
 		for deco in EndlessLook.dress(m, EndlessLook.theme_index(floor_n)):   # chỉ hình ảnh, không va chạm
 			_add_map_node(deco)

@@ -44,10 +44,19 @@ const LOWPOLY: Dictionary = {
 		"bomber": "res://assets/characters/lowpoly/bomber.glb",
 		"titan": "res://assets/characters/lowpoly/titan.glb",
 	},
+	# M45: module bản đồ Vô Tận (mesh trong khối đơn vị, co giãn theo hộp va chạm; xem scripts/endless_modules.gd)
+	"map": {
+		"building_block": "res://assets/map/lowpoly/building_block.glb",
+		"building_fins": "res://assets/map/lowpoly/building_fins.glb",
+		"building_slab": "res://assets/map/lowpoly/building_slab.glb",
+		"pillar": "res://assets/map/lowpoly/pillar.glb",
+		"stage": "res://assets/map/lowpoly/stage.glb",
+		"cover": "res://assets/map/lowpoly/cover.glb",
+	},
 	"axe": "res://assets/weapons/lowpoly/axe.glb",
 	"dagger": "res://assets/weapons/lowpoly/dagger.glb",
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)
-	"budget": {"bot": 13000, "weapon": 600, "prop": 1200},
+	"budget": {"bot": 13000, "weapon": 600, "prop": 3000, "cell": 40000},
 }
 
 ## Độ kim loại / nhám / cường độ phát sáng theo vai trò.
