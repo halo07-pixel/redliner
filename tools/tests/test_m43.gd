@@ -142,7 +142,7 @@ func _run() -> void:
 		_check(wb.position.z < -0.4 * float(cfg["length"]) and wb.end.z > 0.0 and wb.end.z < 0.2, "%s: nòng về -Z, báng sau điểm cầm (%.2f .. %.2f)" % [pair[0], wb.position.z, wb.end.z])
 		_check(_tris(m.weapon) == tris[pair[1]], "%s: bot dùng đúng mesh glb" % pair[0])
 		m.queue_free()
-	_check(String(MG.weapon_config("elite")["file"]).ends_with("Axe_Double.fbx") and String(MG.weapon_config("rusher")["file"]).ends_with("Dagger.fbx"), "tinh anh / kẻ lao tới giữ model cũ (làm ở M44)")
+	_check(String(MG.weapon_config("elite")["file"]).ends_with("axe.glb") and String(MG.weapon_config("rusher")["file"]).ends_with("dagger.glb"), "tinh anh / kẻ lao tới đã đổi sang rìu / dao low poly (M44)")
 
 	print("")
 	if failures == 0:

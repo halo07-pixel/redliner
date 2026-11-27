@@ -14,6 +14,7 @@ signal stomp_landed(position: Vector3, radius: float)
 signal weak_point_hit(zone: String) # "nape" | "knee"
 
 const MannequinScript = preload("res://scripts/mannequin.gd")
+const MannequinLowpolyScript = preload("res://scripts/mannequin_lowpoly.gd")
 const HurtboxScript = preload("res://scripts/components/hurtbox_component.gd")
 const GRAVITY: float = 24.0
 
@@ -94,7 +95,7 @@ func _ready() -> void:
 	_body_shape.position = Vector3(0.0, float(T["body_height"]) * 0.5, 0.0)
 	add_child(_body_shape)
 
-	mannequin = MannequinScript.new()
+	mannequin = (MannequinLowpolyScript if MannequinLowpolyScript.has_asset("titan") else MannequinScript).new()
 	mannequin.color = cfg["color"]
 	mannequin.kind = "titan"
 	mannequin.ik_feet = false

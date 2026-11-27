@@ -387,3 +387,7 @@ Hết lộ trình M6-M17. Người dùng tự đóng gói Windows (không làm e
 
 ## M43 (nhánh `feature/m43-low-poly-guns`: 4 súng low poly)
 - Xem `docs/HANDOFF.md` (mục M43). Hình học viết theo toạ độ Godot trong `make_guns.py`; `pip install bpy==5.3.0` chạy được trên cloud nên bỏ kênh base64 của M42.
+
+
+## M44 (nhánh `feature/m44-low-poly-bots`: bot + Titan low poly)
+- Xem `docs/HANDOFF.md` (mục M44). Thay đổi chính: `mannequin_lowpoly.gd`, `make_bots.py`, `make_melee.py`, `Global.LOWPOLY.bots`; test_m42/m43 sửa kiểm tra "elite/rusher giữ model cũ" thành "đã đổi sang rìu/dao low poly".

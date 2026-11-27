@@ -8,6 +8,8 @@
 | Quaternius – Universal Animation Library [Standard] (`assets/animations/ual/UAL1_Standard.glb`, bản không root motion) | https://quaternius.com/packs/universalanimationlibrary.html (người dùng cung cấp file) | CC0 1.0, `assets/animations/ual/LICENSE.txt` | Clip chạy/đi/đứng/núp nền cho bot glTF (M32), qua `scripts/clip_lib.gd` |
 | Kiếm low poly (`assets/weapons/lowpoly/sword.glb`, dựng bằng `tools/blender/make_sword.py`) | Tự dựng trong Blender (M42) | Của dự án | Kiếm của viewmodel + kiếm sĩ (thay Quaternius `Sword.fbx`; tắt bằng `Global.LOWPOLY["enabled"]`) |
 | Súng low poly (`assets/weapons/lowpoly/{pistol,shotgun,launcher,sniper}.glb`, dựng bằng `tools/blender/make_guns.py`) | Tự dựng trong Blender (M43) | Của dự án | 4 súng của viewmodel; bot xạ thủ cầm sniper, pháo thủ cầm launcher (thay HoneyBadger; tắt bằng `Global.LOWPOLY["enabled"]`) |
+| Thân bot + Titan low poly (`assets/characters/lowpoly/{swordsman,gunner,elite,rusher,bomber,titan}.glb`, dựng bằng `tools/blender/make_bots.py`) | Tự dựng trong Blender (M44) | Của dự án | Thân 5 loại bot + Titan: khối rời gắn vào 15 khớp proxy (`scripts/mannequin_lowpoly.gd`); thay người que GodoDude khi bật `Global.LOWPOLY["enabled"]` |
+| Rìu đôi + dao găm low poly (`assets/weapons/lowpoly/{axe,dagger}.glb`, `tools/blender/make_melee.py`) | Tự dựng trong Blender (M44) | Của dự án | Vũ khí tinh anh / kẻ lao tới (thay Quaternius `Axe_Double.fbx`, `Dagger.fbx`) |
 
 - Model nhân vật GodoDude không có clip hoạt ảnh; từ M32 `scripts/clip_lib.gd` lấy clip từ Universal Animation Library, chuyển sang khớp proxy của rig (bake một lần) rồi `RigAnimator` trộn lên tư thế sinh bằng code (chân/thân/đầu; tay, đòn đánh, parry, bắn vẫn do code). Chỉ dùng 7 clip (Idle, Sword_Idle, Pistol_Idle, Walk, Jog_Fwd, Sprint, Crouch_Idle); file glb còn ~36 clip chưa dùng (7.6 MB).
 - (Cũ) Model nhân vật không có clip hoạt ảnh. `scripts/mannequin_gltf.gd` dùng lại `RigAnimator` (cùng bộ tư thế với hình nhân khối) và chuyển góc khớp sang xương.
@@ -22,10 +24,16 @@ Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn nà
 
 - **Màu**: chỉ dùng màu phẳng lấy từ `PALETTE` (`steel`, `steel_dark`, `gold`, `leather`, ...). Không texture, không UV. Mỗi màu là một vật liệu riêng, tên `<model>_<màu>`; đổi màu thì đổi cả `PALETTE` lẫn script Blender.
 - **Shading phẳng**: mọi mặt `smooth = False`; xuất `.glb` với `export_normals=False` (file nhỏ, Godot tự tính pháp tuyến phẳng).
-- **Ngân sách tam giác** (đếm theo mesh, `LOWPOLY["budget"]`): bot ~800-1500; súng/kiếm ~200-600; vật cảnh ~300-1200. Vật cảnh lặp lại dùng `MultiMesh`; mỗi ô 50 m tối đa ~40.000 tam giác (chốt ở M45). Va chạm vẫn là hộp đơn giản, không dùng mesh model.
+- **Ngân sách tam giác** (đếm theo mesh, `LOWPOLY["budget"]`): bot ~10000-13000 (M44 nâng lên theo yêu cầu người dùng; ban đầu 800-1500); súng/kiếm ~200-600; vật cảnh ~300-1200. Vật cảnh lặp lại dùng `MultiMesh`; mỗi ô 50 m tối đa ~40.000 tam giác (chốt ở M45). Va chạm vẫn là hộp đơn giản, không dùng mesh model.
 - **Đơn vị/trục**: mét, tỉ lệ 1. Trong Blender: Y là hướng "phía trước" của vật (mũi kiếm, nòng súng), X là bề dày, Z là bề rộng/cao. Xuất `export_yup=True` -> trong Godot mũi/nòng hướng -Z, đúng quy ước viewmodel. Gốc ở điểm cầm (giữa chuôi / báng).
 - **Bot**: tên khớp trùng 15 khớp proxy của rig (`MannequinGltf.JOINT_NAMES`); vũ khí gắn vào `hand_r` qua `MannequinGltf.WEAPONS[kind]["lowpoly"]` (`file`, `grip` = tỉ lệ từ đuôi tới chỗ cầm, `flip` = mũi nằm ở đầu âm của trục dài).
 - **Điểm gắn** (M43): cầm = gốc model; nòng súng = đầu -Z. Empty tên `muzzle` đặt ở miệng nòng (viewmodel đặt chớp lửa theo z của nó). Phần cử động khi nạp là object riêng tên `Mag` (súng lục), `Pump` (shotgun), `Cap` (launcher), `Bolt` (sniper), gốc object = trục xoay; viewmodel tìm theo tên.
 - **Dựng bằng script**: `tools/blender/make_guns.py` viết hình học theo toạ độ Godot rồi đổi sang Blender; chạy trong Blender hoặc ngoài Blender bằng `pip install bpy==5.3.0` (đặt `REDLINER_GUN_OUT`), nên không cần chuyển file từ máy người dùng.
 - **Dự phòng**: `LOWPOLY["enabled"] = false` hoặc thiếu file -> dùng lại khối/FBX cũ.
 - **Quy trình**: script `tools/blender/*.py` dựng + xuất; `.blend` làm việc để ở `D:\nham\gugugaga\blender` trên máy tác giả, chỉ `.glb` (+ `.import`) vào repo; chạy `godot --headless --path . --import` sau khi thêm file.
+
+### Thân bot (M44)
+- Không xương/skin: thân là các **khối rời** (object Blender) cha-con theo 15 Empty đặt đúng tên khớp proxy (`hips > spine > head | shoulder_x > elbow_x > hand_x | hip_x > knee_x > ankle_x`), vị trí khớp bằng `mannequin.gd` + `Global.RIG` (vai/độ dày theo loại). Vì vậy `RigAnimator`, IK chân và hitbox chạy y nguyên; `test_m44` kiểm tra vị trí khớp theo RIG.
+- Vật liệu đặt tên theo **vai trò** (`bd_cloth`, `bd_pants`, `bd_dark`, `bd_skin`, `bd_glow`); màu thật do `mannequin_lowpoly.gd` tô theo màu của loại bot khi chạy (nên không dùng `PALETTE`). Ngân sách thân: `LOWPOLY["budget"]["bot"]` (hiện 10400-11800 tam giác).
+- Vũ khí cầm tay lấy từ `MannequinGltf.weapon_config(kind)` (kiếm/rìu/dao/súng low poly), đặt trong khung hình nhân khối: cận chiến dọc +Y, súng nòng -Z, điểm cầm ở gốc.
+- Dự phòng: tắt `LOWPOLY["enabled"]` hoặc thiếu file -> người que GodoDude -> hình nhân khối. Bia `dummy` và thân người chơi vẫn là hình nhân khối.

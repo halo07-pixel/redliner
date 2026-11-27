@@ -37,10 +37,12 @@ const STRAIGHTEN: Dictionary = {
 const WEAPONS: Dictionary = {
 	"swordsman": {"file": "res://assets/weapons/quaternius/Sword.fbx", "length": 1.0, "grip": 0.15, "melee": true, "hold_deg": -56.0,
 		"lowpoly": {"file": "res://assets/weapons/lowpoly/sword.glb", "grip": 0.11, "flip": true}},
-	"elite": {"file": "res://assets/weapons/quaternius/Axe_Double.fbx", "length": 0.85, "grip": 0.2, "melee": true, "hold_deg": -56.0},
+	"elite": {"file": "res://assets/weapons/quaternius/Axe_Double.fbx", "length": 0.85, "grip": 0.2, "melee": true, "hold_deg": -56.0,
+		"lowpoly": {"file": "res://assets/weapons/lowpoly/axe.glb", "length": 0.9, "grip": 0.105, "flip": true}},
 	"gunner": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.85, "grip": 0.45, "melee": false, "hold_deg": -90.0,
 		"lowpoly": {"file": "res://assets/weapons/lowpoly/sniper.glb", "length": 0.95, "grip": 0.135, "flip": true}},
-	"rusher": {"file": "res://assets/weapons/quaternius/Dagger.fbx", "length": 0.6, "grip": 0.1, "melee": true, "hold_deg": -56.0},
+	"rusher": {"file": "res://assets/weapons/quaternius/Dagger.fbx", "length": 0.6, "grip": 0.1, "melee": true, "hold_deg": -56.0,
+		"lowpoly": {"file": "res://assets/weapons/lowpoly/dagger.glb", "length": 0.6, "grip": 0.19, "flip": true}},
 	"bomber": {"file": "res://assets/weapons/honeybadger/HoneyBadger.fbx", "length": 0.95, "grip": 0.45, "melee": false, "hold_deg": -90.0,
 		"lowpoly": {"file": "res://assets/weapons/lowpoly/launcher.glb", "length": 0.7, "grip": 0.094, "flip": true}},
 }

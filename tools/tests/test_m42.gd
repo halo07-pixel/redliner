@@ -96,7 +96,7 @@ func _run() -> void:
 	print("[bot kiếm sĩ]")
 	var MG = load("res://scripts/mannequin_gltf.gd")
 	_check(String(MG.weapon_config("swordsman")["file"]) == path and bool(MG.weapon_config("swordsman")["flip"]), "kiếm sĩ trỏ tới glb (flip)")
-	_check(String(MG.weapon_config("elite")["file"]).ends_with("Axe_Double.fbx") and String(MG.weapon_config("rusher")["file"]).ends_with("Dagger.fbx"), "tinh anh / kẻ lao tới giữ model cũ (xạ thủ, pháo thủ đã đổi ở M43)")
+	_check(String(MG.weapon_config("elite")["file"]).ends_with("axe.glb") and String(MG.weapon_config("rusher")["file"]).ends_with("dagger.glb"), "tinh anh / kẻ lao tới đã đổi sang rìu / dao low poly (M44)")
 	var m: Node3D = MG.new()
 	m.kind = "swordsman"
 	root.add_child(m)

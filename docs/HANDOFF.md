@@ -1,9 +1,16 @@
-# Bàn giao Redliner (gọn; cập nhật sau M43)
+# Bàn giao Redliner (gọn; cập nhật sau M44)
 
 Godot 4.7, GDScript. FPS 3D một người chơi đấu bot, lấy cảm hứng Roblox REDLINER: kiếm + đỡ đòn (parry) + súng, lướt/dash/grapple/trèo gờ. Repo `halo07-pixel/redliner`. Lịch sử từng mốc chi tiết: `docs/HANDOFF_HISTORY.md`. Nguồn asset/giấy phép: `docs/ASSETS.md`.
 
 ## Hướng "lột xác" (người dùng chốt 2026-11-25; mỗi mốc cần đề xuất riêng + "Ok")
 Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong)** -> **M42 chuẩn low poly + kiếm (xong, xem dưới; chờ duyệt gộp)**; nội dung đã làm: chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
+
+## M44 Bot + Titan low poly (nhánh `feature/m44-low-poly-bots`)
+- `tools/blender/make_bots.py` dựng thân 5 loại bot + Titan (10400-11800 tam giác, chi tiết toàn diện: thân loft mịn, mặt có mắt/mũi/tai, tóc, ngón tay, giày, giáp/phụ kiện riêng từng loại; ngân sách bot 13000) thành khối rời gắn vào 15 Empty trùng tên khớp proxy -> `assets/characters/lowpoly/*.glb`; `make_melee.py` dựng rìu + dao -> `assets/weapons/lowpoly/{axe,dagger}.glb`.
+- `scripts/mannequin_lowpoly.gd` (con của `mannequin.gd`) nạp cây khớp từ glb, tô màu theo vai trò vật liệu, gắn vũ khí glb vào `hand_r`; `RigAnimator`/IK/hitbox không đổi. `bot.gd` ưu tiên lớp này (rồi GodoDude, rồi khối), `titan.gd` dùng cho Titan (Titan có sừng, giáp vai/ngực/váy mới). Cấu hình: `Global.LOWPOLY["bots"|"axe"|"dagger"]`; `MannequinGltf.WEAPONS[..]["lowpoly"]` cho mọi vũ khí.
+- `D:\nham\gugugaga\blender\bots_m44.blend` (6 model xếp cạnh nhau) và `export\bots\*.glb` do chạy `make_bots.py` trong Blender của người dùng; cùng số tam giác với bản trong repo (dựng bằng `bpy` 5.3.0 trên cloud), file glb không trùng từng byte.
+- Test: `tools/tests/test_m44.gd`; ảnh tĩnh `docs/screenshots/m44_bots.png` (renderer GL dự phòng, không phải Forward+).
+- Chưa thử bằng tay: hình dáng/tỉ lệ, chuyển động chạy/đánh với thân khối rời, FPS. Hoạt ảnh clip CC0 (M32, chỉ cho GodoDude) không áp lên thân low poly; hoạt ảnh Blender làm ở M47.
 
 ## M43 4 súng low poly (nhánh `feature/m43-low-poly-guns`)
 - `tools/blender/make_guns.py` dựng pistol/shotgun/launcher/sniper (184-208 tam giác mỗi súng, 7 màu phẳng trong `PALETTE`) -> `assets/weapons/lowpoly/*.glb`. Mỗi glb có Empty `muzzle` + phần cử động `Mag`/`Pump`/`Cap`/`Bolt` (gốc = trục xoay).

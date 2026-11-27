@@ -47,7 +47,11 @@ var _destab: bool = false
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	preload("res://scripts/mannequin_gltf.gd").warm_up()   # nạp nền model bot trước khi wave đầu sinh bot
+	# nạp nền model bot trước khi wave đầu sinh bot: thân low poly (M44) nếu có, không thì người que glTF
+	if preload("res://scripts/mannequin_lowpoly.gd").has_asset("swordsman"):
+		preload("res://scripts/mannequin_lowpoly.gd").warm_up()
+	else:
+		preload("res://scripts/mannequin_gltf.gd").warm_up()
 	player = PLAYER_SCENE.instantiate()
 	add_child(player)
 	player.global_position = arena.spawn_point
