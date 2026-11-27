@@ -14,6 +14,7 @@ signal exploded(position: Vector3, radius: float) # đạn nổ của pháo th�
 
 const MannequinScript = preload("res://scripts/mannequin.gd")
 const MannequinGltfScript = preload("res://scripts/mannequin_gltf.gd")
+const MannequinLowpolyScript = preload("res://scripts/mannequin_lowpoly.gd")
 const HurtboxScript = preload("res://scripts/components/hurtbox_component.gd")
 const ParryScript = preload("res://scripts/components/parry_component.gd")
 const SwordTrail = preload("res://scripts/sword_trail.gd")
@@ -109,7 +110,8 @@ func _ready() -> void:
 	add_child(_body_shape)
 
 	# Người que glTF (GodoDude + vũ khí thật) nếu có asset; không thì dùng hình nhân dựng bằng khối.
-	mannequin = (MannequinGltfScript if MannequinGltfScript.has_asset(type_name) else MannequinScript).new()
+	# M44: thân low poly (Blender) -> không có thì người que glTF (GodoDude) -> không có thì hình nhân khối
+	mannequin = (MannequinLowpolyScript if MannequinLowpolyScript.has_asset(type_name) else (MannequinGltfScript if MannequinGltfScript.has_asset(type_name) else MannequinScript)).new()
 	mannequin.color = cfg["color"]
 	mannequin.kind = type_name
 	add_child(mannequin)

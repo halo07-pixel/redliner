@@ -35,6 +35,17 @@ const LOWPOLY: Dictionary = {
 		"launcher": "res://assets/weapons/lowpoly/launcher.glb",
 		"sniper": "res://assets/weapons/lowpoly/sniper.glb",
 	},
+	# M44: thân bot/Titan = các khối rời gắn vào 15 khớp proxy (mannequin_lowpoly.gd); vũ khí cận chiến còn lại
+	"bots": {
+		"swordsman": "res://assets/characters/lowpoly/swordsman.glb",
+		"gunner": "res://assets/characters/lowpoly/gunner.glb",
+		"elite": "res://assets/characters/lowpoly/elite.glb",
+		"rusher": "res://assets/characters/lowpoly/rusher.glb",
+		"bomber": "res://assets/characters/lowpoly/bomber.glb",
+		"titan": "res://assets/characters/lowpoly/titan.glb",
+	},
+	"axe": "res://assets/weapons/lowpoly/axe.glb",
+	"dagger": "res://assets/weapons/lowpoly/dagger.glb",
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)
 	"budget": {"bot": 1500, "weapon": 600, "prop": 1200},
 }
