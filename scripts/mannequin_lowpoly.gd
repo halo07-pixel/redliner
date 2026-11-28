@@ -8,6 +8,7 @@ extends "res://scripts/mannequin.gd"
 
 const MannequinGltfScript = preload("res://scripts/mannequin_gltf.gd")
 const VisualData = preload("res://scripts/data/visual_data.gd")
+const LowpolyClipsScript = preload("res://scripts/lowpoly_clips.gd")
 
 
 static func has_asset(k: String) -> bool:
@@ -16,6 +17,7 @@ static func has_asset(k: String) -> bool:
 
 ## Nạp nền model + vũ khí khi vào trận (như MannequinGltf.warm_up).
 static func warm_up() -> void:
+	LowpolyClipsScript.warm_up()
 	for k in VisualData.LOWPOLY["bots"]:
 		if has_asset(k):
 			ResourceLoader.load_threaded_request(String(VisualData.LOWPOLY["bots"][k]))
@@ -41,6 +43,8 @@ func _ready() -> void:
 	reset_pose()
 	animator = AnimatorScript.new()
 	animator.setup(self)
+	animator.clip_lib = LowpolyClipsScript          # M47: clip dựng trong Blender (chân/thân/đầu + overlay chém/bắn/choáng)
+	animator.clips_enabled = LowpolyClipsScript.available()
 
 
 ## Tô màu theo vai trò vật liệu (tên trong .glb): áo = color, quần = tối 30%, giáp/bốt = tối 50% kim loại, da, vạch phát sáng.

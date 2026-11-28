@@ -1,11 +1,15 @@
-# Bàn giao Redliner (gọn; cập nhật sau M46)
+# Bàn giao Redliner (gọn; cập nhật sau M47)
 
 Godot 4.7, GDScript. FPS 3D một người chơi đấu bot, lấy cảm hứng Roblox REDLINER: kiếm + đỡ đòn (parry) + súng, lướt/dash/grapple/trèo gờ. Repo `halo07-pixel/redliner`. Lịch sử từng mốc chi tiết: `docs/HANDOFF_HISTORY.md`. Nguồn asset/giấy phép: `docs/ASSETS.md`.
 
 ## Hướng "lột xác" (người dùng chốt 2026-11-25; mỗi mốc cần đề xuất riêng + "Ok")
 Tối giản game, giữ "bộ não" (chiến đấu, di chuyển, bot AI, Vô Tận, dữ liệu, test), làm lại "da": **một bản đồ (lưới Vô Tận)**, **chế độ Vô Tận + Tập luyện**, model dựng lại bằng **Blender low poly**, hoạt ảnh mượt hơn làm trong Blender. Lộ trình: **M41 Cắt giảm (xong)** -> **M42 chuẩn low poly + kiếm (xong, xem dưới; chờ duyệt gộp)**; nội dung đã làm: chuẩn low poly + kiếm (bảng màu `PALETTE`, shading phẳng, ngân sách tam giác, quy ước `.glb`: mét, tên khớp 15 khớp proxy, điểm gắn nòng/tay cầm) -> M43 4 súng + viewmodel -> M44 bot + Titan trên khung xương 15 khớp -> M45 map Vô Tận (mô-đun toà nhà, cột, cổng) -> M46 vật phẩm/hiệu ứng/ánh sáng -> M47 hoạt ảnh Blender (rút, chém, parry, nạp, choáng, ngã). Hitbox vẫn bật bằng bộ đếm theo `Global.COMBAT`; clip Blender phải khớp các hằng số windup/active/recovery.
 
-## M46 Vật nhặt, hạt, ánh sáng (nhánh `feature/m46-items-fx-light`)
+## M47 Hoạt ảnh Blender cho bot (nhánh `feature/m47-blender-animations`) - MỚI LÀM PHẦN BOT/TITAN
+- `tools/blender/make_clips.py` -> `assets/animations/lowpoly/clips.glb` (9 clip); `scripts/lowpoly_clips.gd` nạp/bake; `RigAnimator.clip_lib` + `clip_overlay_pose` (overlay swing/shoot/stagger lấy từ clip, chân cộng thêm). `mannequin_lowpoly.gd` bật. Test `test_m47.gd`, ảnh `m47_poses.png`.
+- CHƯA LÀM: viewmodel người chơi (nạp đạn/chém/parry) vẫn keyframe bằng code - đề xuất tách thành M47b. Chưa thử bằng tay cảm giác chuyển động.
+
+## M46 Vật nhặt, hạt, ánh sáng (đã gộp vào main)
 - `tools/blender/make_items.py` -> 3 vật nhặt low poly (`assets/items/lowpoly/*.glb`, 118-234 tam giác); `pickup.gd` dùng chúng (có dự phòng khối cũ), tô `it_glow` theo màu loại, nhặt thì `Fx.burst`. Hạt đổi sang khối nhỏ, có trần số hạt (`Global.FX`). Cửa sổ module sáng theo chủ đề (`EndlessLook.theme_window_energy`).
 - Test: `tools/tests/test_m46.gd`; ảnh `docs/screenshots/m46_{items,night}.png` (GL dự phòng). Chưa thử bằng tay: cảm giác nhặt, FPS hạt.
 
