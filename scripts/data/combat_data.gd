@@ -131,6 +131,9 @@ const FX: Dictionary = {
 	"ring_time": 0.3, "ring_radius": 2.2,
 	"reduced_particles": 0.33, "reduced_shake": 0.4,
 	"scorch_time": 8.0,
+	# M46: hạt low poly (khối nhỏ), trần số hạt mỗi lần phát, hiệu ứng nhặt vật, đèn của vật nhặt
+	"particle_size": 0.07, "max_particles": 40, "burst_amount": 16, "burst_speed": 4.0,
+	"pickup_light_energy": 0.8, "pickup_light_range": 3.0, "pickup_glow_energy": 1.6,
 }
 
 ## Vật nhặt: rơi khi bot chết (drop_chance) hoặc thùng vỡ; weight = tỉ lệ chọn loại.

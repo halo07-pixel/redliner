@@ -69,7 +69,7 @@ static func _material(kind: String, role: String, variant: int, theme: int) -> M
 			m.albedo_color = a * 0.5
 			m.emission_enabled = true
 			m.emission = a
-			m.emission_energy_multiplier = 1.4
+			m.emission_energy_multiplier = EndlessLook.theme_window_energy(theme)
 	_mats[key] = m
 	return m
 

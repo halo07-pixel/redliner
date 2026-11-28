@@ -10,6 +10,7 @@
 | Súng low poly (`assets/weapons/lowpoly/{pistol,shotgun,launcher,sniper}.glb`, dựng bằng `tools/blender/make_guns.py`) | Tự dựng trong Blender (M43) | Của dự án | 4 súng của viewmodel; bot xạ thủ cầm sniper, pháo thủ cầm launcher (thay HoneyBadger; tắt bằng `Global.LOWPOLY["enabled"]`) |
 | Thân bot + Titan low poly (`assets/characters/lowpoly/{swordsman,gunner,elite,rusher,bomber,titan}.glb`, dựng bằng `tools/blender/make_bots.py`) | Tự dựng trong Blender (M44) | Của dự án | Thân 5 loại bot + Titan: khối rời gắn vào 15 khớp proxy (`scripts/mannequin_lowpoly.gd`); thay người que GodoDude khi bật `Global.LOWPOLY["enabled"]` |
 | Module bản đồ Vô Tận low poly (`assets/map/lowpoly/{building_block,building_fins,building_slab,pillar,stage,cover}.glb`, `tools/blender/make_map.py`) | Tự dựng trong Blender (M45) | Của dự án | Vỏ hiển thị cho hộp va chạm toà nhà/cột/bệ/bức che của `Maps.endless`; mesh nằm trong khối đơn vị, co giãn theo hộp (`scripts/endless_modules.gd`) |
+| Vật nhặt low poly (`assets/items/lowpoly/{health,ammo,stamina}.glb`, `tools/blender/make_items.py`) | Tự dựng trong Blender (M46) | Của dự án | 118-234 tam giác; `it_glow` tô theo màu loại trong `Global.PICKUPS`, `it_body` tối (`scripts/pickup.gd`) |
 | Rìu đôi + dao găm low poly (`assets/weapons/lowpoly/{axe,dagger}.glb`, `tools/blender/make_melee.py`) | Tự dựng trong Blender (M44) | Của dự án | Vũ khí tinh anh / kẻ lao tới (thay Quaternius `Axe_Double.fbx`, `Dagger.fbx`) |
 
 - Model nhân vật GodoDude không có clip hoạt ảnh; từ M32 `scripts/clip_lib.gd` lấy clip từ Universal Animation Library, chuyển sang khớp proxy của rig (bake một lần) rồi `RigAnimator` trộn lên tư thế sinh bằng code (chân/thân/đầu; tay, đòn đánh, parry, bắn vẫn do code). Chỉ dùng 7 clip (Idle, Sword_Idle, Pistol_Idle, Walk, Jog_Fwd, Sprint, Crouch_Idle); file glb còn ~36 clip chưa dùng (7.6 MB).
@@ -43,3 +44,7 @@ Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn nà
 - Mỗi module nằm gọn trong khối đơn vị 1x1x1 (tâm ở gốc), `scripts/endless_modules.gd` co giãn đúng bằng kích thước hộp va chạm và ẩn hộp gốc; va chạm, navmesh, bố cục `Maps.endless` không đổi. Dốc và bệ móc giữ hộp cũ.
 - Vật liệu theo vai trò `mod_wall` / `mod_trim` / `mod_glow`: thân toà nhà dùng mặt tiền của `EndlessLook` (tông theo vị trí), cửa sổ phát sáng theo màu chủ đề của tầng.
 - Chạy `REDLINER_MAP_OUT=assets/map/lowpoly python3 tools/blender/make_map.py` (cần `bpy`) hoặc dán vào Blender.
+
+### Vật nhặt, hạt, ánh sáng (M46)
+- Hạt (`scripts/fx.gd`) là khối lập phương nhỏ (`FX["particle_size"]`), mỗi lần phát tối đa `FX["max_particles"]` hạt (giảm hiệu ứng thì ít hơn); nhặt vật tung hạt qua `Fx.burst`.
+- Độ sáng cửa sổ module theo chủ đề tầng: `LOOK["window_energy"]` x `THEMES[..]["window_mul"]` (đêm sáng nhất). Mọi con số ở hằng số, không có menu.

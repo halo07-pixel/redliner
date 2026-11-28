@@ -16,7 +16,7 @@ const LOOK: Dictionary = {
 	"ring_color": Color(1.0, 0.75, 0.3), "ring_energy": 2.0, "ring_thick": 0.2, "ring_drop": 0.6,
 	"mast_count": 3, "mast_height": 16.0, "mast_size": 0.5, "mast_color": Color(1.0, 0.95, 0.85), "mast_energy": 3.2,
 	"dash_len": 5.0, "dash_gap": 5.0, "dash_w": 0.35, "dash_clear": 9.0, "dash_y": 0.03, "dash_color": Color(0.85, 0.9, 1.0), "dash_energy": 0.8,
-	"pad_half": 12.0, "pad_thick": 0.5, "pad_start_color": Color(0.25, 0.85, 1.0), "pad_exit_color": Color(0.2, 1.0, 0.5), "pad_energy": 2.0,
+	"window_energy": 1.4, "pad_half": 12.0, "pad_thick": 0.5, "pad_start_color": Color(0.25, 0.85, 1.0), "pad_exit_color": Color(0.2, 1.0, 0.5), "pad_energy": 2.0,
 }
 
 ## Chủ đề theo tầng (P2). Khoá thiếu = giữ nguyên Global.ENV. *_mul nhân lên giá trị gốc. accent = màu viền nóc / dải tầng lầu.
@@ -25,19 +25,19 @@ const MIN_SUN: float = 0.45
 const MIN_AMBIENT: float = 0.5
 const THEMES: Array = [
 	{"name": "ngày", "accent": Color(0.25, 0.85, 1.0)},
-	{"name": "bình minh", "sun_rotation_deg": Vector3(-14.0, 70.0, 0.0), "sun_color": Color(1.0, 0.68, 0.42), "sun_energy_mul": 1.0,
+	{"name": "bình minh", "window_mul": 1.1, "sun_rotation_deg": Vector3(-14.0, 70.0, 0.0), "sun_color": Color(1.0, 0.68, 0.42), "sun_energy_mul": 1.0,
 		"sky_top": Color(0.35, 0.42, 0.68), "sky_horizon": Color(0.98, 0.7, 0.52), "fog_color": Color(0.95, 0.72, 0.58), "fog_density_mul": 1.4,
 		"accent": Color(1.0, 0.7, 0.3)},
-	{"name": "hoàng hôn", "sun_rotation_deg": Vector3(-9.0, -60.0, 0.0), "sun_color": Color(1.0, 0.45, 0.3), "sun_energy_mul": 0.9,
+	{"name": "hoàng hôn", "window_mul": 1.3, "sun_rotation_deg": Vector3(-9.0, -60.0, 0.0), "sun_color": Color(1.0, 0.45, 0.3), "sun_energy_mul": 0.9,
 		"sky_top": Color(0.28, 0.2, 0.45), "sky_horizon": Color(0.95, 0.42, 0.32), "fog_color": Color(0.85, 0.45, 0.4), "fog_density_mul": 1.3,
 		"ambient_energy_mul": 0.9, "accent": Color(1.0, 0.45, 0.35)},
-	{"name": "đêm", "sun_rotation_deg": Vector3(-60.0, 20.0, 0.0), "sun_color": Color(0.55, 0.65, 1.0), "sun_energy_mul": 0.4,
+	{"name": "đêm", "window_mul": 1.9, "sun_rotation_deg": Vector3(-60.0, 20.0, 0.0), "sun_color": Color(0.55, 0.65, 1.0), "sun_energy_mul": 0.4,
 		"sky_top": Color(0.04, 0.06, 0.16), "sky_horizon": Color(0.16, 0.22, 0.4), "fog_color": Color(0.1, 0.14, 0.26), "fog_density_mul": 1.2,
 		"ambient_energy_mul": 0.7, "accent": Color(0.4, 1.0, 0.9)},
-	{"name": "mưa bụi", "sun_color": Color(0.85, 0.9, 1.0), "sun_energy_mul": 0.6,
+	{"name": "mưa bụi", "window_mul": 1.25, "sun_color": Color(0.85, 0.9, 1.0), "sun_energy_mul": 0.6,
 		"sky_top": Color(0.35, 0.4, 0.46), "sky_horizon": Color(0.6, 0.64, 0.68), "fog_color": Color(0.55, 0.6, 0.65), "fog_density_mul": 2.4,
 		"accent": Color(0.7, 0.9, 1.0)},
-	{"name": "sương tím", "sun_rotation_deg": Vector3(-35.0, 140.0, 0.0), "sun_color": Color(0.9, 0.75, 1.0), "sun_energy_mul": 0.8,
+	{"name": "sương tím", "window_mul": 1.4, "sun_rotation_deg": Vector3(-35.0, 140.0, 0.0), "sun_color": Color(0.9, 0.75, 1.0), "sun_energy_mul": 0.8,
 		"sky_top": Color(0.3, 0.22, 0.5), "sky_horizon": Color(0.7, 0.58, 0.85), "fog_color": Color(0.6, 0.5, 0.75), "fog_density_mul": 1.8,
 		"accent": Color(0.85, 0.55, 1.0)},
 ]
@@ -62,6 +62,11 @@ static func theme_env(idx: int) -> Dictionary:
 	out["ambient_energy"] = maxf(MIN_AMBIENT, float(base["ambient_energy"]) * float(t.get("ambient_energy_mul", 1.0)))
 	out["fog_density"] = float(base["fog_density"]) * float(t.get("fog_density_mul", 1.0))
 	return out
+
+
+## Độ sáng cửa sổ module (M46): tối trời thì cửa sổ sáng hơn (nhân với LOOK["window_energy"]).
+static func theme_window_energy(idx: int) -> float:
+	return float(LOOK["window_energy"]) * float(THEMES[posmod(idx, THEMES.size())].get("window_mul", 1.0))
 
 
 static func theme_accent(idx: int) -> Color:
