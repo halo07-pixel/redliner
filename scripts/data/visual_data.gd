@@ -53,6 +53,12 @@ const LOWPOLY: Dictionary = {
 		"stage": "res://assets/map/lowpoly/stage.glb",
 		"cover": "res://assets/map/lowpoly/cover.glb",
 	},
+	# M46: vật nhặt (it_body tối, it_glow tô theo màu loại trong Global.PICKUPS)
+	"items": {
+		"health": "res://assets/items/lowpoly/health.glb",
+		"ammo": "res://assets/items/lowpoly/ammo.glb",
+		"stamina": "res://assets/items/lowpoly/stamina.glb",
+	},
 	"axe": "res://assets/weapons/lowpoly/axe.glb",
 	"dagger": "res://assets/weapons/lowpoly/dagger.glb",
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)

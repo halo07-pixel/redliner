@@ -6,7 +6,7 @@ extends RefCounted
 static func sparks(parent: Node, pos: Vector3, color: Color, direction: Vector3 = Vector3.UP, spread: float = 180.0) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
-	p.amount = maxi(4, int(28.0 * (float(Global.FX["reduced_particles"]) if Global.reduced_fx else 1.0)))
+	p.amount = mini(int(Global.FX["max_particles"]), maxi(4, int(28.0 * (float(Global.FX["reduced_particles"]) if Global.reduced_fx else 1.0))))
 	p.lifetime = 0.45
 	p.explosiveness = 1.0
 	p.direction = direction
@@ -14,18 +14,42 @@ static func sparks(parent: Node, pos: Vector3, color: Color, direction: Vector3 
 	p.initial_velocity_min = 3.0
 	p.initial_velocity_max = 9.0
 	p.gravity = Vector3(0.0, -14.0, 0.0)
-	var m := SphereMesh.new()
-	m.radius = 0.04
-	m.height = 0.08
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = color
-	m.material = mat
-	p.mesh = m
+	p.mesh = _cube(color, float(Global.FX["particle_size"]))
 	parent.add_child(p)
 	p.global_position = pos
 	p.emitting = true
 	parent.get_tree().create_timer(1.0).timeout.connect(p.queue_free)
+	return p
+
+
+## Hạt low poly: khối lập phương nhỏ không đổ bóng (dùng chung cho tia lửa, bụi, nổ nhặt vật).
+static func _cube(color: Color, size: float) -> BoxMesh:
+	var m := BoxMesh.new()
+	m.size = Vector3.ONE * size
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = color
+	m.material = mat
+	return m
+
+
+## Tung hạt khi nhặt vật: phun lên từ vị trí vật, màu theo loại. Giảm hiệu ứng thì ít hạt đi.
+static func burst(parent: Node, pos: Vector3, color: Color) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = mini(int(Global.FX["max_particles"]), maxi(3, int(float(Global.FX["burst_amount"]) * (float(Global.FX["reduced_particles"]) if Global.reduced_fx else 1.0))))
+	p.lifetime = 0.6
+	p.explosiveness = 1.0
+	p.direction = Vector3.UP
+	p.spread = 60.0
+	p.initial_velocity_min = float(Global.FX["burst_speed"]) * 0.6
+	p.initial_velocity_max = float(Global.FX["burst_speed"])
+	p.gravity = Vector3(0.0, -9.0, 0.0)
+	p.mesh = _cube(color, float(Global.FX["particle_size"]) * 1.2)
+	parent.add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	parent.get_tree().create_timer(1.2).timeout.connect(p.queue_free)
 	return p
 
 
@@ -74,9 +98,8 @@ static func dust(parent: Node, pos: Vector3, amount: int = 14) -> void:
 	p.gravity = Vector3(0.0, -2.0, 0.0)
 	p.scale_amount_min = 0.6
 	p.scale_amount_max = 1.4
-	var m := SphereMesh.new()
-	m.radius = 0.12
-	m.height = 0.24
+	var m := BoxMesh.new()
+	m.size = Vector3.ONE * 0.2
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(0.75, 0.72, 0.65, 0.5)
