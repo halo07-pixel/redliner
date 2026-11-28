@@ -11,6 +11,7 @@
 | Thân bot + Titan low poly (`assets/characters/lowpoly/{swordsman,gunner,elite,rusher,bomber,titan}.glb`, dựng bằng `tools/blender/make_bots.py`) | Tự dựng trong Blender (M44) | Của dự án | Thân 5 loại bot + Titan: khối rời gắn vào 15 khớp proxy (`scripts/mannequin_lowpoly.gd`); thay người que GodoDude khi bật `Global.LOWPOLY["enabled"]` |
 | Module bản đồ Vô Tận low poly (`assets/map/lowpoly/{building_block,building_fins,building_slab,pillar,stage,cover}.glb`, `tools/blender/make_map.py`) | Tự dựng trong Blender (M45) | Của dự án | Vỏ hiển thị cho hộp va chạm toà nhà/cột/bệ/bức che của `Maps.endless`; mesh nằm trong khối đơn vị, co giãn theo hộp (`scripts/endless_modules.gd`) |
 | Vật nhặt low poly (`assets/items/lowpoly/{health,ammo,stamina}.glb`, `tools/blender/make_items.py`) | Tự dựng trong Blender (M46) | Của dự án | 118-234 tam giác; `it_glow` tô theo màu loại trong `Global.PICKUPS`, `it_body` tối (`scripts/pickup.gd`) |
+| Clip hoạt ảnh bot low poly (`assets/animations/lowpoly/clips.glb`, `tools/blender/make_clips.py`) | Tự keyframe trong Blender (M47) | Của dự án | 9 clip: Sword_Idle, Pistol_Idle, Crouch_Idle, Walk, Jog_Fwd, Sprint (lặp) + Slash, Shoot, Stagger (một lần); gắn lên 15 Empty khớp proxy |
 | Rìu đôi + dao găm low poly (`assets/weapons/lowpoly/{axe,dagger}.glb`, `tools/blender/make_melee.py`) | Tự dựng trong Blender (M44) | Của dự án | Vũ khí tinh anh / kẻ lao tới (thay Quaternius `Axe_Double.fbx`, `Dagger.fbx`) |
 
 - Model nhân vật GodoDude không có clip hoạt ảnh; từ M32 `scripts/clip_lib.gd` lấy clip từ Universal Animation Library, chuyển sang khớp proxy của rig (bake một lần) rồi `RigAnimator` trộn lên tư thế sinh bằng code (chân/thân/đầu; tay, đòn đánh, parry, bắn vẫn do code). Chỉ dùng 7 clip (Idle, Sword_Idle, Pistol_Idle, Walk, Jog_Fwd, Sprint, Crouch_Idle); file glb còn ~36 clip chưa dùng (7.6 MB).
@@ -48,3 +49,9 @@ Mọi model tự dựng trong Blender cho hướng "lột xác" theo chuẩn nà
 ### Vật nhặt, hạt, ánh sáng (M46)
 - Hạt (`scripts/fx.gd`) là khối lập phương nhỏ (`FX["particle_size"]`), mỗi lần phát tối đa `FX["max_particles"]` hạt (giảm hiệu ứng thì ít hơn); nhặt vật tung hạt qua `Fx.burst`.
 - Độ sáng cửa sổ module theo chủ đề tầng: `LOOK["window_energy"]` x `THEMES[..]["window_mul"]` (đêm sáng nhất). Mọi con số ở hằng số, không có menu.
+
+### Hoạt ảnh Blender cho bot (M47)
+- `make_clips.py` keyframe thật (quaternion + dịch hông) cho 15 Empty trùng tên khớp proxy; mỗi clip là một NLA track -> một animation glTF. Mở `clips_m47.blend` để sửa keyframe rồi xuất lại.
+- `scripts/lowpoly_clips.gd` bake clip ra mảng quaternion + Euler (liên tục, vai > 90° không lật) và có cùng giao diện với `ClipLib`; `RigAnimator.clip_lib` chọn thư viện (thân low poly dùng clip Blender, GodoDude vẫn dùng UAL).
+- Clip lặp thay lớp chân/thân/đầu (tên trùng UAL nên `_pick_clip` dùng luôn). Overlay `swing`/`shoot`/`stagger` lấy từ `Slash`/`Shoot`/`Stagger` (pha chém co giãn theo windup/active/recovery); `hurt`/`die`/`parry` vẫn do code vì phụ thuộc hướng đòn. Thiếu clip -> rơi về hoạt ảnh bằng code.
+- Chưa làm: hoạt ảnh góc nhìn người chơi (nạp đạn, chém kiếm, parry của viewmodel) vẫn bằng keyframe trong code.

@@ -59,6 +59,8 @@ const LOWPOLY: Dictionary = {
 		"ammo": "res://assets/items/lowpoly/ammo.glb",
 		"stamina": "res://assets/items/lowpoly/stamina.glb",
 	},
+	# M47: clip hoạt ảnh dựng trong Blender cho thân bot low poly (tools/blender/make_clips.py)
+	"clips": "res://assets/animations/lowpoly/clips.glb",
 	"axe": "res://assets/weapons/lowpoly/axe.glb",
 	"dagger": "res://assets/weapons/lowpoly/dagger.glb",
 	# Ngân sách tam giác tối đa mỗi loại (đếm theo mesh trong .glb)

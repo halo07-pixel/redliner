@@ -34,6 +34,7 @@ var _turn_v: float = 0.0
 # Lớp clip (M32): bật bởi mannequin_gltf khi có thư viện clip. Chỉ chân/thân/đầu (tay do code, trừ khi ac_arm > 0).
 const ClipLib = preload("res://scripts/clip_lib.gd")
 const MELEE_KINDS: Array = ["swordsman", "elite", "rusher"]
+var clip_lib = ClipLib                       # thư viện clip đang dùng (ClipLib CC0 cho GodoDude, LowpolyClips cho thân low poly - M47)
 var clips_enabled: bool = false
 var _clip_name: String = ""
 var _clip_t: float = 0.0
@@ -44,6 +45,10 @@ var _clip_w: float = 0.0
 var _stride_dir: float = 1.0             # chiều bước chân (+1 tiến, -1 lùi), đổi mượt
 var _stride_v: float = 0.0
 
+## M47: overlay chiến đấu lấy từ clip Blender (thân low poly) thay cho tư thế sinh bằng code. Overlay -> clip; chỉ dùng khi clip_lib có clip đó.
+## "hurt"/"die"/"parry" vẫn do code vì phụ thuộc hướng đòn. Chân/hông cộng thêm lên hoạt ảnh nền (bot vẫn chạy khi chém), phần còn lại thay thế.
+const OVERLAY_CLIPS: Dictionary = {"swing": "Slash", "shoot": "Shoot", "stagger": "Stagger"}
+const ADDITIVE_JOINTS: Array = ["hip_l", "hip_r", "knee_l", "knee_r", "ankle_l", "ankle_r"]
 const OVERLAY_PRIO: Dictionary = {"swing": 1, "shoot": 1, "parry": 1, "parry_miss": 1, "parry_hit": 1, "hurt": 1, "stagger": 2, "clash": 2, "die": 3}
 
 
@@ -379,6 +384,39 @@ func overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dicti
 	return o
 
 
+## Overlay từ clip Blender (M47): {} nếu không có clip (rơi về overlay_pose bằng code). Khoá "+khớp" là cộng thêm, còn lại thay thế (cùng quy ước overlay_pose).
+## Thời gian: "swing" co giãn từng pha (lấy đà/chém/thu về) theo windup/active/recovery của đòn; "shoot" co giãn theo dur; "stagger" phát nguyên tốc độ.
+func clip_overlay_pose(name: String, t: float, dur: float, data: Dictionary) -> Dictionary:
+	if not OVERLAY_CLIPS.has(name) or not clips_enabled:
+		return {}
+	var clip: Dictionary = clip_lib.get_clip(String(OVERLAY_CLIPS[name]))
+	if clip.is_empty() or not clip.has("eul"):
+		return {}
+	var ct: float = t
+	match name:
+		"swing":
+			var S: Dictionary = clip_lib.SLASH
+			var wu: float = maxf(float(data.get("windup", 0.3)), 0.001)
+			var ac: float = maxf(float(data.get("active", 0.12)), 0.001)
+			var rc: float = maxf(float(data.get("recovery", 0.3)), 0.001)
+			if t < wu:
+				ct = t / wu * float(S["windup"])
+			elif t < wu + ac:
+				ct = float(S["windup"]) + (t - wu) / ac * float(S["active"])
+			else:
+				ct = float(S["windup"]) + float(S["active"]) + (t - wu - ac) / rc * float(S["recovery"])
+		"shoot":
+			ct = t / maxf(dur, 0.001) * float(clip["length"])
+	var smp: Dictionary = clip_lib.sample(clip, ct)
+	var o: Dictionary = {}
+	for j in clip_lib.JOINTS:
+		var e: Vector3 = smp["eul"][j]
+		o[("+" + j) if j in ADDITIVE_JOINTS else j] = e
+	o["+hips_y"] = Vector3(_hips_base_y * float(smp["hips_y"]), 0.0, 0.0)
+	o["hips_z"] = Vector3(float(smp["hips_z"]), 0.0, 0.0)
+	return o
+
+
 ## Gọi mỗi frame vật lý. side: +1 tường bên phải (cùng quy ước player._wall_side), -1 bên trái (chỉ dùng khi wallrun).
 func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name: String = "", side: float = 1.0) -> void:
 	_t += delta
@@ -413,7 +451,9 @@ func update(delta: float, speed: float, grounded: bool, vel_y: float, state_name
 			overlay = {}
 		else:
 			var w: float = overlay_weight()
-			var op: Dictionary = overlay_pose(overlay["name"], overlay["t"], overlay["dur"], overlay["data"])
+			var op: Dictionary = clip_overlay_pose(overlay["name"], overlay["t"], overlay["dur"], overlay["data"])
+			if op.is_empty():
+				op = overlay_pose(overlay["name"], overlay["t"], overlay["dur"], overlay["data"])
 			for key in op:
 				var kk: String = key
 				if kk.begins_with("+"): # cộng thêm lên hoạt ảnh nền (vd. hạ người khi chém nhưng chân vẫn chạy)
@@ -490,18 +530,18 @@ func _blend_clip(pose: Dictionary, speed: float, delta: float) -> void:
 	_clip_w = lerpf(_clip_w, want_w, 1.0 - exp(-delta / maxf(float(Global.ta("ac_fade")), 0.01)))
 	if _clip_w < 0.01 or _clip_name == "":
 		return
-	var cur: Dictionary = ClipLib.get_clip(_clip_name)
+	var cur: Dictionary = clip_lib.get_clip(_clip_name)
 	if cur.is_empty():
 		return
-	var s_cur: Dictionary = ClipLib.sample(cur, _clip_t)
+	var s_cur: Dictionary = clip_lib.sample(cur, _clip_t)
 	var rot: Dictionary = s_cur["rot"]
 	var hy: float = float(s_cur["hips_y"])
 	if _clip_xf < 1.0 and _clip_prev != "":
-		var prev: Dictionary = ClipLib.get_clip(_clip_prev)
+		var prev: Dictionary = clip_lib.get_clip(_clip_prev)
 		if not prev.is_empty():
-			var s_prev: Dictionary = ClipLib.sample(prev, _clip_prev_t)
+			var s_prev: Dictionary = clip_lib.sample(prev, _clip_prev_t)
 			var mix: Dictionary = {}
-			for j in ClipLib.JOINTS:
+			for j in clip_lib.JOINTS:
 				mix[j] = (s_prev["rot"][j] as Quaternion).slerp(rot[j] as Quaternion, _clip_xf)
 			rot = mix
 			hy = lerpf(float(s_prev["hips_y"]), hy, _clip_xf)
